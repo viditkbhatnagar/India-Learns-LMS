@@ -49,7 +49,31 @@ const EnvSchema = z.object({
   LOGIN_LOCK_AFTER: z.coerce.number().int().positive().default(10),
   LOGIN_LOCK_DURATION_MIN: z.coerce.number().int().positive().default(30),
 
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  PASSWORD_RESET_RATE_MAX: z.coerce.number().int().positive().default(3),
+  PASSWORD_RESET_RATE_WINDOW_MIN: z.coerce.number().int().positive().default(60),
+
+  RATE_LIMITS_DISABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+
+  ARGON2_TIME_COST: z.coerce.number().int().positive().default(3),
+  ARGON2_MEMORY_COST: z.coerce.number().int().positive().default(65536),
+  ARGON2_PARALLELISM: z.coerce.number().int().positive().default(1),
+
+  INVITE_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
+  RESET_TOKEN_TTL_MIN: z.coerce.number().int().positive().default(30),
+  SESSION_CAP: z.coerce.number().int().positive().default(5),
+
+  INTEGRATIONS_MODE: z.enum(['stub', 'live']).default('stub'),
+  COOKIE_SECURE: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
+
+  LOG_LEVEL: z
+    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+    .default('info'),
 
   GIT_SHA: z.string().default('dev'),
 });
@@ -58,6 +82,24 @@ export type Env = z.infer<typeof EnvSchema>;
 
 let cached: Env | null = null;
 
+// Defaults committed to `.env.example` — must never be accepted in production.
+const REJECTED_SECRETS = new Set(['change-me-dev-only', 'change-me', '']);
+
+function assertProdSecrets(env: Env): void {
+  if (env.NODE_ENV !== 'production') return;
+  const failures: string[] = [];
+  if (REJECTED_SECRETS.has(env.JWT_SECRET) || env.JWT_SECRET.length < 32) {
+    failures.push('JWT_SECRET (must be ≥32 chars and not the dev default)');
+  }
+  if (REJECTED_SECRETS.has(env.JOB_SECRET) || env.JOB_SECRET.length < 32) {
+    failures.push('JOB_SECRET (must be ≥32 chars and not the dev default)');
+  }
+  if (failures.length > 0) {
+    console.error('Refusing to start in production with insecure secrets:', failures);
+    throw new Error(`Insecure production configuration: ${failures.join(', ')}`);
+  }
+}
+
 export function loadEnv(): Env {
   if (cached) return cached;
   const parsed = EnvSchema.safeParse(process.env);
@@ -65,6 +107,15 @@ export function loadEnv(): Env {
     console.error('Invalid environment configuration:', parsed.error.flatten().fieldErrors);
     throw new Error('Invalid environment configuration');
   }
+  assertProdSecrets(parsed.data);
   cached = parsed.data;
   return cached;
+}
+
+/**
+ * Test-only: drop the memoised env so tests can mutate process.env between cases.
+ * Not for production use.
+ */
+export function resetEnvCache(): void {
+  cached = null;
 }

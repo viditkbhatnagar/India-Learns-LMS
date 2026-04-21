@@ -1,0 +1,363 @@
+import { Types } from 'mongoose';
+import type {
+  CreateUserInput,
+  Role,
+  UpdateUserInput,
+  UserListQuery,
+  UserPublicDto,
+  UserStatus,
+} from 'india-learns-shared-types';
+import { loadEnv } from '../config/env.js';
+import { HttpError } from '../middleware/error.js';
+import { getIntegrations } from '../integrations/index.js';
+import { User, type HydratedUser } from '../models/index.js';
+import { recordAudit, scrubUser } from './auditService.js';
+import { nextUserCode } from './counterService.js';
+import { createInviteToken } from './inviteService.js';
+import { revokeAllForUser } from './refreshTokenService.js';
+
+export interface ActorContext {
+  actorUserId: Types.ObjectId | null;
+  ip: string;
+  ua: string;
+}
+
+const ROLES_WITH_CODE: ReadonlySet<Role> = new Set(['student', 'faculty']);
+
+function requireId(id: string): Types.ObjectId {
+  if (!Types.ObjectId.isValid(id)) {
+    throw new HttpError(404, 'NOT_FOUND', 'User not found.');
+  }
+  return new Types.ObjectId(id);
+}
+
+function inviteLink(token: string): string {
+  const env = loadEnv();
+  return `${env.WEB_ORIGIN.replace(/\/$/, '')}/onboarding/set-password?t=${encodeURIComponent(token)}`;
+}
+
+function toDto(doc: HydratedUser): UserPublicDto {
+  const json = doc.toJSON() as Record<string, unknown>;
+  const iso = (v: unknown): string | null => {
+    if (v instanceof Date) return v.toISOString();
+    if (typeof v === 'string') return v;
+    return null;
+  };
+  const toIdString = (v: unknown): string | null => {
+    if (!v) return null;
+    if (v instanceof Types.ObjectId) return v.toString();
+    return String(v);
+  };
+  return {
+    id: String(json.id),
+    role: json.role as UserPublicDto['role'],
+    code: (json.code as string | null) ?? null,
+    name: json.name as string,
+    email: json.email as string,
+    phoneE164: json.phoneE164 as string,
+    status: json.status as UserStatus,
+    suspensionKind: (json.suspensionKind as UserPublicDto['suspensionKind']) ?? null,
+    suspensionReason: (json.suspensionReason as string | null) ?? null,
+    lastLoginAt: iso(json.lastLoginAt),
+    programId: toIdString(json.programId),
+    batchId: toIdString(json.batchId),
+    enrolmentValidFrom: iso(json.enrolmentValidFrom),
+    enrolmentValidTo: iso(json.enrolmentValidTo),
+    deptTag: (json.deptTag as UserPublicDto['deptTag']) ?? null,
+    isCourseCoordinator: Boolean(json.isCourseCoordinator),
+    createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
+    updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
+    deletedAt: iso(json.deletedAt),
+  };
+}
+
+export { toDto as toUserDto };
+
+export async function findUserByEmail(email: string): Promise<HydratedUser | null> {
+  return User.findOne({ email: email.trim().toLowerCase() });
+}
+
+export async function findUserById(id: string): Promise<HydratedUser | null> {
+  if (!Types.ObjectId.isValid(id)) return null;
+  return User.findById(id);
+}
+
+export async function sendInvite(user: HydratedUser): Promise<void> {
+  const { plain } = await createInviteToken(user._id, 'invite');
+  const link = inviteLink(plain);
+  const { email, whatsapp } = getIntegrations();
+  await email.send({
+    to: user.email,
+    subject: 'Welcome to India Learns — set your password',
+    html: `<p>Hi ${user.name},</p><p>Your India Learns account is ready. Set your password and log in using the link below. It expires in 7 days.</p><p><a href="${link}">${link}</a></p>`,
+    text: `Hi ${user.name},\n\nYour India Learns account is ready. Set your password using this link (expires in 7 days):\n${link}\n`,
+    tag: 'invite',
+    vars: { name: user.name, inviteUrl: link },
+  });
+  // WhatsApp is a best-effort courtesy; never block the invite on it.
+  try {
+    await whatsapp.sendTemplate({
+      toE164: user.phoneE164,
+      templateName: 'il_welcome',
+      languageCode: 'en',
+      vars: [user.name, link],
+    });
+  } catch {
+    // swallow — logged by the adapter
+  }
+}
+
+export async function createUser(
+  input: CreateUserInput,
+  actor: { role: Role } & ActorContext,
+): Promise<HydratedUser> {
+  if (actor.role !== 'admin') {
+    // TRD §5.2 + PRD §3.1: only admin creates users.
+    throw new HttpError(403, 'FORBIDDEN', 'Only admins may create users.');
+  }
+  const email = input.email.trim().toLowerCase();
+  const existing = await User.findOne({ email });
+  if (existing) {
+    throw new HttpError(409, 'USER_EXISTS', 'A user with this email already exists.');
+  }
+  const code = ROLES_WITH_CODE.has(input.role)
+    ? await nextUserCode(new Date().getUTCFullYear())
+    : null;
+  const doc = await User.create({
+    role: input.role,
+    code,
+    name: input.name.trim(),
+    email,
+    phoneE164: input.phoneE164.trim(),
+    status: 'pending',
+    programId: input.programId ?? null,
+    batchId: input.batchId ?? null,
+    enrolmentValidFrom: input.enrolmentValidFrom ?? null,
+    enrolmentValidTo: input.enrolmentValidTo ?? null,
+    deptTag: input.deptTag ?? null,
+    isCourseCoordinator: input.isCourseCoordinator ?? false,
+  });
+  await sendInvite(doc);
+  await recordAudit({
+    actorUserId: actor.actorUserId,
+    action: 'user.created',
+    targetType: 'User',
+    targetId: doc._id,
+    before: null,
+    after: scrubUser(doc.toObject()),
+    ip: actor.ip,
+    ua: actor.ua,
+  });
+  return doc;
+}
+
+export async function listUsers(query: UserListQuery): Promise<{
+  items: HydratedUser[];
+  total: number;
+  page: number;
+  limit: number;
+}> {
+  const page = Math.max(1, query.page ?? 1);
+  const limit = Math.min(100, Math.max(1, query.limit ?? 20));
+  const filter: Record<string, unknown> = {};
+  if (query.role) filter.role = query.role;
+  if (query.status) filter.status = query.status;
+  if (query.q) {
+    const safe = query.q.trim().replace(/[\\^$*+?.()|[\]{}]/g, '\\$&');
+    filter.$or = [
+      { name: { $regex: safe, $options: 'i' } },
+      { email: { $regex: safe, $options: 'i' } },
+      { code: { $regex: safe, $options: 'i' } },
+    ];
+  }
+  const [items, total] = await Promise.all([
+    User.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit),
+    User.countDocuments(filter),
+  ]);
+  return { items, total, page, limit };
+}
+
+const SELF_PATCH_FIELDS = new Set<keyof UpdateUserInput>(['name', 'phoneE164']);
+
+export async function updateUser(
+  id: string,
+  patch: UpdateUserInput,
+  actor: { role: Role; userId: Types.ObjectId } & ActorContext,
+): Promise<HydratedUser> {
+  const targetId = requireId(id);
+  const doc = await User.findById(targetId);
+  if (!doc) throw new HttpError(404, 'NOT_FOUND', 'User not found.');
+  const isSelf = targetId.equals(actor.userId);
+  const isAdmin = actor.role === 'admin';
+  if (!isAdmin && !isSelf) {
+    throw new HttpError(403, 'FORBIDDEN', 'Cannot edit another user.');
+  }
+  if (!isAdmin) {
+    for (const key of Object.keys(patch) as (keyof UpdateUserInput)[]) {
+      if (!SELF_PATCH_FIELDS.has(key)) {
+        throw new HttpError(403, 'FORBIDDEN', `Field ${key} cannot be self-edited.`);
+      }
+    }
+  }
+  const before = scrubUser(doc.toObject());
+  if (patch.name !== undefined) doc.name = patch.name.trim();
+  if (patch.phoneE164 !== undefined) doc.phoneE164 = patch.phoneE164.trim();
+  if (isAdmin) {
+    if (patch.programId !== undefined) {
+      doc.programId = patch.programId ? new Types.ObjectId(patch.programId) : null;
+    }
+    if (patch.batchId !== undefined) {
+      doc.batchId = patch.batchId ? new Types.ObjectId(patch.batchId) : null;
+    }
+    if (patch.enrolmentValidFrom !== undefined) {
+      doc.enrolmentValidFrom = patch.enrolmentValidFrom
+        ? new Date(patch.enrolmentValidFrom)
+        : null;
+    }
+    if (patch.enrolmentValidTo !== undefined) {
+      doc.enrolmentValidTo = patch.enrolmentValidTo
+        ? new Date(patch.enrolmentValidTo)
+        : null;
+    }
+    if (patch.deptTag !== undefined) doc.deptTag = patch.deptTag;
+    if (patch.isCourseCoordinator !== undefined) {
+      doc.isCourseCoordinator = patch.isCourseCoordinator;
+    }
+  }
+  await doc.save();
+  await recordAudit({
+    actorUserId: actor.actorUserId,
+    action: 'user.updated',
+    targetType: 'User',
+    targetId: doc._id,
+    before,
+    after: scrubUser(doc.toObject()),
+    ip: actor.ip,
+    ua: actor.ua,
+  });
+  return doc;
+}
+
+export async function suspendUser(
+  id: string,
+  reason: string,
+  actor: { role: Role } & ActorContext,
+): Promise<HydratedUser> {
+  if (actor.role !== 'admin') {
+    throw new HttpError(403, 'FORBIDDEN', 'Only admins may suspend users.');
+  }
+  const targetId = requireId(id);
+  const doc = await User.findById(targetId);
+  if (!doc) throw new HttpError(404, 'NOT_FOUND', 'User not found.');
+  const before = scrubUser(doc.toObject());
+  doc.status = 'suspended';
+  doc.suspensionKind = 'manual';
+  doc.suspensionReason = reason.trim() || 'No reason given';
+  await doc.save();
+  await recordAudit({
+    actorUserId: actor.actorUserId,
+    action: 'user.suspended',
+    targetType: 'User',
+    targetId: doc._id,
+    before,
+    after: scrubUser(doc.toObject()),
+    ip: actor.ip,
+    ua: actor.ua,
+  });
+  return doc;
+}
+
+export async function unsuspendUser(
+  id: string,
+  actor: { role: Role } & ActorContext,
+): Promise<HydratedUser> {
+  if (actor.role !== 'admin') {
+    throw new HttpError(403, 'FORBIDDEN', 'Only admins may unsuspend users.');
+  }
+  const targetId = requireId(id);
+  const doc = await User.findById(targetId);
+  if (!doc) throw new HttpError(404, 'NOT_FOUND', 'User not found.');
+  const before = scrubUser(doc.toObject());
+  doc.status = doc.passwordHash ? 'active' : 'pending';
+  doc.suspensionKind = null;
+  doc.suspensionReason = null;
+  doc.suspensionOverrideUntil = null;
+  doc.suspensionOverrideBy = null;
+  await doc.save();
+  await recordAudit({
+    actorUserId: actor.actorUserId,
+    action: 'user.unsuspended',
+    targetType: 'User',
+    targetId: doc._id,
+    before,
+    after: scrubUser(doc.toObject()),
+    ip: actor.ip,
+    ua: actor.ua,
+  });
+  return doc;
+}
+
+export async function resendInvite(
+  id: string,
+  actor: { role: Role } & ActorContext,
+): Promise<HydratedUser> {
+  if (actor.role !== 'admin') {
+    throw new HttpError(403, 'FORBIDDEN', 'Only admins may resend invites.');
+  }
+  const doc = await User.findById(requireId(id));
+  if (!doc) throw new HttpError(404, 'NOT_FOUND', 'User not found.');
+  if (doc.status !== 'pending') {
+    throw new HttpError(
+      409,
+      'VALIDATION_FAILED',
+      'Cannot resend invite — user has already set a password.',
+    );
+  }
+  await sendInvite(doc);
+  await recordAudit({
+    actorUserId: actor.actorUserId,
+    action: 'user.invite_resent',
+    targetType: 'User',
+    targetId: doc._id,
+    before: null,
+    after: scrubUser(doc.toObject()),
+    ip: actor.ip,
+    ua: actor.ua,
+  });
+  return doc;
+}
+
+export async function softDeleteUser(
+  id: string,
+  actor: { role: Role } & ActorContext,
+): Promise<HydratedUser> {
+  if (actor.role !== 'admin') {
+    throw new HttpError(403, 'FORBIDDEN', 'Only admins may delete users.');
+  }
+  const targetId = requireId(id);
+  const doc = await User.findById(targetId);
+  if (!doc) throw new HttpError(404, 'NOT_FOUND', 'User not found.');
+  const before = scrubUser(doc.toObject());
+  doc.status = 'revoked';
+  doc.deletedAt = new Date();
+  doc.email = `deleted+${String(doc._id)}@removed.invalid`;
+  doc.phoneE164 = '+10000000000';
+  doc.passwordHash = null;
+  doc.passwordHistoryHashes = [];
+  await doc.save();
+  await revokeAllForUser(doc._id);
+  await recordAudit({
+    actorUserId: actor.actorUserId,
+    action: 'user.deleted',
+    targetType: 'User',
+    targetId: doc._id,
+    before,
+    after: scrubUser(doc.toObject()),
+    ip: actor.ip,
+    ua: actor.ua,
+  });
+  return doc;
+}

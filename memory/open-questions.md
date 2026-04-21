@@ -49,3 +49,27 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Source:** Root `/CLAUDE.md` §8.
 **Owner:** Logan / Vidit.
 **Workaround:** Stub adapter issues a fake URL in dev (`CERTIFIER_ENABLED=false`).
+
+## Q-M2-01 — `deviceId` convention for login/refresh/invite-accept
+**Raised:** 2026-04-21 (M2)
+**Owner:** Vidit (lock when M3 web client starts).
+**Context:** Server accepts `deviceId` as a free-form non-empty string in the login/refresh/invite-accept bodies. Plan is UUIDv4 persisted in localStorage. Decision isn't yet enforced.
+**Impact:** Low. When M3 lands, either enforce UUID-v4 format server-side or keep it opaque (server only uses it for the RefreshToken audit trail).
+
+## Q-M2-02 — Password-reset audit email PII
+**Raised:** 2026-04-21 (M2).
+**Owner:** Logan (DPDP readiness sign-off).
+**Context:** `auth.password_reset_requested` audit log stores the submitted email in plain text in `details.email` so debugging "who tried to reset" is easy. Audit log is admin-gated (M6 UI). If DPDP interpretation requires hashed emails in audit, swap to sha256.
+**Impact:** Low; one-line change in `authService.requestPasswordReset`.
+
+## Q-M2-04 — `__Host-il_rt` cookie Path spec drift
+**Raised:** 2026-04-21 (M2 review).
+**Owner:** Vidit (spec note) + Logan (if TRD amendment needed).
+**Context:** TRD §7 specifies the refresh cookie as `__Host-il_rt` with `Path=/v1/auth/refresh`. RFC 6265bis (and Chrome/Firefox/Safari enforcement) requires `__Host-`-prefixed cookies to have `Path=/` and no `Domain` attribute — otherwise browsers silently drop the cookie. M2 keeps the prefix and widens Path to `/` (security-positive choice). Route-level auth middleware gates where the cookie is actually consumed. TRD wording should be amended in a future doc update.
+**Impact:** None functionally — current implementation works in real browsers and preserves the `__Host-` guarantees. The TRD should be reconciled before M9 to avoid confusion.
+
+## Q-M2-03 — Rate-limit store swap for multi-instance deploy
+**Raised:** 2026-04-21 (M2).
+**Owner:** Vidit (M9 deploy prep).
+**Context:** `express-rate-limit` uses in-memory store. OK for single-instance dev; Render free-tier has one instance per service. Once we scale to 2+ instances (not Phase 1), need `rate-limit-redis` so counters aren't per-replica. Runbook note required.
+**Impact:** None in Phase 1; revisit before scale-out.

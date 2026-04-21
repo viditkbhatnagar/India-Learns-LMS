@@ -54,6 +54,53 @@ export default [
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': 'error',
+      // Mongoose-heavy codebase: `_id` is idiomatic, `for..of` is allowed, service
+      // helpers often define hoisted-referenced functions near each other.
+      'no-underscore-dangle': ['error', { allow: ['_id', '__v'] }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ForInStatement',
+          message: 'for..in iterates over prototype chain; use Object.{keys,values,entries} plus for..of.',
+        },
+        {
+          selector: 'LabeledStatement',
+          message: 'Labels are a sign of spaghetti.',
+        },
+        {
+          selector: 'WithStatement',
+          message: '`with` is disallowed in strict mode.',
+        },
+      ],
+      'no-nested-ternary': 'off',
+      'max-classes-per-file': 'off',
+      'no-use-before-define': ['error', { functions: false, classes: true, variables: true }],
+      '@typescript-eslint/no-use-before-define': ['error', { functions: false, classes: true, variables: true }],
+    },
+  },
+  {
+    files: ['api/tests/**/*.{ts,tsx}', 'api/scripts/**/*.{ts,tsx}'],
+    rules: {
+      'no-console': 'off',
+      'no-promise-executor-return': 'off',
+      'prefer-destructuring': 'off',
+      'no-void': 'off',
+      'no-await-in-loop': 'off',
+    },
+  },
+  {
+    // Adapter classes are stubs by design; some methods legitimately ignore `this`.
+    files: ['api/src/integrations/**/*.{ts,tsx}'],
+    rules: {
+      'class-methods-use-this': 'off',
+    },
+  },
+  {
+    // Mongoose `toJSON` transforms reassign `ret`, and `toObject()` returns plain
+    // objects we want to mutate in-place for DTO conversions.
+    files: ['api/src/models/**/*.{ts,tsx}', 'api/src/services/**/*.{ts,tsx}'],
+    rules: {
+      'no-param-reassign': ['error', { props: false }],
     },
   },
   {

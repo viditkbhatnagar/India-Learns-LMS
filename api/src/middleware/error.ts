@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 import { logger } from '../config/logger.js';
 
 export interface ErrorEnvelope {
@@ -28,6 +29,20 @@ export function notFound(_req: Request, res: Response): void {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found' } } satisfies ErrorEnvelope);
 }
 
+interface MongoDuplicateError {
+  code: number;
+  keyValue?: Record<string, unknown>;
+}
+
+function isMongoDuplicate(err: unknown): err is MongoDuplicateError {
+  return Boolean(
+    err
+      && typeof err === 'object'
+      && 'code' in err
+      && (err as { code: unknown }).code === 11000,
+  );
+}
+
 export function errorHandler(
   err: unknown,
   req: Request,
@@ -37,6 +52,32 @@ export function errorHandler(
   if (err instanceof HttpError) {
     res.status(err.status).json({
       error: { code: err.code, message: err.message, details: err.details },
+    } satisfies ErrorEnvelope);
+    return;
+  }
+
+  if (err instanceof ZodError) {
+    res.status(422).json({
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: 'Request failed validation.',
+        details: err.flatten(),
+      },
+    } satisfies ErrorEnvelope);
+    return;
+  }
+
+  if (isMongoDuplicate(err)) {
+    const keys = Object.keys(err.keyValue ?? {});
+    const emailDup = keys.includes('email');
+    res.status(409).json({
+      error: {
+        code: emailDup ? 'USER_EXISTS' : 'CONFLICT',
+        message: emailDup
+          ? 'A user with this email already exists.'
+          : 'Duplicate value.',
+        details: err.keyValue,
+      },
     } satisfies ErrorEnvelope);
     return;
   }

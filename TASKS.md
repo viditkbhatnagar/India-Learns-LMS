@@ -21,12 +21,15 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] CI green — https://github.com/viditkbhatnagar/India-Learns-LMS/actions/runs/24719414240
 - [x] Session-end memory checkpoint (`memory/milestones/M1-foundations.md` + `chore(memory): checkpoint after M1`)
 
-## M2 — Auth + user management (day 4–7)
+## M2 — Auth + user management (day 4–7) — BACKEND DONE 2026-04-21
 
-- [ ] Magic-link invite flow, password set, login, refresh, logout
-- [ ] Audit log table + middleware
-- [ ] Role model (Admin, Superadmin, Finance, Faculty, Student) + permission middleware
-- [ ] Admin screens: create/edit/suspend student; create/edit faculty; finance staff
+- [x] Magic-link invite flow, password set, login, refresh, logout (server-only; curl DoD ✔)
+- [x] Audit log collection + `recordAudit` helper (every staff write + login attempts)
+- [x] Role model (Admin, Superadmin, Finance, Faculty, Student) + `requireAuth` + `requireRole(...)` middleware
+- [x] Integration adapter interfaces + Console* stubs (Resend/SendGrid/Meta WABA deferred to their own milestones)
+- [x] `seed:superadmin` npm script + env hooks
+- [x] Vitest + mongodb-memory-server harness; 48 tests green; services coverage 89% lines
+- [ ] Admin screens: create/edit/suspend student; create/edit faculty; finance staff (deferred — surfaces this API, but the UI ships alongside M3 when the web client lands)
 
 ## M3 — Course + enrollment core (day 8–12)
 
