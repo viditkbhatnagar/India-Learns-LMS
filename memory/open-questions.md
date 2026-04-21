@@ -163,3 +163,27 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Owner:** Rejin / LUC IT.
 **Context:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` are declared in env schema and expected at deploy time. Live-mode wiring is in place; M9 deploy needs to verify a real upload/signed-download round-trip.
 **Impact:** Blocks real receipt URLs in production. Dev path (stub) continues to work for demo.
+
+## Q-M6-01 — Admin `deptTag` assignment for ticket routing
+**Raised:** 2026-04-22 (M6).
+**Owner:** Logan / Rejin.
+**Context:** PRD §10.1 routes administration tickets to `role:admin` with `deptTag='operations'` and technical tickets to `deptTag='it'`. The `User.deptTag` field exists (D-056) but seed ships a single admin with no deptTag. Routing falls back to "any admin" when the preferred bucket is empty — works, but loses the split. Before go-live, production should tag at least one ops admin and one IT admin.
+**Impact:** Low. Fallback behaviour is benign; just loses routing specificity.
+
+## Q-M6-02 — SLA breach manager CC semantics
+**Raised:** 2026-04-22 (M6).
+**Owner:** Logan.
+**Context:** PRD §10.4 says breach alerts cc "the assignee + their manager". No `managerId` field on User in Phase 1. M6 treats "manager" = any active `role:admin`. Works for ≤ 5 admins; at scale, admins would get a noisy inbox. Revisit if the admin pool grows or if Logan wants per-assignee mentor mapping.
+**Impact:** Low. Currently 1 seeded admin so 1 CC.
+
+## Q-M6-03 — WABA `il_ticket_update` template variable shape
+**Raised:** 2026-04-22 (M6).
+**Owner:** LUC ops / Logan.
+**Context:** D-007 / TRD §9.3 specifies `il_ticket_update` template body as `"Hi {{1}}, your ticket {{2}} has a new update. Status: {{3}}. View: {{4}}"` — 4 variables in order `[name, ticketCode, status, url]`. M6 wires the dispatch path but `WHATSAPP_ENABLED=false` keeps it dormant in dev/test. Meta approval of the exact template text + variable order should be reconfirmed before enabling.
+**Impact:** Medium. If the approved template differs, one `waTemplateVars` branch to update before launch.
+
+## Q-M6-04 — SLA re-arm behaviour on reopened tickets
+**Raised:** 2026-04-22 (M6).
+**Owner:** Logan.
+**Context:** PRD §10 is silent on whether reopening a ticket (staff direct or student request) resets the resolution SLA. Current M6 behaviour: `slaResolveBreached` stays true once flipped, even if the ticket is reopened; the existing `slaResolveDeadline` is not adjusted. Practical effect: admins see the breach "sticky" in dashboards past reopen. If product wants a fresh 5d/15bd window on reopen, `reopenTicket` would need to reset the deadline + breach flags.
+**Impact:** Low for Phase 1 (SLA dashboard is reporting, not blocking). Easy fix if product decides.

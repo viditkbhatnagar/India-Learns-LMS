@@ -108,6 +108,30 @@ export const FEE_REMINDER_TEMPLATES = [
 ] as const;
 export type FeeReminderTemplate = (typeof FEE_REMINDER_TEMPLATES)[number];
 
+export const TICKET_CATEGORIES = [
+  'academic',
+  'administration',
+  'finance',
+  'technical',
+  'complaints',
+] as const;
+export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
+
+export const TICKET_STATES = [
+  'open',
+  'assigned',
+  'in_progress',
+  'resolved',
+  'closed',
+] as const;
+export type TicketState = (typeof TICKET_STATES)[number];
+
+export const TICKET_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
+export type TicketPriority = (typeof TICKET_PRIORITIES)[number];
+
+export const TICKET_COMMENT_VISIBILITY = ['public', 'internal'] as const;
+export type TicketCommentVisibility = (typeof TICKET_COMMENT_VISIBILITY)[number];
+
 export const NOTIFICATION_TYPES = [
   'timetable.change',
   'fees.upcoming.14d',
@@ -118,6 +142,12 @@ export const NOTIFICATION_TYPES = [
   'fees.warning.2',
   'fees.suspended',
   'fees.paid',
+  'ticket.created',
+  'ticket.assigned',
+  'ticket.commented',
+  'ticket.state_changed',
+  'ticket.sla_ack_breached',
+  'ticket.sla_resolve_breached',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -178,5 +208,14 @@ export const AUDIT_ACTIONS = [
   'fees.suspension.override_revoked',
   'jobs.fee_reminders.invoked',
   'jobs.autosuspend.invoked',
+  'ticket.created',
+  'ticket.assigned',
+  'ticket.comment.added',
+  'ticket.state_changed',
+  'ticket.reopened',
+  'ticket.reopen_requested',
+  'ticket.sla_ack_breached',
+  'ticket.sla_resolve_breached',
+  'jobs.sla_timers.invoked',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

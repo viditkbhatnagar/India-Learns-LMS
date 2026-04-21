@@ -9,6 +9,7 @@ import {
   FeeStructure,
   Holiday,
   Program,
+  Ticket,
   TimetableEntry,
   TimetableOverride,
   User,
@@ -18,6 +19,7 @@ import { hashPassword } from '../src/services/passwordService.js';
 import { generateForEnrollment } from '../src/services/invoiceGenerationService.js';
 import { recordPayment } from '../src/services/paymentService.js';
 import { utcDateForIstDay } from '../src/services/timetableTz.js';
+import { nextTicketCode } from '../src/services/counterService.js';
 
 const SeedEnv = z.object({
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required for seeding.'),
@@ -378,6 +380,108 @@ async function seedSamplePayment(
   return { inserted: 1, skipped: 0 };
 }
 
+async function seedTickets(
+  student: HydratedUser,
+  faculty: HydratedUser,
+): Promise<{ inserted: number; skipped: number }> {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const DAY = 86_400_000;
+  let inserted = 0;
+  let skipped = 0;
+
+  // 1. Academic ticket — currently in progress. Demonstrates the assignee +
+  //    firstAckAt happy path. Natural key: subject + student.
+  const academicSubject = 'Video playback stuck on mobile';
+  const academicExists = await Ticket.findOne({
+    studentId: student._id,
+    subject: academicSubject,
+  });
+  if (!academicExists) {
+    const code = await nextTicketCode('academic', year);
+    await Ticket.create({
+      code,
+      category: 'academic',
+      priority: 'medium',
+      studentId: student._id,
+      subject: academicSubject,
+      description:
+        'The airport ground-ops module 2 video buffers forever on my phone but plays fine on desktop.',
+      state: 'in_progress',
+      assigneeUserId: faculty._id,
+      assignedAt: now,
+      firstAckAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+      slaAckDeadline: new Date(now.getTime() + 22 * 60 * 60 * 1000),
+      slaResolveDeadline: new Date(now.getTime() + 5 * DAY),
+    });
+    inserted += 1;
+  } else {
+    skipped += 1;
+  }
+
+  // 2. Academic ticket — closed two days ago so the reopen window (7d) is
+  //    still open for a demo. Unlocks the complaint precondition (D-008).
+  const closedSubject = 'Module 1 PDF missing page 12';
+  const closedExists = await Ticket.findOne({
+    studentId: student._id,
+    subject: closedSubject,
+  });
+  if (!closedExists) {
+    const code = await nextTicketCode('academic', year);
+    const closedAt = new Date(now.getTime() - 2 * DAY);
+    await Ticket.create({
+      code,
+      category: 'academic',
+      priority: 'low',
+      studentId: student._id,
+      subject: closedSubject,
+      description: 'Seeded as resolved+closed so demos can use the reopen flow.',
+      state: 'closed',
+      assigneeUserId: faculty._id,
+      assignedAt: new Date(closedAt.getTime() - 3 * DAY),
+      firstAckAt: new Date(closedAt.getTime() - 3 * DAY),
+      resolvedAt: new Date(closedAt.getTime() - DAY),
+      resolvedByUserId: faculty._id,
+      resolutionNote: 'Replaced the PDF; verified with student.',
+      closedAt,
+      slaAckDeadline: new Date(closedAt.getTime() - 2 * DAY),
+      slaResolveDeadline: new Date(closedAt.getTime() + 2 * DAY),
+    });
+    inserted += 1;
+  } else {
+    skipped += 1;
+  }
+
+  // 3. Finance ticket — proves the fees-suspension whitelist (D-052).
+  const financeSubject = 'Installment receipt missing my name';
+  const financeExists = await Ticket.findOne({
+    studentId: student._id,
+    subject: financeSubject,
+  });
+  if (!financeExists) {
+    const code = await nextTicketCode('finance', year);
+    const finance = await User.findOne({ email: 'finance-seed-1@luc.local' });
+    await Ticket.create({
+      code,
+      category: 'finance',
+      priority: 'medium',
+      studentId: student._id,
+      subject: financeSubject,
+      description: 'Name mis-spelled on the registration receipt — please reissue.',
+      state: finance ? 'assigned' : 'open',
+      assigneeUserId: finance?._id ?? null,
+      assignedAt: finance ? now : null,
+      slaAckDeadline: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+      slaResolveDeadline: new Date(now.getTime() + 5 * DAY),
+    });
+    inserted += 1;
+  } else {
+    skipped += 1;
+  }
+
+  return { inserted, skipped };
+}
+
 async function seedHoliday(): Promise<{ inserted: number; skipped: number }> {
   // 15 Aug — Independence Day (IST).
   const date = utcDateForIstDay('2026-08-15');
@@ -446,6 +550,11 @@ async function main(): Promise<void> {
 
     const payRes = await seedSamplePayment(student, finance._id);
     logger.info(payRes, 'sample payment seeded');
+  }
+
+  if (student && faculty) {
+    const ticketsRes = await seedTickets(student, faculty);
+    logger.info(ticketsRes, 'tickets seeded');
   }
 
   await disconnectDb();

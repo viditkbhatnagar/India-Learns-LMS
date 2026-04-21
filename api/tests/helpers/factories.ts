@@ -6,6 +6,10 @@ import type {
   OverrideAction,
   PaymentMethod,
   Role,
+  TicketCategory,
+  TicketCommentVisibility,
+  TicketPriority,
+  TicketState,
 } from 'india-learns-shared-types';
 import {
   Batch,
@@ -21,6 +25,8 @@ import {
   Payment,
   Program,
   Receipt,
+  Ticket,
+  TicketComment,
   TimetableEntry,
   TimetableOverride,
   User,
@@ -38,13 +44,19 @@ import {
   type PaymentDoc,
   type ProgramDoc,
   type ReceiptDoc,
+  type TicketCommentDoc,
+  type TicketDoc,
   type TimetableEntryDoc,
   type TimetableOverrideDoc,
   type UserDoc,
 } from '../../src/models/index.js';
 import { hashPassword } from '../../src/services/passwordService.js';
 import { utcDateForIstDay } from '../../src/services/timetableTz.js';
-import { nextInvoiceCode, nextReceiptCode } from '../../src/services/counterService.js';
+import {
+  nextInvoiceCode,
+  nextReceiptCode,
+  nextTicketCode,
+} from '../../src/services/counterService.js';
 
 export interface MakeUserInput {
   role?: Role;
@@ -558,5 +570,84 @@ export async function makeOverdueStudent(
     status: input.daysOverdue > 0 ? 'overdue' : 'pending',
   });
   return { student, program, batch, course, enrolment, invoice, installment };
+}
+
+export interface MakeTicketInput {
+  studentId: Types.ObjectId;
+  category?: TicketCategory;
+  priority?: TicketPriority;
+  subject?: string;
+  description?: string;
+  state?: TicketState;
+  assigneeUserId?: Types.ObjectId | null;
+  linkedCourseId?: Types.ObjectId | null;
+  linkedInvoiceId?: Types.ObjectId | null;
+  slaAckDeadline?: Date;
+  slaResolveDeadline?: Date;
+  slaAckBreached?: boolean;
+  slaResolveBreached?: boolean;
+  firstAckAt?: Date | null;
+  resolvedAt?: Date | null;
+  resolvedByUserId?: Types.ObjectId | null;
+  resolutionNote?: string;
+  closedAt?: Date | null;
+  reopenedAt?: Date | null;
+  reopenedFromId?: Types.ObjectId | null;
+  parentTicketId?: Types.ObjectId | null;
+  code?: string;
+}
+
+export async function makeTicket(input: MakeTicketInput): Promise<TicketDoc> {
+  counter += 1;
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const category = input.category ?? 'academic';
+  const code = input.code ?? (await nextTicketCode(category, year));
+  return Ticket.create({
+    code,
+    category,
+    priority: input.priority ?? 'medium',
+    studentId: input.studentId,
+    linkedCourseId: input.linkedCourseId ?? null,
+    linkedInvoiceId: input.linkedInvoiceId ?? null,
+    subject: input.subject ?? `Subject ${counter}`,
+    description: input.description ?? `Body ${counter}`,
+    state: input.state ?? 'open',
+    assigneeUserId: input.assigneeUserId ?? null,
+    assignedAt: input.assigneeUserId ? now : null,
+    firstAckAt: input.firstAckAt ?? null,
+    resolvedAt: input.resolvedAt ?? null,
+    resolvedByUserId: input.resolvedByUserId ?? null,
+    resolutionNote: input.resolutionNote ?? '',
+    closedAt: input.closedAt ?? null,
+    reopenedAt: input.reopenedAt ?? null,
+    reopenedFromId: input.reopenedFromId ?? null,
+    parentTicketId: input.parentTicketId ?? null,
+    slaAckDeadline:
+      input.slaAckDeadline ?? new Date(now.getTime() + 24 * 60 * 60 * 1000),
+    slaResolveDeadline:
+      input.slaResolveDeadline ?? new Date(now.getTime() + 5 * 86_400_000),
+    slaAckBreached: input.slaAckBreached ?? false,
+    slaResolveBreached: input.slaResolveBreached ?? false,
+  });
+}
+
+export interface MakeTicketCommentInput {
+  ticketId: Types.ObjectId;
+  authorUserId: Types.ObjectId;
+  body?: string;
+  visibility?: TicketCommentVisibility;
+}
+
+export async function makeTicketComment(
+  input: MakeTicketCommentInput,
+): Promise<TicketCommentDoc> {
+  counter += 1;
+  return TicketComment.create({
+    ticketId: input.ticketId,
+    authorUserId: input.authorUserId,
+    body: input.body ?? `Comment ${counter}`,
+    visibility: input.visibility ?? 'public',
+  });
 }
 

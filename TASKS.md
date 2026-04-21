@@ -89,12 +89,28 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Memory checkpoint (D-043 … D-051 + Q-M5-01…06 + M5 milestone file)
 - [ ] M5 web client (deferred with M2/M3/M4 UI backlog; Finance + student fees screens map 1:1 to the API contract per plan research)
 
-## M6 — Tickets (day 23–28)
+## M6 — Tickets (day 23–28) — BACKEND DONE 2026-04-22
 
-- [ ] Ticket model, categories, assignment, threading, reopen rules
-- [ ] SLA clock (24h ack, 5d resolve, 15 business days for Complaints)
-- [ ] Complaint precondition (must have prior Resolved/Closed ticket)
-- [ ] Admin ticket dashboard with SLA-breach counter
+- [x] Ticket + TicketComment models (D-053/D-059); Notification enum +6 types; AUDIT_ACTIONS +9
+- [x] `businessDayService` (Mon–Fri + Holiday-aware) built on M4 Holiday model (D-054)
+- [x] `counterService.nextTicketCode` per-category yearly counter (`TKT-ACAD/ADMIN/FIN/TECH/CMPL-NNNNNN`)
+- [x] `ticketRoutingService` — academic→course faculty/coord, admin→deptTag(ops|it) fallback any admin, finance→finance pool, complaints→superadmin pool (D-056)
+- [x] `ticketService.createTicket` — complaint precondition (D-008), SLA deadline compute (5d / 15 bd), routing + assignment, audit + notification
+- [x] `transitionTicket` with state-matrix validation + `TICKET_STATE_INVALID` (illegal) and `REOPEN_WINDOW_EXPIRED` (7-day cliff, D-057)
+- [x] `reopenTicket` (staff) + `requestReopen` (student → child ticket with `parentTicketId`, D-058)
+- [x] `addComment` — student forced public, first staff public comment flips `firstAckAt` + `open → assigned`
+- [x] `listForStudent` / `listForStaff` / `listForAdmin` / `getTicketDetail` with ACL + visibility filter
+- [x] `slaService.computeBreaches` — idempotent atomic flip of `slaAckBreached`/`slaResolveBreached` (D-055); notify assignee + admin pool
+- [x] Routes: `/v1/tickets` (CRUD), `/v1/me/tickets` + `/v1/tickets/me` alias (D-059), `/v1/staff/tickets`, `/v1/jobs/sla-timers` (HMAC)
+- [x] POST + PATCH aliases on `/:id/state` (D-059)
+- [x] `notificationService` extended: 6 new `ticket.*` channel maps; `il_ticket_update` WABA template wired for `ticket.state_changed` only
+- [x] `auth.ts` fees-suspension whitelist casing fix + GET tickets + POST finance tickets + reopen-request (D-052)
+- [x] `api/src/jobs/ticketSlaJob.ts` cron wrapper
+- [x] Seed extended: academic-in-progress + academic-closed (reopen demo) + finance (fees-suspension demo)
+- [x] 67 new tests (59 files / 316 total) · services coverage 84.5% lines / 66.81% branches / 94.8% functions (gates 70/55/70 — all pass)
+- [x] `docs/smoke/m6-tickets.md`
+- [x] Memory checkpoint (D-052 … D-059, Q-M6-01…04, M6 milestone file)
+- [ ] Admin ticket dashboard UI (deferred with M2/M3/M4/M5 UI backlog; API contract ready)
 
 ## M7 — Assessments + feedback (day 29–33)
 

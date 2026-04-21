@@ -37,11 +37,17 @@ function feesSuspensionAllowed(req: Request): boolean {
   if (method === 'POST' && /\/auth\/refresh(?:$|\?)/.test(url)) return true;
   // Notification list/read stays allowed so students see the suspension-notice.
   if (/\/notifications\/me/.test(url)) return true;
-  // Finance-category tickets land in M6; the category check ships with that.
+  // PRD §9.5 / D-052: fees-suspended students can raise a Finance-category
+  // ticket and read their own ticket thread so they can negotiate payment.
   if (method === 'POST' && /\/tickets\/?(?:$|\?)/.test(url)) {
     const body = req.body as { category?: string } | undefined;
-    if (body?.category === 'Finance') return true;
+    if (body?.category === 'finance') return true;
   }
+  if (method === 'GET' && /\/me\/tickets(?:$|\?|\/)/.test(url)) return true;
+  if (method === 'GET' && /\/tickets\/me(?:$|\?|\/)/.test(url)) return true;
+  if (method === 'GET' && /\/tickets\/[^/]+(?:$|\?)/.test(url)) return true;
+  if (method === 'POST' && /\/tickets\/[^/]+\/comments(?:$|\?)/.test(url)) return true;
+  if (method === 'POST' && /\/tickets\/[^/]+\/reopen-request(?:$|\?)/.test(url)) return true;
   // Admin + finance recording a payment for this student must succeed even if
   // the acting admin impersonates them; payments router enforces role gates.
   if (method === 'POST' && /\/payments\/?(?:$|\?)/.test(url)) return true;

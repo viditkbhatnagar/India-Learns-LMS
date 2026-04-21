@@ -26,12 +26,17 @@ import { receiptsRouter } from './receipts.js';
 import { feeRemindersRouter } from './feeReminders.js';
 import { suspensionOverrideRouter } from './suspensionOverride.js';
 import { jobsFeesRouter } from './jobsFees.js';
+import { jobsSlaRouter } from './jobsSla.js';
+import { ticketsRouter } from './tickets.js';
+import { meTicketsRouter } from './meTickets.js';
+import { staffTicketsRouter } from './staffTickets.js';
 
 export function v1Router(): Router {
   const router = Router();
   // Cron endpoints mount BEFORE the session-wide fees-suspension guard so
   // unauthenticated HMAC-signed calls from Render can hit them.
   router.use('/jobs', jobsFeesRouter());
+  router.use('/jobs', jobsSlaRouter());
 
   router.use('/auth', authRouter());
   router.use('/users', usersRouter());
@@ -59,6 +64,13 @@ export function v1Router(): Router {
   router.use('/finance/payments', paymentsRouter());
   router.use('/receipts', receiptsRouter());
   router.use('/fees', feeRemindersRouter());
+  // /v1/me/tickets and /v1/tickets/me are aliases (D-031) — both land on
+  // `meTicketsRouter`. `/tickets/me` must mount BEFORE `/tickets` so the
+  // literal `/me` segment isn't swallowed by the `/:id` handler.
+  router.use('/me/tickets', meTicketsRouter());
+  router.use('/tickets/me', meTicketsRouter());
+  router.use('/staff/tickets', staffTicketsRouter());
+  router.use('/tickets', ticketsRouter());
 
   // Note: fees-suspension enforcement lives inside requireAuth itself — it
   // emits 403 FEES_SUSPENDED for non-whitelisted routes when the user's

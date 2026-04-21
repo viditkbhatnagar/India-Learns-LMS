@@ -28,10 +28,19 @@ const CHANNELS_BY_TYPE: Record<NotificationType, NotificationChannel[]> = {
   'fees.warning.2': ['inapp', 'email', 'whatsapp'],
   'fees.suspended': ['inapp', 'email', 'whatsapp'],
   'fees.paid': ['inapp', 'email', 'whatsapp'],
+  // M6 — PRD §14.3 event registry. State-change is the only ticket event with
+  // WhatsApp; comments and breach alerts stay email + in-app.
+  'ticket.created': ['inapp', 'email'],
+  'ticket.assigned': ['inapp', 'email'],
+  'ticket.commented': ['inapp', 'email'],
+  'ticket.state_changed': ['inapp', 'email', 'whatsapp'],
+  'ticket.sla_ack_breached': ['inapp', 'email'],
+  'ticket.sla_resolve_breached': ['inapp', 'email'],
 };
 
-// Only two WABA templates are pre-approved at launch (D-007).
-// M5 maps the 8 fees.* notification types onto those two templates.
+// Only three WABA templates are pre-approved at launch (D-007): `il_fee_due`,
+// `il_payment_received`, and `il_ticket_update`. Fees map to the first two;
+// ticket.state_changed is the sole consumer of the third.
 const WABA_TEMPLATE_BY_TYPE: Partial<Record<NotificationType, string>> = {
   'fees.upcoming.7d': 'il_fee_due',
   'fees.due.today': 'il_fee_due',
@@ -39,6 +48,7 @@ const WABA_TEMPLATE_BY_TYPE: Partial<Record<NotificationType, string>> = {
   'fees.warning.2': 'il_fee_due',
   'fees.suspended': 'il_fee_due',
   'fees.paid': 'il_payment_received',
+  'ticket.state_changed': 'il_ticket_update',
 };
 
 export function typeToChannels(type: NotificationType): NotificationChannel[] {
@@ -203,7 +213,17 @@ function waTemplateVars(
 ): string[] {
   // `il_fee_due`: [name, componentLabel, amount, dueDate, url]
   // `il_payment_received`: [name, amount, componentLabel, receiptUrl]
+  // `il_ticket_update`: [name, ticketCode, status, url]
   const env = loadEnv();
+  if (type === 'ticket.state_changed') {
+    const ticketCode = (data.ticketCode as string) ?? '';
+    const status = (data.state as string) ?? '';
+    const ticketId = (data.ticketId as string) ?? '';
+    const url = ticketId
+      ? `${env.WEB_ORIGIN}/student/tickets/${ticketId}`
+      : `${env.WEB_ORIGIN}/student/tickets`;
+    return [name, ticketCode, status, url];
+  }
   const dashboardUrl = `${env.WEB_ORIGIN}/fees`;
   const amount = typeof data.amountPaise === 'number'
     ? `₹${(data.amountPaise / 100).toFixed(2)}`

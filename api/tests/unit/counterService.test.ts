@@ -5,6 +5,8 @@ import {
   nextCreditNoteCode,
   nextInvoiceCode,
   nextReceiptCode,
+  nextRoutingSlot,
+  nextTicketCode,
   nextUserCode,
 } from '../../src/services/counterService.js';
 
@@ -58,5 +60,33 @@ describe('counterService fee-side codes', () => {
     const i = await nextInvoiceCode(2099);
     expect(u).toBe('IL-2099-0001');
     expect(i).toBe('INV-2099-000001');
+  });
+});
+
+describe('counterService ticket codes', () => {
+  useMongo();
+
+  it('nextTicketCode uses the category-specific prefix (ACAD) with 6-digit padding', async () => {
+    const a = await nextTicketCode('academic', 2026);
+    const b = await nextTicketCode('academic', 2026);
+    expect(a).toBe('TKT-ACAD-000001');
+    expect(b).toBe('TKT-ACAD-000002');
+  });
+
+  it('ticket-code counters are isolated across categories', async () => {
+    const acad = await nextTicketCode('academic', 2026);
+    const fin = await nextTicketCode('finance', 2026);
+    const cmpl = await nextTicketCode('complaints', 2026);
+    expect(acad).toBe('TKT-ACAD-000001');
+    expect(fin).toBe('TKT-FIN-000001');
+    expect(cmpl).toBe('TKT-CMPL-000001');
+  });
+
+  it('routing slot increments monotonically per bucket', async () => {
+    const a = await nextRoutingSlot('admin_ops');
+    const b = await nextRoutingSlot('admin_ops');
+    const c = await nextRoutingSlot('finance');
+    expect(b - a).toBe(1);
+    expect(c).toBe(1);
   });
 });

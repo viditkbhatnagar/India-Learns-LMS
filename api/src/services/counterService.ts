@@ -1,3 +1,4 @@
+import type { TicketCategory } from 'india-learns-shared-types';
 import { Counter } from '../models/index.js';
 
 /**
@@ -41,4 +42,32 @@ export async function nextReceiptCode(year: number): Promise<string> {
 export async function nextCreditNoteCode(year: number): Promise<string> {
   const seq = await nextSeq(`credit_note_code_${year}`);
   return formatCode('CN', year, seq, 6);
+}
+
+// CLAUDE.md §5 pins the ticket-code example as `TKT-ACAD-000045` — category
+// prefix plus a 6-digit sequence. Per-category counters keep the sequence
+// contiguous within a category and year, so admins reading a backlog don't
+// see holes across categories.
+export const TICKET_CATEGORY_PREFIX: Record<TicketCategory, string> = {
+  academic: 'ACAD',
+  administration: 'ADMIN',
+  finance: 'FIN',
+  technical: 'TECH',
+  complaints: 'CMPL',
+};
+
+export async function nextTicketCode(
+  category: TicketCategory,
+  year: number,
+): Promise<string> {
+  const prefix = TICKET_CATEGORY_PREFIX[category];
+  const seq = await nextSeq(`ticket_code_${year}_${prefix}`);
+  // `formatCode` puts the year between prefix and seq; ticket codes drop the
+  // year from the canonical display (TKT-ACAD-000045) so format inline here.
+  return `TKT-${prefix}-${String(seq).padStart(6, '0')}`;
+}
+
+/** Round-robin counter for staff assignment within a role bucket. */
+export async function nextRoutingSlot(bucket: string): Promise<number> {
+  return nextSeq(`ticket_rr_${bucket}`);
 }

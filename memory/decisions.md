@@ -309,3 +309,51 @@ Append-only log. Every entry: ID, date, decision, why, source.
 **Why:** PRD §9.6 pins receipt code reset to 1 April annually (Indian FY). `financialYearFor(date)` returns the FY by checking IST month ≥ 4. Invoice and Credit Note codes still reset on the calendar year — PRD is silent on them so TRD default (calendar) holds.
 **Source:** PRD §9.6.
 **How to apply:** [api/src/services/receiptService.ts](../api/src/services/receiptService.ts) `financialYearFor()` drives the counter key for `nextReceiptCode`.
+
+## D-052 — Fees-suspension whitelist casing + GET ticket additions
+**Date:** 2026-04-22
+**Why:** D-050's original `feesSuspensionAllowed` check used `body?.category === 'Finance'` (title case). The canonical category enum locked in at M6 is lowercase (`'finance'`), so the title-case branch would never have fired in production. Plus a fees-suspended student legitimately needs to GET their own ticket thread and comment on finance tickets — those paths were missing from the whitelist.
+**Source:** M6 review; TRD §4.7 enum; PRD §9.5 ("raise a Finance-category ticket").
+**How to apply:** [api/src/middleware/auth.ts](../api/src/middleware/auth.ts) `feesSuspensionAllowed` now matches `body?.category === 'finance'` (lowercase) and adds allow-list entries for `GET /v1/me/tickets`, `GET /v1/tickets/me`, `GET /v1/tickets/:id`, `POST /v1/tickets/:id/comments`, `POST /v1/tickets/:id/reopen-request`. Covered by [api/tests/integration/tickets.feesSuspension.test.ts](../api/tests/integration/tickets.feesSuspension.test.ts).
+
+## D-053 — Ticket code scheme: `TKT-<PREFIX>-NNNNNN` per-category yearly counter
+**Date:** 2026-04-22
+**Why:** CLAUDE.md §5 pins the format as `TKT-ACAD-000045`. Splitting the counter per `{year, category}` keeps codes contiguous within a category (so admins reading a backlog don't see holes when another category races ahead). Prefix map: `academic→ACAD, administration→ADMIN, finance→FIN, technical→TECH, complaints→CMPL`. 6-digit width matches the M5 fee-side convention.
+**Source:** CLAUDE.md §5; M6 plan.
+**How to apply:** [api/src/services/counterService.ts](../api/src/services/counterService.ts) — `TICKET_CATEGORY_PREFIX`, `nextTicketCode(category, year)` writing counter key `ticket_code_${year}_${prefix}`.
+
+## D-054 — Business-day helper on top of M4 Holiday model
+**Date:** 2026-04-22
+**Why:** PRD §10.4 says 15 business days for Complaints, Mon–Fri, excluding public holidays. M4 already stores Holiday rows as IST-midnight UTC (D-038). The new helper re-uses them instead of introducing a second holiday list. Keyed by IST-YMD via `istDateStringFromUtc` so day comparisons are unambiguous.
+**Source:** PRD §10.4; D-038.
+**How to apply:** [api/src/services/businessDayService.ts](../api/src/services/businessDayService.ts) — `isBusinessDay`, `loadHolidaySet`, `addBusinessDays`, `addBusinessDaysWithLoad`. `addBusinessDaysWithLoad(n)` loads a `[now, now + n + 30 days]` holiday window — comfortable buffer past the 15 BD worst case.
+
+## D-055 — SLA cron idempotency via atomic boolean flip
+**Date:** 2026-04-22
+**Why:** The PRD §10.4 breach rule is "notify assignee + admin once per threshold". A naive "if deadline < now, fire" would re-fire on every 30-minute cron tick. The flip uses `Ticket.updateOne({_id, slaAckBreached: false, firstAckAt: null}, { $set: {...} })` — the guard ensures at most one cron invocation sees `modifiedCount > 0` and emits audit + notification. Resolve breach uses the analogous guard on `slaResolveBreached: false`.
+**Source:** PRD §10.4; TRD §10.1.
+**How to apply:** [api/src/services/slaService.ts](../api/src/services/slaService.ts) `computeBreaches()`. Deterministic under time-travel — verified in [api/tests/unit/slaService.test.ts](../api/tests/unit/slaService.test.ts) "idempotent on a second run".
+
+## D-056 — Routing uses existing `User.deptTag`; no schema extension needed
+**Date:** 2026-04-22
+**Why:** The M6 plan flagged `deptTag` as an open question (Q-M6-01) assuming the User schema didn't have it. Re-reading [api/src/models/user.ts](../api/src/models/user.ts) found `deptTag: DeptTag | null` already present (shipped with M2 scaffolding). Routing for `administration`/`technical` now prefers `role:admin` with `deptTag='operations'`/`'it'` and falls back to any active admin if the preferred bucket is empty. Complaints → all active superadmins (whole pool notified, first ID assigned).
+**Source:** PRD §10.1; existing User schema.
+**How to apply:** [api/src/services/ticketRoutingService.ts](../api/src/services/ticketRoutingService.ts). Round-robin within a role bucket uses `counterService.nextRoutingSlot(bucket)` keyed by `ticket_rr_${bucket}`; candidates are sorted by ObjectId then indexed modulo count, so the distribution is deterministic and testable.
+
+## D-057 — `REOPEN_WINDOW_EXPIRED` is additive to spec's `TICKET_STATE_INVALID`
+**Date:** 2026-04-22
+**Why:** TRD §8 lists only `TICKET_STATE_INVALID` (409) for illegal ticket transitions, which is generic. The milestone prompt requested a more specific `REOPEN_WINDOW_EXPIRED` so the UI can render a dedicated "7-day window has passed" message. Adding both is additive — `TICKET_STATE_INVALID` still fires on other illegal edges (e.g. `open → closed`), and the reopen path specifically throws the new code when the 7-day cliff is hit. No spec violation, just an extra error code.
+**Source:** TRD §8 + M6 prompt.
+**How to apply:** [api/src/services/ticketService.ts](../api/src/services/ticketService.ts) `transitionTicket` (via the reopen transition) and `reopenTicket` throw `HttpError(409, 'REOPEN_WINDOW_EXPIRED', ...)`. Illegal edges throw `TICKET_STATE_INVALID`. Both are covered in [api/tests/integration/tickets.reopen.test.ts](../api/tests/integration/tickets.reopen.test.ts) and [api/tests/unit/ticketService.test.ts](../api/tests/unit/ticketService.test.ts).
+
+## D-058 — Student reopen creates a child ticket; staff reopen re-opens the parent
+**Date:** 2026-04-22
+**Why:** The milestone prompt asked for student-only reopen, but PRD §10.2 is explicit: "only **staff** can reopen, and only within **7 days** ... Students can **request** reopen from a closed ticket — that creates a new child ticket linked to the parent; original stays closed." Per CLAUDE.md §2 the spec wins. Both endpoints ship: `POST /v1/tickets/:id/reopen` (staff) actually flips the parent state, `POST /v1/tickets/:id/reopen-request` (student) creates a new `Ticket` with `parentTicketId` pointing at the original.
+**Source:** PRD §10.2.
+**How to apply:** Two endpoints in [api/src/routes/tickets.ts](../api/src/routes/tickets.ts), two service functions in [api/src/services/ticketService.ts](../api/src/services/ticketService.ts) (`reopenTicket` + `requestReopen`). Student route is `requireRole('student')`; staff route is `requireRole('faculty','finance','admin','superadmin')`.
+
+## D-059 — `/v1/me/tickets` + `/v1/tickets/me` are aliases; `POST` and `PATCH` on `/:id/state` also aliased
+**Date:** 2026-04-22
+**Why:** TRD §5.7 names `/v1/me/tickets` and `POST /v1/tickets/:id/state`; the M6 prompt used `/v1/tickets/me` and `PATCH`. Per the D-031 alias pattern we mount both so both client contracts work. Zero behavioural risk — same handler, same service.
+**Source:** TRD §5.7; M6 prompt; D-031.
+**How to apply:** [api/src/routes/index.ts](../api/src/routes/index.ts) mounts `meTicketsRouter` at both `/me/tickets` and `/tickets/me` (the latter BEFORE `/tickets` so Express doesn't swallow `/me` as `/:id`). [api/src/routes/tickets.ts](../api/src/routes/tickets.ts) registers both `POST` and `PATCH` handlers on `/:id/state`.

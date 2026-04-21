@@ -116,6 +116,64 @@ describe('notificationService', () => {
     }
   });
 
+  it('typeToChannels for tickets: only state_changed has WhatsApp', () => {
+    expect(typeToChannels('ticket.created')).toEqual(['inapp', 'email']);
+    expect(typeToChannels('ticket.assigned')).toEqual(['inapp', 'email']);
+    expect(typeToChannels('ticket.commented')).toEqual(['inapp', 'email']);
+    expect(typeToChannels('ticket.state_changed')).toEqual(['inapp', 'email', 'whatsapp']);
+    expect(typeToChannels('ticket.sla_ack_breached')).toEqual(['inapp', 'email']);
+    expect(typeToChannels('ticket.sla_resolve_breached')).toEqual(['inapp', 'email']);
+  });
+
+  it('ticket.state_changed dispatches il_ticket_update with the four template vars', async () => {
+    process.env.WHATSAPP_ENABLED = 'true';
+    const { resetEnvCache } = await import('../../src/config/env.js');
+    resetEnvCache();
+    try {
+      const { user: student } = await makeStudent();
+      await enqueueNotification({
+        type: 'ticket.state_changed',
+        recipients: [student._id],
+        title: 'Ticket resolved',
+        body: 'All done',
+        data: {
+          ticketId: '65d000000000000000000001',
+          ticketCode: 'TKT-ACAD-000042',
+          state: 'resolved',
+        },
+      });
+      expect(spies.whatsapp.calls.length).toBe(1);
+      const call = spies.whatsapp.calls[0]!;
+      expect(call.templateName).toBe('il_ticket_update');
+      expect(call.vars).toHaveLength(4);
+      expect(call.vars?.[1]).toBe('TKT-ACAD-000042');
+      expect(call.vars?.[2]).toBe('resolved');
+      expect(call.vars?.[3]).toMatch(/\/student\/tickets\/65d000/);
+    } finally {
+      process.env.WHATSAPP_ENABLED = 'false';
+      resetEnvCache();
+    }
+  });
+
+  it('ticket.commented never sends WhatsApp even when enabled', async () => {
+    process.env.WHATSAPP_ENABLED = 'true';
+    const { resetEnvCache } = await import('../../src/config/env.js');
+    resetEnvCache();
+    try {
+      const { user: student } = await makeStudent();
+      await enqueueNotification({
+        type: 'ticket.commented',
+        recipients: [student._id],
+        title: 'Reply received',
+        body: 'Body',
+      });
+      expect(spies.whatsapp.calls).toHaveLength(0);
+    } finally {
+      process.env.WHATSAPP_ENABLED = 'false';
+      resetEnvCache();
+    }
+  });
+
   it('notifyTimetableChange fans out to all active students + both faculties', async () => {
     const program = await makeProgram();
     const { user: faculty1 } = await makeFaculty();

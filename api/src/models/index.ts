@@ -63,3 +63,14 @@ export { Receipt } from './receipt.js';
 export type { ReceiptDoc, HydratedReceipt } from './receipt.js';
 export { CreditNote } from './creditNote.js';
 export type { CreditNoteDoc, HydratedCreditNote } from './creditNote.js';
+export { Ticket } from './ticket.js';
+export type {
+  TicketDoc,
+  HydratedTicket,
+  TicketAttachmentDoc,
+} from './ticket.js';
+export { TicketComment } from './ticketComment.js';
+export type {
+  TicketCommentDoc,
+  HydratedTicketComment,
+} from './ticketComment.js';
