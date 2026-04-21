@@ -3,6 +3,11 @@ import type {
   EmailAdapter,
   EmailSendInput,
   EmailSendResult,
+  StorageAdapter,
+  StorageFolder,
+  StorageSignedUploadTicket,
+  StorageUploadInput,
+  StorageUploadResult,
   WhatsAppAdapter,
   WhatsAppSendInput,
   WhatsAppSendResult,
@@ -53,20 +58,81 @@ export class SpyWhatsAppAdapter implements WhatsAppAdapter {
   }
 }
 
+export class SpyStorageAdapter implements StorageAdapter {
+  public uploads: StorageUploadInput[] = [];
+
+  public deletes: string[] = [];
+
+  public signedUrls: string[] = [];
+
+  public tickets: Array<{
+    folder: StorageFolder;
+    filename: string;
+    contentType: string;
+    ttlSec?: number;
+  }> = [];
+
+  async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
+    this.uploads.push(input);
+    return {
+      url: `https://spy.test/${input.folder}/${this.uploads.length}`,
+      key: `spy:${input.folder}:${this.uploads.length}`,
+    };
+  }
+
+  async delete(key: string): Promise<void> {
+    this.deletes.push(key);
+  }
+
+  async signedUrl(key: string): Promise<string> {
+    this.signedUrls.push(key);
+    return `https://spy.test/signed?key=${encodeURIComponent(key)}`;
+  }
+
+  async signedUploadTicket(input: {
+    folder: StorageFolder;
+    filename: string;
+    contentType: string;
+    ttlSec?: number;
+  }): Promise<StorageSignedUploadTicket> {
+    this.tickets.push(input);
+    return {
+      url: `https://spy.test/upload/${input.folder}/${this.tickets.length}`,
+      key: `spy:${input.folder}:${this.tickets.length}`,
+      headers: { 'content-type': input.contentType },
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    };
+  }
+
+  reset(): void {
+    this.uploads = [];
+    this.deletes = [];
+    this.signedUrls = [];
+    this.tickets = [];
+  }
+}
+
 export interface IntegrationSpies {
   email: SpyEmailAdapter;
   whatsapp: SpyWhatsAppAdapter;
+  storage: SpyStorageAdapter;
 }
 
 export function useIntegrationSpies(): IntegrationSpies {
   const spies: IntegrationSpies = {
     email: new SpyEmailAdapter(),
     whatsapp: new SpyWhatsAppAdapter(),
+    storage: new SpyStorageAdapter(),
   };
   beforeEach(() => {
     spies.email.reset();
     spies.whatsapp.reset();
-    setIntegrations({ email: spies.email, whatsapp: spies.whatsapp });
+    spies.storage.reset();
+    setIntegrations({
+      email: spies.email,
+      whatsapp: spies.whatsapp,
+      storage: spies.storage,
+    });
   });
   afterEach(() => {
     setIntegrations(null);

@@ -11,6 +11,7 @@ Quick map of cross-session memory. Load these at every session start per [`/CLAU
 | [milestones/](milestones/) | One file per milestone, written at session end |
 | [milestones/M1-foundations.md](milestones/M1-foundations.md) | M1 — bare scaffold (API skeleton, web skeleton, CI) |
 | [milestones/M2-auth.md](milestones/M2-auth.md) | M2 — auth + user management (server-only) |
+| [milestones/M3-course-enrolment.md](milestones/M3-course-enrolment.md) | M3 — Program/Course/Module/Batch/Enrollment + student dashboard + StorageAdapter |
 
 ## Conventions
 

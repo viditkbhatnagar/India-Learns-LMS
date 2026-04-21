@@ -1,5 +1,6 @@
 import type {
   EmailAdapter,
+  StorageAdapter,
   WhatsAppAdapter,
 } from 'india-learns-shared-types';
 import { loadEnv } from '../config/env.js';
@@ -12,13 +13,24 @@ import {
   ConsoleWhatsAppAdapter,
   MetaWabaAdapter,
 } from './whatsappAdapter.js';
+import {
+  CloudinaryStorageAdapter,
+  ConsoleStorageAdapter,
+} from './storageAdapter.js';
 
 export interface Integrations {
   email: EmailAdapter;
   whatsapp: WhatsAppAdapter;
+  storage: StorageAdapter;
 }
 
-let override: Integrations | null = null;
+export interface IntegrationsOverride {
+  email?: EmailAdapter;
+  whatsapp?: WhatsAppAdapter;
+  storage?: StorageAdapter;
+}
+
+let override: IntegrationsOverride | null = null;
 
 function build(): Integrations {
   const env = loadEnv();
@@ -34,19 +46,29 @@ function build(): Integrations {
     stub || !env.WHATSAPP_ENABLED
       ? new ConsoleWhatsAppAdapter()
       : new MetaWabaAdapter();
-  return { email, whatsapp };
+  const storage: StorageAdapter =
+    stub || env.STORAGE_PROVIDER === 'stub'
+      ? new ConsoleStorageAdapter()
+      : new CloudinaryStorageAdapter();
+  return { email, whatsapp, storage };
 }
 
 let cached: Integrations | null = null;
 
 export function getIntegrations(): Integrations {
-  if (override) return override;
   if (!cached) cached = build();
+  if (override) {
+    return {
+      email: override.email ?? cached.email,
+      whatsapp: override.whatsapp ?? cached.whatsapp,
+      storage: override.storage ?? cached.storage,
+    };
+  }
   return cached;
 }
 
-/** Test-only: inject spy adapters. */
-export function setIntegrations(next: Integrations | null): void {
+/** Test-only: inject spy adapters. Pass `null` to clear. */
+export function setIntegrations(next: IntegrationsOverride | null): void {
   override = next;
 }
 

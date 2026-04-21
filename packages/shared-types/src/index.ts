@@ -3,3 +3,5 @@ export * from './enums.js';
 export * from './integrations.js';
 export * from './dto/user.js';
 export * from './dto/auth.js';
+export * from './dto/course.js';
+export * from './dto/storage.js';

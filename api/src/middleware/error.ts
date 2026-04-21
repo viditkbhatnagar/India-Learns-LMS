@@ -69,15 +69,20 @@ export function errorHandler(
 
   if (isMongoDuplicate(err)) {
     const keys = Object.keys(err.keyValue ?? {});
-    const emailDup = keys.includes('email');
+    let code = 'CONFLICT';
+    let message = 'Duplicate value.';
+    if (keys.includes('email')) {
+      code = 'USER_EXISTS';
+      message = 'A user with this email already exists.';
+    } else if (keys.includes('slug')) {
+      code = 'SLUG_EXISTS';
+      message = 'A record with this slug already exists.';
+    } else if (keys.includes('studentId') && keys.includes('courseId')) {
+      code = 'ENROLLMENT_DUPLICATE';
+      message = 'Student already has an active enrolment for this course.';
+    }
     res.status(409).json({
-      error: {
-        code: emailDup ? 'USER_EXISTS' : 'CONFLICT',
-        message: emailDup
-          ? 'A user with this email already exists.'
-          : 'Duplicate value.',
-        details: err.keyValue,
-      },
+      error: { code, message, details: err.keyValue },
     } satisfies ErrorEnvelope);
     return;
   }

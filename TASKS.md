@@ -31,12 +31,22 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Vitest + mongodb-memory-server harness; 48 tests green; services coverage 89% lines
 - [ ] Admin screens: create/edit/suspend student; create/edit faculty; finance staff (deferred — surfaces this API, but the UI ships alongside M3 when the web client lands)
 
-## M3 — Course + enrollment core (day 8–12)
+## M3 — Course + enrollment core (day 8–12) — BACKEND DONE 2026-04-21
 
-- [ ] Program, Course, Module, Batch models
-- [ ] Admin CRUD for programs/courses/modules; sandbox vs published state
-- [ ] Enrollment collection (student ↔ batch ↔ course) with validity dates
-- [ ] Student dashboard with enrolled courses + modules; video/PDF playback (no watch-time tracking)
+- [x] Program, Course, Module, Batch, Enrollment models (+ indexes + state enums per TRD §4.2–4.4)
+- [x] Admin CRUD for programs/courses/modules/batches; sandbox↔published on Course (`publishedVersion` increments, no rollback per D-030)
+- [x] Enrollment collection with validity dates (`validFrom/validTo`), lifecycle `status` + M5-ready `accessState` (D-026)
+- [x] `POST /v1/enrollments` creates N rows (one per program course); `BATCH_FULL` + `ENROLLMENT_DUPLICATE` guards
+- [x] `GET /v1/enrollments/me` + `/v1/me/courses` alias (D-031); `/v1/me/courses/:courseId` for course detail
+- [x] `GET /v1/students/me/dashboard` with M4–M7 stub buckets
+- [x] Faculty gated via `Course.facultyIds` (D-024) — content-only PATCH on modules, 403 on structural fields/delete
+- [x] Student module-access gate (`assertStudentCanViewModule`) — 6 steps + `module.viewed` audit (D-029)
+- [x] `StorageAdapter` interface + `ConsoleStorageAdapter` + `CloudinaryStorageAdapter` class stub; factory honours `INTEGRATIONS_MODE` / `STORAGE_PROVIDER` (D-027)
+- [x] `POST /v1/storage/upload-url` — admin or faculty-on-assigned-course
+- [x] Seed script `npm run seed -w api` — Aviation + Retail & Fashion Diploma, idempotent (D-033)
+- [x] 24 test files / 115 tests green; services coverage 81.89% lines (exceeds 70% gate)
+- [x] Session-end memory checkpoint (D-024 … D-034 + Q-M3-01/02/03 + M3 milestone file)
+- [ ] M3 web client (deferred with M2 admin screens — ships alongside M4 UI per TASKS M2 backlog)
 
 ## M4 — Timetable (day 13–15)
 

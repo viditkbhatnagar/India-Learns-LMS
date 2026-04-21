@@ -73,3 +73,21 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Owner:** Vidit (M9 deploy prep).
 **Context:** `express-rate-limit` uses in-memory store. OK for single-instance dev; Render free-tier has one instance per service. Once we scale to 2+ instances (not Phase 1), need `rate-limit-redis` so counters aren't per-replica. Runbook note required.
 **Impact:** None in Phase 1; revisit before scale-out.
+
+## Q-M3-01 — Enrollment `courseVersion` pointer for unpublish rollback
+**Raised:** 2026-04-21 (M3).
+**Owner:** Logan (product call on whether unpublish rollback is in Phase 1 scope).
+**Context:** PRD §6.3 says "Publish creates a new immutable `courseVersion` pointer on affected enrolments — unpublishing rolls back." TRD §4.4 Enrollment schema does not include a courseVersion field; no rollback user story exists yet. D-030 defers this: `Course.publishedVersion` increments on publish, but enrolments don't snapshot it. If Logan wants rollback in Phase 1, we'll add a `coursePublishedVersion: number` field on Enrollment + a rollback endpoint that pushes subsequent publishes' previous assets back.
+**Impact:** Medium. No current feature depends on it, but admin-triggered unpublish currently loses the "which version did each student see" history.
+
+## Q-M3-02 — Batch status state-machine transitions
+**Raised:** 2026-04-21 (M3).
+**Owner:** Logan / Vidit (spec).
+**Context:** TRD §4.3 defines `status: 'planned' | 'active' | 'completed' | 'archived'`, but neither PRD nor TRD specifies the transition rules (who flips, when, what's allowed). M3 admin PATCH accepts any status transition with no validation. Fine for Phase 1 (admins drive manually), but worth codifying before M8 analytics start grouping by batch status.
+**Impact:** Low; admins could accidentally "archive" an active batch. Soft constraint; recoverable.
+
+## Q-M3-03 — Module deletion policy when module.viewed events exist
+**Raised:** 2026-04-21 (M3).
+**Owner:** Logan.
+**Context:** Current implementation soft-deletes Module on `DELETE /v1/modules/:id`. AuditLog rows for `module.viewed` reference `targetId = module._id`, which now points at a tombstoned doc. M6 audit UI will need to handle "module deleted but audit rows remain". Also open: should we prevent deletion when there are view events, or allow and just mark? Plan's integration test for `9 delete with viewed audit rows` wasn't added because the behaviour isn't spec'd — we silently allow.
+**Impact:** Low. M6 UI will resolve this; safe default today is "allow soft-delete, preserve audit rows."

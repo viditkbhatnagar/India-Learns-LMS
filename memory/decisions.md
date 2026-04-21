@@ -141,3 +141,75 @@ Append-only log. Every entry: ID, date, decision, why, source.
 **Why:** `express-rate-limit`'s in-memory store persists across tests within a process. Full-suite runs would sporadically trip the limiter from earlier tests' requests, making any rate-limit assertion flaky. Needed a clean on/off switch.
 **Source:** M2 test-harness debugging (TRD §7 leaves store choice to implementation; Redis-swap is M9 concern).
 **How to apply:** Default `false` in prod/dev (env.ts). Default `true` in test via `tests/helpers/env.ts`. The dedicated [api/tests/integration/rateLimit.test.ts](../api/tests/integration/rateLimit.test.ts) flips it back on, overrides `LOGIN_RATE_MAX=3` / `PASSWORD_RESET_RATE_MAX=2`, and creates a fresh `createApp()` so counters start from zero.
+
+## D-024 — Faculty → Course ownership via `Course.facultyIds: [ObjectId ref User]`
+**Date:** 2026-04-21
+**Why:** PRD §3.1 grants Faculty "Upload module videos / PDFs ✅ (own courses)" but neither PRD nor TRD §4.2 specifies how "own courses" is stored. `User.isCourseCoordinator` is boolean-only; `Batch.coordinators` is batch-grain. Without an explicit assignment we'd either have to derive ownership through the (not-yet-built) Timetable or block faculty edits entirely. An explicit `facultyIds` array on Course is the simplest, forward-compatible source of truth.
+**Source:** PRD §3.1 line 65, TRD §4.2 (gap). User confirmed via AskUserQuestion 2026-04-21.
+**How to apply:** `facultyIds` array on [api/src/models/course.ts](../api/src/models/course.ts) indexed. Admin sets it on create/PATCH. `courseService.facultyAssignedToCourse(course, userId)` gates faculty reads and `moduleService.updateModule` content edits. M4 Timetable will validate `facultyId` against it.
+
+## D-025 — Module inherits publish state from `Course.state`
+**Date:** 2026-04-21
+**Why:** TRD §4.2 specifies `state: 'sandbox'|'published'` on Course only, not Module. PRD §6.3 "Sandbox changes do not appear to students until Publish" and the `publishedVersion` pointer operate at course grain. Adding per-module state would diverge from the spec and complicate the M5 rollback story.
+**Source:** TRD §4.2 (no state field on Module), PRD §6.3. User confirmed via AskUserQuestion.
+**How to apply:** Module has no `state` field. Student visibility via `assertStudentCanViewModule` step 2: `course.state === 'published'` else 404.
+
+## D-026 — Enrollment carries both `status` (lifecycle) and `accessState` (fee gate)
+**Date:** 2026-04-21
+**Why:** TRD §4.4 specifies `status: 'active' | 'expired' | 'revoked'` (lifecycle). The M5 prompt and the M3 prompt reference `accessState: 'active' | 'warn1' | 'warn2' | 'override' | 'suspended'` (fee engine output). These are orthogonal: status is set by admin + validity-date cron, accessState is flipped by the M5 fee-suspension state machine. Splitting them keeps the access-gate logic explicit and survives when M5 lands.
+**Source:** TRD §4.4 + PROMPTS.md M5/M8 ("enrollment.accessState"). M3 prompt §5.
+**How to apply:** Both fields on [api/src/models/enrollment.ts](../api/src/models/enrollment.ts). `accessState` defaults to `'active'` — nothing flips it in M3. `assertStudentCanViewModule` checks both: step 3 asserts `status === 'active'`, step 5 flips `status='expired'` if `validTo` is past, step 6 rejects if `accessState === 'suspended'`. M5 fee cron will mutate accessState.
+
+## D-027 — Storage factory mirrors email/WhatsApp D-016 pattern
+**Date:** 2026-04-21
+**Why:** Existing env has two relevant knobs: `INTEGRATIONS_MODE=stub|live` (D-016) and `STORAGE_PROVIDER=cloudinary|stub`. Collapsing them into one factory keeps the dev-safe defaults aligned across all adapters. User prompt said "pick via INTEGRATIONS_MODE" but the email/WhatsApp pattern already reads both a mode flag and a provider flag — storage should match.
+**Source:** M3 prompt §4, D-016.
+**How to apply:** `getStorage()` in [api/src/integrations/index.ts](../api/src/integrations/index.ts) returns `ConsoleStorageAdapter` when `INTEGRATIONS_MODE==='stub'` OR `STORAGE_PROVIDER==='stub'`. `CloudinaryStorageAdapter` only when both go live; its methods throw until the Cloudinary SDK is wired (scheduled for M5 receipts).
+
+## D-028 — Enrollment validity fields named `validTo` / `validFrom` (TRD wins)
+**Date:** 2026-04-21
+**Why:** M3 prompt §5 wrote `enrollment.validUntil`; TRD §4.4 specifies `validFrom` / `validTo`. Per CLAUDE.md §2 source-of-truth hierarchy, TRD wins on schema naming.
+**Source:** TRD §4.4.
+**How to apply:** Model + DTO + services use `validFrom` / `validTo` throughout. Documented for the session-end commit note.
+
+## D-029 — `module.viewed` audit action allowed (opened-event only)
+**Date:** 2026-04-21
+**Why:** PRD §6.3 explicitly bans watch-time and per-page PDF tracking. A single "module opened" event for analytics — no second-by-second telemetry, no quiz-scroll signals — is compatible with that ban and matches the M3 prompt §5 ("log to AuditLog with action='module.viewed'").
+**Source:** M3 prompt §5, PRD §6.3 (boundary).
+**How to apply:** `module.viewed` appended to `AUDIT_ACTIONS` in [packages/shared-types/src/enums.ts](../packages/shared-types/src/enums.ts). Written by `recordModuleViewed` in [api/src/services/moduleAccessService.ts](../api/src/services/moduleAccessService.ts) only on the happy path of the student-access gate; best-effort, never blocks the response.
+
+## D-030 — `courseVersion` pointer on Enrollment deferred past Phase 1
+**Date:** 2026-04-21
+**Why:** PRD §6.3 describes an "immutable courseVersion pointer on affected enrolments — unpublishing rolls back", but TRD §4.4 omits the field and no rollback user story exists yet. For Phase 1 we bump `Course.publishedVersion` on publish but don't snapshot it per enrolment; unpublish just flips `state='sandbox'`. Rollback semantics are not part of the June internal test / July launch scope.
+**Source:** PRD §6.3 vs TRD §4.4 (contradiction). Logged as Q-M3-01.
+**How to apply:** Enrollment schema has no `courseVersion` field. If Logan confirms rollback is needed, we'll add the pointer in a later amendment — additive, not destructive.
+
+## D-031 — `GET /v1/enrollments/me` and `GET /v1/me/courses` are aliases
+**Date:** 2026-04-21
+**Why:** M3 prompt §3 named `/v1/enrollments/me`; TRD §5.3 named `/v1/me/courses`. Shipping both as aliases honours both contracts at zero cost and lets the M4+ web client call whichever matches the spec it's reading.
+**Source:** M3 prompt §3 + TRD §5.3. User confirmed via AskUserQuestion.
+**How to apply:** [api/src/routes/enrollments.ts](../api/src/routes/enrollments.ts) mounts `GET /me`. [api/src/routes/meCourses.ts](../api/src/routes/meCourses.ts) mounts `GET /` (as `/v1/me/courses`) against the same service call; both return identical `{ data: { enrolments: [...] } }` payloads.
+
+## D-032 — No `code` field on Program/Course/Module/Batch/Enrollment
+**Date:** 2026-04-21
+**Why:** CLAUDE.md §5 specifies human-readable codes only on Student, Invoice, Ticket, Receipt. Program and Course use slugs (already in TRD §4.2). Module/Batch/Enrollment addressed by `_id` + contextual labels.
+**Source:** CLAUDE.md §5 + TRD §4.2.
+**How to apply:** None — models omit any `code` field for these resources.
+
+## D-033 — Seed script seeds programs only; course/module trees left to admin UI
+**Date:** 2026-04-21
+**Why:** BRD §2.3 names the two Phase 1 programs ("Aviation Diploma", "Retail & Fashion Diploma", 300h each) but BRD/PRD don't specify course catalogues or module lists. Seeding speculative course trees would create drift once Logan provides the actual content plan.
+**Source:** BRD §2.3; M3 prompt §1.
+**How to apply:** [api/scripts/seed.ts](../api/scripts/seed.ts) upserts two Program rows by slug. Idempotent via `{ $setOnInsert }`. Invocation: `MONGODB_URI=… npm run seed -w api`. Test coverage in [api/tests/integration/seed.test.ts](../api/tests/integration/seed.test.ts) runs it twice to prove no duplicates.
+
+## D-035 — Student course-access gate shared across `/v1/modules/:id` and `/v1/me/courses/:courseId`
+**Date:** 2026-04-21
+**Why:** Security review caught that `GET /v1/me/courses/:courseId` was returning the full module list (including `videoUrl`, `pdfUrl`, `pdfStorageKey`) while only checking `enrolment.status === 'active'`. A fee-suspended student (M5 flips `accessState='suspended'`) or an expired student (past `validTo`, before the M5 reconcile cron runs) could bypass the per-module gate by going through the catalog endpoint and just dereferencing the stored URLs directly.
+**Source:** M3 security-review 2026-04-21.
+**How to apply:** Extracted `assertStudentCanAccessCourse(student, course)` out of `moduleAccessService.assertStudentCanViewModule`. The per-module gate now delegates to it (masking the sandbox-course 404 as a module-404 to avoid probing). `GET /v1/me/courses/:courseId` in [api/src/routes/meCourses.ts](../api/src/routes/meCourses.ts) calls the same helper — one source of truth for "student may see this course's content." New integration file [api/tests/integration/meCourses.test.ts](../api/tests/integration/meCourses.test.ts) covers the 5 cases (happy, sandbox 404, not-enrolled, expired, suspended) end-to-end.
+
+## D-034 — User.code index migrated from `sparse: true` to `partialFilterExpression`
+**Date:** 2026-04-21
+**Why:** M3 integration tests that create several null-code users (admin + multiple students) hit `E11000 { code: null }`. MongoDB 5+ `sparse: true` only skips missing fields, not explicit `null` values, and `default: null` on the `code` field wrote null into every non-coded doc. M2 tests only got lucky by creating ≤1 null-code user per case.
+**Source:** M3 test-harness debugging.
+**How to apply:** [api/src/models/user.ts](../api/src/models/user.ts) replaces the inline `unique: true, sparse: true` on `code` with a separate `UserSchema.index({ code: 1 }, { unique: true, partialFilterExpression: { code: { $type: 'string' } } })`. Only string-valued `code` fields are indexed, so null admins/superadmins/finance coexist. No data migration needed yet — no prod deploy, mongodb-memory-server starts fresh per run.

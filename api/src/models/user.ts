@@ -44,7 +44,12 @@ const UserSchema = new Schema<UserDoc>(
       required: true,
       index: true,
     },
-    code: { type: String, default: null, unique: true, sparse: true },
+    // `code` is only set for student + faculty (IL-YYYY-NNNN). For other roles
+    // the field stays `null`, so we use a partial index that only indexes string
+    // values — prevents `E11000 { code: null }` collisions across admin rows.
+    // (Plain `sparse: true` doesn't help in MongoDB 5+ because it still indexes
+    // explicit `null` values.)
+    code: { type: String, default: null },
     name: { type: String, required: true },
     email: {
       type: String,
@@ -116,6 +121,10 @@ const UserSchema = new Schema<UserDoc>(
 );
 
 UserSchema.index({ role: 1, batchId: 1, status: 1 });
+UserSchema.index(
+  { code: 1 },
+  { unique: true, partialFilterExpression: { code: { $type: 'string' } } },
+);
 
 export type HydratedUser = HydratedDocument<UserDoc>;
 
