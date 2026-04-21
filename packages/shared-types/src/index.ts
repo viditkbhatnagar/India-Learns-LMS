@@ -9,3 +9,5 @@ export * from './dto/timetable.js';
 export * from './dto/notification.js';
 export * from './dto/fees.js';
 export * from './dto/tickets.js';
+export * from './dto/assessments.js';
+export * from './dto/feedback.js';

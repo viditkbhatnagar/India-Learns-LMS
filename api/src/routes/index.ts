@@ -27,9 +27,14 @@ import { feeRemindersRouter } from './feeReminders.js';
 import { suspensionOverrideRouter } from './suspensionOverride.js';
 import { jobsFeesRouter } from './jobsFees.js';
 import { jobsSlaRouter } from './jobsSla.js';
+import { jobsFacultyDigestRouter } from './jobsFacultyDigest.js';
 import { ticketsRouter } from './tickets.js';
 import { meTicketsRouter } from './meTickets.js';
 import { staffTicketsRouter } from './staffTickets.js';
+import { quizzesRouter, quizAttemptsRouter } from './quizzes.js';
+import { examsRouter, examAttemptsRouter } from './exams.js';
+import { rubricsRouter } from './rubrics.js';
+import { feedbackRouter, meFeedbackRouter } from './feedback.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -37,6 +42,7 @@ export function v1Router(): Router {
   // unauthenticated HMAC-signed calls from Render can hit them.
   router.use('/jobs', jobsFeesRouter());
   router.use('/jobs', jobsSlaRouter());
+  router.use('/jobs', jobsFacultyDigestRouter());
 
   router.use('/auth', authRouter());
   router.use('/users', usersRouter());
@@ -71,6 +77,20 @@ export function v1Router(): Router {
   router.use('/tickets/me', meTicketsRouter());
   router.use('/staff/tickets', staffTicketsRouter());
   router.use('/tickets', ticketsRouter());
+
+  // M7 — Assessments + Rubric Feedback. `/quiz-attempts` and `/exam-attempts`
+  // mount under their own namespaces so the `/submit`, `/grade` POST/PATCH
+  // routes don't collide with the parent `/quizzes/:id` or `/exams/:id`
+  // handlers.
+  router.use('/quizzes', quizzesRouter());
+  router.use('/quiz-attempts', quizAttemptsRouter());
+  router.use('/exams', examsRouter());
+  router.use('/exam-attempts', examAttemptsRouter());
+  router.use('/rubrics', rubricsRouter());
+  // `/me/feedback` mounts BEFORE `/feedback` so the literal `/me` segment
+  // isn't swallowed by the `/:id` handler (same pattern as tickets).
+  router.use('/me/feedback', meFeedbackRouter());
+  router.use('/feedback', feedbackRouter());
 
   // Note: fees-suspension enforcement lives inside requireAuth itself — it
   // emits 403 FEES_SUSPENDED for non-whitelisted routes when the user's

@@ -187,3 +187,33 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Owner:** Logan.
 **Context:** PRD §10 is silent on whether reopening a ticket (staff direct or student request) resets the resolution SLA. Current M6 behaviour: `slaResolveBreached` stays true once flipped, even if the ticket is reopened; the existing `slaResolveDeadline` is not adjusted. Practical effect: admins see the breach "sticky" in dashboards past reopen. If product wants a fresh 5d/15bd window on reopen, `reopenTicket` would need to reset the deadline + breach flags.
 **Impact:** Low for Phase 1 (SLA dashboard is reporting, not blocking). Easy fix if product decides.
+
+## Q-M7-01 — Course completion predicate drops the "all modules opened" clause
+**Raised:** 2026-04-22 (M7).
+**Owner:** Logan.
+**Context:** PRD §13.1 says "all Modules' content opened + all Quizzes passed + Final Exam passed". But M3 (Logan's Q3 ruling, CLAUDE.md §4 item 11) shipped NO watch-time / page-open telemetry. Without a `ModuleAccess` collection, "content opened" is unobservable. D-061 simplifies the predicate to "all quizzes passed + final exam passed" and pushes this for Logan's ratification. If Logan wants the original rule enforced, M7 needs a minimal `POST /v1/modules/:id/mark-opened` endpoint that the student UI hits on content tab open; service would AND that set into the completion check.
+**Impact:** Medium. Without confirmation, the `course.completed` DomainEvent (M8 Certifier.io trigger) may fire a step earlier than some stakeholders expect. Easy fix in either direction.
+
+## Q-M7-02 — Assessment + feedback WhatsApp templates
+**Raised:** 2026-04-22 (M7).
+**Owner:** LUC ops / Logan.
+**Context:** PRD §11.3 says feedback notifications are email + in-app only at launch; §14.3 registry does not include assessment-graded WhatsApp. M7 ships `assessment.graded` and `feedback.published` with `channels: ['inapp', 'email']` — no WhatsApp. Meta has three pre-approved templates (fee_due, payment_received, ticket_update); assessment-related templates are not in that set. If product wants WhatsApp on these events, new templates need Meta approval first.
+**Impact:** Low for Phase 1. Extending the channel map + adding a WABA template mapping is a single-commit change if/when templates land.
+
+## Q-M7-03 — Faculty weekly digest scope (ungraded essays + draft feedback?)
+**Raised:** 2026-04-22 (M7).
+**Owner:** Logan.
+**Context:** TRD §10.1 calls the cron "faculty weekly feedback-coverage email" and PRD US-FB-04 frames coverage as "% of assignments with feedback within 7 days". D-063 implements "awaiting feedback" as the union of (a) ExamAttempts submitted >7d ago with no total score (ungraded essays) AND (b) FeedbackEntry drafts untouched >7d. Logan should confirm both categories belong in the same digest or whether stale drafts should be excluded.
+**Impact:** Low. One filter toggle in `buildFacultyDigestBuckets`.
+
+## Q-M7-04 — Quiz/exam state machine final terminal transitions
+**Raised:** 2026-04-22 (M7).
+**Owner:** Logan.
+**Context:** PRD §12.2 lists `Draft → Scheduled → Live → Closed → Graded`. M7 implements four states (no separate "Graded") — once all attempts are graded, the exam remains "closed" and grading completeness is a per-attempt property, not a per-exam one. If product wants a fifth "graded" state flipped when 100% of attempts are graded, we'd add a terminal transition + a reconciliation cron or a hook on `gradeExamAttempt`. Currently no UI surface depends on this.
+**Impact:** Low. Easy additive.
+
+## Q-M7-05 — Test-ordering flake on `payments.record.test.ts`
+**Raised:** 2026-04-22 (M7, carries M6 observation).
+**Owner:** Vidit.
+**Context:** `tests/integration/payments.record.test.ts` intermittently returns 404 on `POST /v1/payments` when run inside the full suite; passes in isolation and on retry. First observed in M6 coverage run; reproduced (once) during M7 full-suite run. Not a code regression — two consecutive M7 full-suite runs (post-M7 code) show 364/364 green. Likely test-bleed from a neighbouring test that drops the route before payments runs. Deserves a proper investigation before M9 deploy to avoid flakes in CI.
+**Impact:** Medium only because it can cause spurious CI failures. Safe to ignore during M7; schedule for M8 debugging bandwidth.

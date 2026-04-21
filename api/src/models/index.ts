@@ -74,3 +74,32 @@ export type {
   TicketCommentDoc,
   HydratedTicketComment,
 } from './ticketComment.js';
+export { Quiz } from './quiz.js';
+export type { QuizDoc, QuizQuestionDoc, HydratedQuiz } from './quiz.js';
+export { QuizAttempt } from './quizAttempt.js';
+export type {
+  QuizAttemptDoc,
+  QuizAttemptAnswerDoc,
+  HydratedQuizAttempt,
+} from './quizAttempt.js';
+export { Exam } from './exam.js';
+export type { ExamDoc, ExamQuestionDoc, HydratedExam } from './exam.js';
+export { ExamAttempt } from './examAttempt.js';
+export type {
+  ExamAttemptDoc,
+  ExamAttemptAnswerDoc,
+  ExamAttemptEssayDoc,
+  ExamAttemptGradeDoc,
+  ExamAttemptRubricScoreDoc,
+  HydratedExamAttempt,
+} from './examAttempt.js';
+export { Rubric } from './rubric.js';
+export type { RubricDoc, RubricCriterionDoc, HydratedRubric } from './rubric.js';
+export { FeedbackEntry } from './feedbackEntry.js';
+export type {
+  FeedbackEntryDoc,
+  FeedbackScoreDoc,
+  HydratedFeedbackEntry,
+} from './feedbackEntry.js';
+export { DomainEvent } from './domainEvent.js';
+export type { DomainEventDoc, HydratedDomainEvent } from './domainEvent.js';

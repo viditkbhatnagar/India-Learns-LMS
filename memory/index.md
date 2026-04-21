@@ -15,6 +15,7 @@ Quick map of cross-session memory. Load these at every session start per [`/CLAU
 | [milestones/M4-timetable.md](milestones/M4-timetable.md) | M4 — Timetable entries/overrides/holidays + NotificationService + dashboard nextClass |
 | [milestones/M5-fees.md](milestones/M5-fees.md) | M5 — FeeStructure + Invoice + Installment + Payment + Receipt + CreditNote + reminder/autosuspend crons + CloudinaryStorageAdapter |
 | [milestones/M6-tickets.md](milestones/M6-tickets.md) | M6 — Ticket + TicketComment + 5-category state machine + SLA cron + 7-day reopen window + complaint precondition |
+| [milestones/M7-assessments.md](milestones/M7-assessments.md) | M7 — Quiz + QuizAttempt + Exam + ExamAttempt + Rubric + FeedbackEntry + DomainEvent + course completion + Mon 09:00 IST faculty digest cron |
 
 ## Conventions
 

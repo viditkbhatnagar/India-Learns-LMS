@@ -47,6 +47,8 @@ const NotificationSchema = new Schema<NotificationDoc>(
         'ticket.state_changed',
         'ticket.sla_ack_breached',
         'ticket.sla_resolve_breached',
+        'assessment.graded',
+        'feedback.published',
       ],
       required: true,
     },

@@ -3,9 +3,14 @@ import type {
   FeeComponentCadence,
   FeeComponentKind,
   FeeDueRule,
+  FeedbackLevel,
+  FeedbackStatus,
   OverrideAction,
   PaymentMethod,
+  QuizQuestionKind,
+  QuizState,
   Role,
+  RubricCriterionKind,
   TicketCategory,
   TicketCommentVisibility,
   TicketPriority,
@@ -16,6 +21,9 @@ import {
   Course,
   CreditNote,
   Enrollment,
+  Exam,
+  ExamAttempt,
+  FeedbackEntry,
   FeeInstallment,
   FeeStructure,
   Holiday,
@@ -24,7 +32,10 @@ import {
   Notification,
   Payment,
   Program,
+  Quiz,
+  QuizAttempt,
   Receipt,
+  Rubric,
   Ticket,
   TicketComment,
   TimetableEntry,
@@ -34,6 +45,11 @@ import {
   type CourseDoc,
   type CreditNoteDoc,
   type EnrollmentDoc,
+  type ExamDoc,
+  type ExamAttemptDoc,
+  type ExamQuestionDoc,
+  type FeedbackEntryDoc,
+  type FeedbackScoreDoc,
   type FeeComponentDoc,
   type FeeInstallmentDoc,
   type FeeStructureDoc,
@@ -43,7 +59,12 @@ import {
   type NotificationDoc,
   type PaymentDoc,
   type ProgramDoc,
+  type QuizDoc,
+  type QuizAttemptDoc,
+  type QuizQuestionDoc,
   type ReceiptDoc,
+  type RubricDoc,
+  type RubricCriterionDoc,
   type TicketCommentDoc,
   type TicketDoc,
   type TimetableEntryDoc,
@@ -649,5 +670,244 @@ export async function makeTicketComment(
     body: input.body ?? `Comment ${counter}`,
     visibility: input.visibility ?? 'public',
   });
+}
+
+// ---------- M7 — Assessments + Feedback factories ----------
+
+export interface MakeQuizInput {
+  moduleId: Types.ObjectId;
+  title?: string;
+  state?: QuizState;
+  passingPercent?: number;
+  maxAttempts?: number;
+  durationMinutes?: number | null;
+  openAt?: Date | null;
+  closeAt?: Date | null;
+  questions?: Array<{
+    text?: string;
+    kind: QuizQuestionKind;
+    options: string[];
+    correctIndices: number[];
+    points?: number;
+  }>;
+}
+
+export async function makeQuiz(input: MakeQuizInput): Promise<QuizDoc> {
+  counter += 1;
+  const questions: QuizQuestionDoc[] = (
+    input.questions ?? [
+      {
+        text: 'What is 2 + 2?',
+        kind: 'mcq_single',
+        options: ['3', '4', '5', '22'],
+        correctIndices: [1],
+        points: 1,
+      },
+    ]
+  ).map((q) => ({
+    text: q.text ?? 'Question',
+    kind: q.kind,
+    options: [...q.options],
+    correctIndices: [...q.correctIndices],
+    points: q.points ?? 1,
+  }));
+  return Quiz.create({
+    moduleId: input.moduleId,
+    title: input.title ?? `Quiz ${counter}`,
+    durationMinutes: input.durationMinutes ?? null,
+    maxAttempts: input.maxAttempts ?? 3,
+    passingPercent: input.passingPercent ?? 60,
+    questions,
+    state: input.state ?? 'live',
+    openAt: input.openAt ?? null,
+    closeAt: input.closeAt ?? null,
+  });
+}
+
+export interface MakeQuizAttemptInput {
+  quizId: Types.ObjectId;
+  studentId: Types.ObjectId;
+  startedAt?: Date;
+  submittedAt?: Date | null;
+  answers?: Array<{ questionIndex: number; chosenIndices: number[] }>;
+  scorePercent?: number | null;
+  passed?: boolean | null;
+}
+
+export async function makeQuizAttempt(
+  input: MakeQuizAttemptInput,
+): Promise<QuizAttemptDoc> {
+  return QuizAttempt.create({
+    quizId: input.quizId,
+    studentId: input.studentId,
+    startedAt: input.startedAt ?? new Date(),
+    submittedAt: input.submittedAt ?? null,
+    answers: input.answers ?? [],
+    scorePercent: input.scorePercent ?? null,
+    passed: input.passed ?? null,
+  });
+}
+
+export interface MakeExamInput {
+  courseId: Types.ObjectId;
+  title?: string;
+  state?: QuizState;
+  passingPercent?: number;
+  maxAttempts?: number;
+  durationMinutes?: number | null;
+  openAt?: Date | null;
+  closeAt?: Date | null;
+  questions?: Array<Partial<ExamQuestionDoc> & {
+    kind: ExamQuestionDoc['kind'];
+    text?: string;
+    options?: string[];
+    correctIndices?: number[];
+    points?: number;
+  }>;
+}
+
+export async function makeExam(input: MakeExamInput): Promise<ExamDoc> {
+  counter += 1;
+  const questions: ExamQuestionDoc[] = (
+    input.questions ?? [
+      {
+        text: 'Capital of India?',
+        kind: 'mcq_single',
+        options: ['Mumbai', 'New Delhi', 'Chennai', 'Kolkata'],
+        correctIndices: [1],
+        points: 2,
+      },
+    ]
+  ).map((q) => ({
+    text: q.text ?? 'Question',
+    kind: q.kind,
+    options: q.options ? [...q.options] : [],
+    correctIndices: q.correctIndices ? [...q.correctIndices] : [],
+    points: q.points ?? 1,
+    rubricId: q.rubricId ?? null,
+    wordLimit: q.wordLimit ?? null,
+  }));
+  return Exam.create({
+    courseId: input.courseId,
+    title: input.title ?? `Exam ${counter}`,
+    durationMinutes: input.durationMinutes ?? 120,
+    maxAttempts: input.maxAttempts ?? 1,
+    passingPercent: input.passingPercent ?? 50,
+    questions,
+    state: input.state ?? 'live',
+    openAt: input.openAt ?? null,
+    closeAt: input.closeAt ?? null,
+  });
+}
+
+export interface MakeExamAttemptInput {
+  examId: Types.ObjectId;
+  studentId: Types.ObjectId;
+  startedAt?: Date;
+  submittedAt?: Date | null;
+  answers?: Array<{ questionIndex: number; chosenIndices: number[] }>;
+  essayAnswers?: Array<{ questionIndex: number; text: string }>;
+  mcqScorePercent?: number | null;
+  totalScorePercent?: number | null;
+  passed?: boolean | null;
+}
+
+export async function makeExamAttempt(
+  input: MakeExamAttemptInput,
+): Promise<ExamAttemptDoc> {
+  return ExamAttempt.create({
+    examId: input.examId,
+    studentId: input.studentId,
+    startedAt: input.startedAt ?? new Date(),
+    submittedAt: input.submittedAt ?? null,
+    answers: input.answers ?? [],
+    essayAnswers: input.essayAnswers ?? [],
+    mcqScorePercent: input.mcqScorePercent ?? null,
+    essayScorePercent: null,
+    totalScorePercent: input.totalScorePercent ?? null,
+    passed: input.passed ?? null,
+    grades: [],
+    graderUserId: null,
+    gradedAt: null,
+  });
+}
+
+export interface MakeRubricInput {
+  courseId: Types.ObjectId;
+  name?: string;
+  isTemplate?: boolean;
+  criteria?: Array<{
+    label: string;
+    kind: RubricCriterionKind;
+    maxScore?: number | null;
+    scale?: string[];
+  }>;
+}
+
+export async function makeRubric(input: MakeRubricInput): Promise<RubricDoc> {
+  counter += 1;
+  const criteria: RubricCriterionDoc[] = (
+    input.criteria ?? [
+      { label: 'Critical thinking', kind: 'numeric', maxScore: 10, scale: [] },
+      { label: 'Presentation', kind: 'numeric', maxScore: 5, scale: [] },
+    ]
+  ).map((c) => ({
+    label: c.label,
+    kind: c.kind,
+    maxScore: c.maxScore ?? null,
+    scale: c.scale ?? [],
+  }));
+  return Rubric.create({
+    courseId: input.courseId,
+    name: input.name ?? `Rubric ${counter}`,
+    criteria,
+    isTemplate: input.isTemplate ?? false,
+  });
+}
+
+export interface MakeFeedbackInput {
+  studentId: Types.ObjectId;
+  courseId: Types.ObjectId;
+  facultyId: Types.ObjectId;
+  level?: FeedbackLevel;
+  moduleId?: Types.ObjectId | null;
+  assessmentRef?: Types.ObjectId | null;
+  rubricId?: Types.ObjectId | null;
+  scores?: FeedbackScoreDoc[];
+  comments?: string;
+  summary?: string;
+  status?: FeedbackStatus;
+  publishedAt?: Date | null;
+  createdAt?: Date;
+}
+
+export async function makeFeedback(
+  input: MakeFeedbackInput,
+): Promise<FeedbackEntryDoc> {
+  counter += 1;
+  const doc = await FeedbackEntry.create({
+    studentId: input.studentId,
+    courseId: input.courseId,
+    moduleId: input.moduleId ?? null,
+    facultyId: input.facultyId,
+    level: input.level ?? 'module',
+    assessmentRef: input.assessmentRef ?? null,
+    rubricId: input.rubricId ?? null,
+    scores: input.scores ?? [],
+    comments: input.comments ?? '',
+    summary: input.summary ?? `Summary ${counter}`,
+    status: input.status ?? 'draft',
+    publishedAt: input.publishedAt ?? null,
+  });
+  if (input.createdAt) {
+    // Mongoose timestamps: true bumps createdAt on every save(), so bypass via
+    // a raw updateOne with timestamps disabled.
+    await FeedbackEntry.collection.updateOne(
+      { _id: doc._id },
+      { $set: { createdAt: input.createdAt } },
+    );
+    return (await FeedbackEntry.findById(doc._id)) as FeedbackEntryDoc;
+  }
+  return doc;
 }
 

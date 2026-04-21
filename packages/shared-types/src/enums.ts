@@ -132,6 +132,28 @@ export type TicketPriority = (typeof TICKET_PRIORITIES)[number];
 export const TICKET_COMMENT_VISIBILITY = ['public', 'internal'] as const;
 export type TicketCommentVisibility = (typeof TICKET_COMMENT_VISIBILITY)[number];
 
+// M7 — Assessments + Rubric Feedback (TRD §4.9, §4.8; PRD §11, §12)
+export const QUIZ_STATES = ['draft', 'scheduled', 'live', 'closed'] as const;
+export type QuizState = (typeof QUIZ_STATES)[number];
+
+export const QUIZ_QUESTION_KINDS = ['mcq_single', 'mcq_multi'] as const;
+export type QuizQuestionKind = (typeof QUIZ_QUESTION_KINDS)[number];
+
+export const EXAM_QUESTION_KINDS = ['mcq_single', 'mcq_multi', 'essay'] as const;
+export type ExamQuestionKind = (typeof EXAM_QUESTION_KINDS)[number];
+
+export const RUBRIC_CRITERION_KINDS = ['numeric', 'scale'] as const;
+export type RubricCriterionKind = (typeof RUBRIC_CRITERION_KINDS)[number];
+
+export const FEEDBACK_LEVELS = ['assignment', 'module', 'assessment'] as const;
+export type FeedbackLevel = (typeof FEEDBACK_LEVELS)[number];
+
+export const FEEDBACK_STATUSES = ['draft', 'published'] as const;
+export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
+
+export const DOMAIN_EVENT_TYPES = ['course.completed'] as const;
+export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];
+
 export const NOTIFICATION_TYPES = [
   'timetable.change',
   'fees.upcoming.14d',
@@ -148,6 +170,9 @@ export const NOTIFICATION_TYPES = [
   'ticket.state_changed',
   'ticket.sla_ack_breached',
   'ticket.sla_resolve_breached',
+  // M7 — assessments + feedback (PRD §14.3)
+  'assessment.graded',
+  'feedback.published',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -217,5 +242,25 @@ export const AUDIT_ACTIONS = [
   'ticket.sla_ack_breached',
   'ticket.sla_resolve_breached',
   'jobs.sla_timers.invoked',
+  // M7 — assessments
+  'quiz.created',
+  'quiz.updated',
+  'quiz.state_changed',
+  'quiz.attempt.started',
+  'quiz.attempt.submitted',
+  'exam.created',
+  'exam.updated',
+  'exam.state_changed',
+  'exam.attempt.started',
+  'exam.attempt.submitted',
+  'exam.attempt.graded',
+  'rubric.created',
+  'rubric.updated',
+  'rubric.deleted',
+  'feedback.created',
+  'feedback.updated',
+  'feedback.published',
+  'enrollment.completed',
+  'jobs.faculty_digest.invoked',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

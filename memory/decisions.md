@@ -357,3 +357,57 @@ Append-only log. Every entry: ID, date, decision, why, source.
 **Why:** TRD §5.7 names `/v1/me/tickets` and `POST /v1/tickets/:id/state`; the M6 prompt used `/v1/tickets/me` and `PATCH`. Per the D-031 alias pattern we mount both so both client contracts work. Zero behavioural risk — same handler, same service.
 **Source:** TRD §5.7; M6 prompt; D-031.
 **How to apply:** [api/src/routes/index.ts](../api/src/routes/index.ts) mounts `meTicketsRouter` at both `/me/tickets` and `/tickets/me` (the latter BEFORE `/tickets` so Express doesn't swallow `/me` as `/:id`). [api/src/routes/tickets.ts](../api/src/routes/tickets.ts) registers both `POST` and `PATCH` handlers on `/:id/state`.
+
+## D-060 — MCQ grading is all-or-nothing per question
+**Date:** 2026-04-22 (M7)
+**Why:** Neither TRD §5.9 nor PRD §12 pins partial-credit rules for `mcq_multi`. Vidit confirmed (M7 kickoff AskUserQuestion): chosenIndices set must equal correctIndices set. Any deviation — superset, subset, or wrong single — scores 0. Simplest, least disputable, and matches "tie" edge case being 0. Skipped answers (empty chosenIndices) naturally resolve to 0 via the same rule.
+**Source:** PRD §12.3 AC (silent on partial); M7 stakeholder clarification 2026-04-22.
+**How to apply:** [api/src/services/assessmentScoring.ts](../api/src/services/assessmentScoring.ts) `gradeMcqAnswers` implements `setsEqual` for multi and `chosen.length===1 && chosen[0]===correctIndices[0]` for single. Covered by [api/tests/unit/assessmentScoring.test.ts](../api/tests/unit/assessmentScoring.test.ts) (happy, "tie", skip-all, wrong-extra, single-multi-pick). If product later requests proportional credit, one `gradeMcqAnswers` branch changes.
+
+## D-061 — Course completion predicate drops "all modules opened"
+**Date:** 2026-04-22 (M7)
+**Why:** PRD §13.1 phrases completion as "all Modules' content opened + all Quizzes passed + Final Exam passed". But M3 (CLAUDE.md §4 item 11, Logan Q3) deliberately shipped NO watch-time or page-open tracking — there is no `ModuleAccess` or progress collection to observe "opened". M7 simplifies the predicate to "all quizzes passed + at least one passing final-exam attempt". Vidit confirmed at M7 kickoff; flagged Q-M7-01 for Logan to ratify before M9.
+**Source:** PRD §13.1; CLAUDE.md §4 M3 item 11 (Logan Q3 decision); M7 AskUserQuestion 2026-04-22.
+**How to apply:** [api/src/services/courseCompletionService.ts](../api/src/services/courseCompletionService.ts) `checkAndMaybePublish`. Triggers on quiz `submit` (when passed) and exam `grade` (when graded + passed). Idempotent: second call on already-completed enrolment is a no-op and does not re-publish the event. Covered in [api/tests/unit/courseCompletionService.test.ts](../api/tests/unit/courseCompletionService.test.ts) (exam required, failing quiz blocks, idempotent).
+
+## D-062 — Domain-event pattern: persist + in-process listener registry
+**Date:** 2026-04-22 (M7)
+**Why:** M7 needs to notify M8 "course completion → Certifier.io issuance" without coupling the two milestones. No queue infra exists (CLAUDE.md §3 "no separate queue infra for Phase 1"). Chose a minimal pattern: `publishDomainEvent(type, payload)` writes a `DomainEvent` row (persistent) AND invokes any listeners `registerListener(type, fn)` registered in-process. M8 will register the Certifier.io listener against `'course.completed'`; in the meantime the event row is evidence that detection works. Listener failures are logged but do NOT fail the publisher — the persisted row is authoritative and a later consumer can sweep unconsumed events.
+**Source:** CLAUDE.md §3; PRD §13.1 + §13.2 (certificate idempotency); M7 plan.
+**How to apply:** [api/src/services/domainEventService.ts](../api/src/services/domainEventService.ts) + [api/src/models/domainEvent.ts](../api/src/models/domainEvent.ts). Currently only `course.completed` is defined; extend the `DomainEventType` enum in [packages/shared-types/src/enums.ts](../packages/shared-types/src/enums.ts) before adding new event families.
+
+## D-063 — Faculty weekly digest: ungraded essays + stale drafts, 7-day threshold
+**Date:** 2026-04-22 (M7)
+**Why:** TRD §10.1 schedules `digest-faculty-weekly` at `0 9 * * 1` (Mon 09:00 IST) as a "feedback-coverage email". PRD US-FB-04 also defines coverage as "% of assignments with feedback within 7 days". M7 implements coverage as the union of (a) ExamAttempt rows with `submittedAt < now-7d AND totalScorePercent === null` (ungraded essays) and (b) FeedbackEntry drafts with `createdAt < now-7d AND status === 'draft'`. Grouped per faculty, one email per faculty. Q-M7-03 flags this scoping for Logan confirmation.
+**Source:** TRD §10.1 + §7.7; PRD US-FB-04.
+**How to apply:** [api/src/services/facultyDigestService.ts](../api/src/services/facultyDigestService.ts) `buildFacultyDigestBuckets` + `runFacultyDigest`. Signed via `requireJobAuth` at [api/src/routes/jobsFacultyDigest.ts](../api/src/routes/jobsFacultyDigest.ts). Render cron line: `0 9 * * 1` in `Asia/Kolkata`; runbook addition pending in M9.
+
+## D-064 — Exam grading replaces the grades[] array (idempotent re-grade)
+**Date:** 2026-04-22 (M7)
+**Why:** Faculty may regrade an essay after student contests a score (via an Academic ticket, per PRD §11.1). Merging grades by questionIndex invites drift (stale rubricScores from a prior run). M7 replaces the whole `grades[]` array on each grade call and recomputes `mcqScorePercent`/`essayScorePercent`/`totalScorePercent` from scratch. Safe because the source data (`questions`, `answers`, `essayAnswers`) is immutable post-submit. Regrade's `before`/`after` diff is captured in the `exam.attempt.graded` audit row.
+**Source:** Design choice for M7; matches PRD §11.1 one-way feedback model (grade changes are audited, not discussed via comments).
+**How to apply:** [api/src/services/gradingService.ts](../api/src/services/gradingService.ts) `gradeExamAttempt`. Unit test "is idempotent: re-grading rewrites" verifies [api/tests/unit/gradingService.test.ts](../api/tests/unit/gradingService.test.ts).
+
+## D-065 — Feedback cannot revert published → draft
+**Date:** 2026-04-22 (M7)
+**Why:** Published feedback fires an email + in-app notification the student has already seen. Reverting it to draft would be ambiguous: should the notification be "unpublished"? The student has already opened it. Safer rule: published is terminal, edit a draft or create a new entry instead. Throws `409 FEEDBACK_ALREADY_PUBLISHED`.
+**Source:** PRD §11.3 ("Drafts don't notify"); M7 design choice.
+**How to apply:** [api/src/services/feedbackService.ts](../api/src/services/feedbackService.ts) `updateFeedback`. Tested in [api/tests/unit/feedbackService.test.ts](../api/tests/unit/feedbackService.test.ts).
+
+## D-066 — `/me/feedback` mounts BEFORE `/feedback` (literal segment wins)
+**Date:** 2026-04-22 (M7)
+**Why:** Same pattern as M6's `/me/tickets` vs `/tickets/:id`. Express matches routers in registration order; if `/feedback` mounts first, `/feedback/me` would route into the `/:id` handler and try to ObjectId-parse "me". Mount literal routes first.
+**Source:** D-059 precedent.
+**How to apply:** [api/src/routes/index.ts](../api/src/routes/index.ts) — `meFeedbackRouter` at `/me/feedback` mounts immediately before `feedbackRouter` at `/feedback`.
+
+## D-067 — Student-facing quiz/exam DTO strips correctIndices
+**Date:** 2026-04-22 (M7)
+**Why:** The Mongoose doc's `toJSON` transform doesn't discriminate: it would serialize the full question including `correctIndices`, handing students the answer key during an attempt. `toStudentQuizDto` + `toStudentExamDto` return a narrowed projection (text, kind, options, points, wordLimit only — essay options also stripped). The full shape is reserved for faculty/admin.
+**Source:** Obvious security requirement.
+**How to apply:** [api/src/services/quizService.ts](../api/src/services/quizService.ts) + [api/src/services/examService.ts](../api/src/services/examService.ts); used by `GET /v1/quizzes/:id` and `GET /v1/exams/:id` when `auth.role === 'student'`.
+
+## D-068 — `GET /v1/feedback/:id` role gate + service-level default-deny
+**Date:** 2026-04-22 (M7 security review)
+**Why:** First-pass M7 mounted `GET /v1/feedback/:id` under `requireAuth` only, relying on in-service role branches (`student` owner + published, `faculty` course ownership). The branches had no default-deny, so any other authenticated role — notably `finance` — fell through and received the full `FeedbackEntryDto` (including drafts). Security review filtered this to confidence 9/10. Fix is twofold: gate the route with `requireRole('student','faculty','admin','superadmin')` to match every sibling route on the same router, and add an explicit `else throw 403` in `getFeedback` so the service is defence-in-depth safe if a future route forgets the middleware. DPDP Act 2023 purpose-limitation reinforces this: feedback narratives are collected for academic review, not finance access.
+**Source:** M7 security-review skill, 2026-04-22.
+**How to apply:** [api/src/routes/feedback.ts](../api/src/routes/feedback.ts) `GET /:id` carries `requireRole('student','faculty','admin','superadmin')`. [api/src/services/feedbackService.ts](../api/src/services/feedbackService.ts) `getFeedback` ends with `else if (actor.role !== 'admin' && actor.role !== 'superadmin') throw new HttpError(403, 'FORBIDDEN', ...)`. Regression test in [api/tests/integration/feedback.test.ts](../api/tests/integration/feedback.test.ts) "finance role cannot read feedback via GET /v1/feedback/:id" verifies 403 on both draft and published entries and asserts the narrative summary does not leak in the error body.

@@ -112,11 +112,24 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Memory checkpoint (D-052 … D-059, Q-M6-01…04, M6 milestone file)
 - [ ] Admin ticket dashboard UI (deferred with M2/M3/M4/M5 UI backlog; API contract ready)
 
-## M7 — Assessments + feedback (day 29–33)
+## M7 — Assessments + feedback (day 29–33) — BACKEND DONE 2026-04-22
 
-- [ ] Module quizzes (MCQ), final exams (MCQ + essay), manual grading UI
-- [ ] Feedback model — rubric + written + summary
-- [ ] Student feedback dashboard
+- [x] Quiz + QuizAttempt + Exam + ExamAttempt + Rubric + FeedbackEntry + DomainEvent models
+- [x] `assessmentScoring` — all-or-nothing MCQ (D-060); essay totals; blended percent
+- [x] `quizService` (CRUD + start + submit; window + maxAttempts guards; student DTO strips correctIndices)
+- [x] `examService` (CRUD + start + submit; essay pending manual grading; student DTO strips answer keys)
+- [x] `gradingService.gradeExamAttempt` (faculty-own-course gate, rubric length validation, idempotent re-grade D-064, assessment.graded notification)
+- [x] `rubricService` CRUD (numeric maxScore≥1, scale ≥2 labels)
+- [x] `feedbackService` (draft/publish, published-cannot-revert D-065, level-shape guards, rubric coherence check, student read-only `/me/feedback`)
+- [x] `courseCompletionService.checkAndMaybePublish` — all-quizzes-passed + exam-passed predicate (D-061), idempotent, publishes `course.completed`
+- [x] `domainEventService` — persist + in-process listener registry (D-062), ready for M8 Certifier consumer
+- [x] `facultyDigestService` — Mon 09:00 IST cron, 7-day threshold, ungraded essays + stale drafts bundle (D-063)
+- [x] Routes: `/quizzes`, `/quiz-attempts`, `/exams`, `/exam-attempts`, `/rubrics`, `/feedback`, `/me/feedback` (mount order D-066); HMAC-signed `/jobs/digest-faculty-weekly`
+- [x] Notification types +2 (`assessment.graded`, `feedback.published`), channels inapp+email, no WhatsApp (Q-M7-02)
+- [x] 48 new tests (69 files / 364 total) · services coverage 81.05% lines / 65.59% branches / 90.35% functions (gates 70/55/70 — all pass)
+- [x] `docs/smoke/m7-assessments.md`
+- [x] Memory checkpoint (D-060 … D-067, Q-M7-01…05, M7 milestone file)
+- [ ] Faculty + student M7 UI screens (deferred with M2/M3/M4/M5/M6 UI backlog; API contract ready, approved webapp mockups in-place)
 
 ## M8 — Certificates + notifications + analytics (day 34–38)
 

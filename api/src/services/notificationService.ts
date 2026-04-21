@@ -36,6 +36,10 @@ const CHANNELS_BY_TYPE: Record<NotificationType, NotificationChannel[]> = {
   'ticket.state_changed': ['inapp', 'email', 'whatsapp'],
   'ticket.sla_ack_breached': ['inapp', 'email'],
   'ticket.sla_resolve_breached': ['inapp', 'email'],
+  // M7 — PRD §11.3 + §14.3. Email + in-app only; WhatsApp is not approved for
+  // assessment/feedback templates at launch (Q-M7-02).
+  'assessment.graded': ['inapp', 'email'],
+  'feedback.published': ['inapp', 'email'],
 };
 
 // Only three WABA templates are pre-approved at launch (D-007): `il_fee_due`,
