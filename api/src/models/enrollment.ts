@@ -18,6 +18,8 @@ export interface EnrollmentDoc {
   completedAt: Date | null;
   certificateUrl: string | null;
   certificateIssuedAt: Date | null;
+  certificateProviderId: string | null;
+  certificateIssueError: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +67,8 @@ const EnrollmentSchema = new Schema<EnrollmentDoc>(
     completedAt: { type: Date, default: null },
     certificateUrl: { type: String, default: null },
     certificateIssuedAt: { type: Date, default: null },
+    certificateProviderId: { type: String, default: null },
+    certificateIssueError: { type: String, default: null, maxlength: 500 },
   },
   {
     timestamps: true,

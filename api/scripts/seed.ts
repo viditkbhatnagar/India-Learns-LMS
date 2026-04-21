@@ -3,11 +3,13 @@ import type { Types } from 'mongoose';
 import { connectDb, disconnectDb } from '../src/config/db.js';
 import { logger } from '../src/config/logger.js';
 import {
+  ApiCostLedger,
   Batch,
   Course,
   Enrollment,
   FeeStructure,
   Holiday,
+  NotificationPrefs,
   Program,
   Ticket,
   TimetableEntry,
@@ -20,6 +22,11 @@ import { generateForEnrollment } from '../src/services/invoiceGenerationService.
 import { recordPayment } from '../src/services/paymentService.js';
 import { utcDateForIstDay } from '../src/services/timetableTz.js';
 import { nextTicketCode } from '../src/services/counterService.js';
+import {
+  issueForEnrollment,
+  registerCertificateListener,
+} from '../src/services/certificateService.js';
+import { recordApiCost } from '../src/services/apiCostService.js';
 
 const SeedEnv = z.object({
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required for seeding.'),
@@ -495,6 +502,77 @@ async function seedHoliday(): Promise<{ inserted: number; skipped: number }> {
   return { inserted: 1, skipped: 0 };
 }
 
+async function seedNotificationPrefs(): Promise<{ inserted: number; skipped: number }> {
+  const users = await User.find({ deletedAt: null }).select('_id');
+  let inserted = 0;
+  let skipped = 0;
+  for (const u of users) {
+    const existing = await NotificationPrefs.findOne({ userId: u._id });
+    if (existing) {
+      skipped += 1;
+      continue;
+    }
+    await NotificationPrefs.create({
+      userId: u._id,
+      emailByType: {},
+      whatsappByType: {},
+    });
+    inserted += 1;
+  }
+  return { inserted, skipped };
+}
+
+async function seedCertificateForStudent(
+  enrolmentId: Types.ObjectId,
+): Promise<{ issued: boolean; skipped: boolean; certificateUrl: string | null }> {
+  const enrolment = await Enrollment.findById(enrolmentId);
+  if (!enrolment) return { issued: false, skipped: true, certificateUrl: null };
+  if (enrolment.certificateUrl) {
+    return { issued: false, skipped: true, certificateUrl: enrolment.certificateUrl };
+  }
+  if (!enrolment.completed) {
+    enrolment.completed = true;
+    enrolment.completedAt = new Date();
+    await enrolment.save();
+  }
+  // Listener wiring is normally done in api/src/index.ts at app boot; the
+  // seed script runs standalone, so we wire + invoke directly.
+  registerCertificateListener();
+  const result = await issueForEnrollment({
+    enrollmentId: enrolment._id,
+    actor: 'listener',
+  });
+  return {
+    issued: !result.reissued,
+    skipped: false,
+    certificateUrl: result.certificate.certificateUrl,
+  };
+}
+
+async function seedApiCostLedgerDemo(): Promise<{ inserted: number; skipped: boolean }> {
+  const existing = await ApiCostLedger.countDocuments({});
+  if (existing > 0) return { inserted: 0, skipped: true };
+  // Spread a handful of events across the last 7 days so the 14-day sparkline
+  // has non-zero values.
+  const samples = [
+    { provider: 'email' as const, operation: 'email.send.primary', units: 1, daysAgo: 0 },
+    { provider: 'email' as const, operation: 'email.send.primary', units: 1, daysAgo: 1 },
+    { provider: 'email' as const, operation: 'email.send.primary', units: 1, daysAgo: 2 },
+    { provider: 'whatsapp' as const, operation: 'whatsapp.template.il_fee_due', units: 1, daysAgo: 1 },
+    { provider: 'whatsapp' as const, operation: 'whatsapp.template.il_payment_received', units: 1, daysAgo: 3 },
+    { provider: 'storage' as const, operation: 'storage.upload.receipts', units: 1, daysAgo: 2 },
+    { provider: 'certifier' as const, operation: 'certifier.issue', units: 1, daysAgo: 0 },
+  ];
+  for (const s of samples) {
+    await recordApiCost({
+      provider: s.provider,
+      operation: s.operation,
+      units: s.units,
+    });
+  }
+  return { inserted: samples.length, skipped: false };
+}
+
 async function main(): Promise<void> {
   const parsed = SeedEnv.safeParse(process.env);
   if (!parsed.success) {
@@ -556,6 +634,24 @@ async function main(): Promise<void> {
     const ticketsRes = await seedTickets(student, faculty);
     logger.info(ticketsRes, 'tickets seeded');
   }
+
+  // M8 — ensure every seeded user has a NotificationPrefs row so first-login
+  // UX doesn't lazily insert. Idempotent (model has unique index on userId).
+  const prefsRes = await seedNotificationPrefs();
+  logger.info(prefsRes, 'notification prefs seeded');
+
+  // M8 — seed a completed enrolment + trigger certificate issue so the demo
+  // student has a visible certificate. Safe to re-run: issueForEnrollment is
+  // idempotent (returns existing URL if already issued).
+  if (student && enrolment) {
+    const certRes = await seedCertificateForStudent(enrolment._id);
+    logger.info(certRes, 'certificate seeded');
+  }
+
+  // M8 — backfill a few ApiCostLedger rows so analytics summary has non-zero
+  // api-cost data in dev.
+  const costRes = await seedApiCostLedgerDemo();
+  logger.info(costRes, 'api cost ledger seeded');
 
   await disconnectDb();
 }

@@ -1,5 +1,8 @@
 import { afterEach, beforeEach } from 'vitest';
 import type {
+  CertificateAdapter,
+  CertificateIssueInput,
+  CertificateIssueResult,
   EmailAdapter,
   EmailSendInput,
   EmailSendResult,
@@ -126,26 +129,67 @@ export class SpyStorageAdapter implements StorageAdapter {
   }
 }
 
+export class SpyCertificateAdapter implements CertificateAdapter {
+  public calls: CertificateIssueInput[] = [];
+
+  public nextResult: CertificateIssueResult | null = null;
+
+  public failNext = false;
+
+  async issue(input: CertificateIssueInput): Promise<CertificateIssueResult> {
+    this.calls.push(input);
+    if (this.failNext) {
+      this.failNext = false;
+      throw new Error('Spy certificate failure');
+    }
+    const idx = this.calls.length;
+    return (
+      this.nextResult ?? {
+        certificateUrl: `https://spy.test/cert/${input.idempotencyKey}-${idx}`,
+        providerId: `spy-cert-${idx}`,
+      }
+    );
+  }
+
+  reset(): void {
+    this.calls = [];
+    this.nextResult = null;
+    this.failNext = false;
+  }
+}
+
 export interface IntegrationSpies {
   email: SpyEmailAdapter;
+  /** Secondary email adapter (Resend → SendGrid fallback). Null by default so
+   * legacy M2–M7 tests that assume "primary fails → error persisted" still pass.
+   * Opt-in per-test via `spies.useEmailFallback = new SpyEmailAdapter()` plus
+   * a re-apply of setIntegrations before the assertion. */
+  emailFallback: SpyEmailAdapter | null;
   whatsapp: SpyWhatsAppAdapter;
   storage: SpyStorageAdapter;
+  certificate: SpyCertificateAdapter;
 }
 
 export function useIntegrationSpies(): IntegrationSpies {
   const spies: IntegrationSpies = {
     email: new SpyEmailAdapter(),
+    emailFallback: null,
     whatsapp: new SpyWhatsAppAdapter(),
     storage: new SpyStorageAdapter(),
+    certificate: new SpyCertificateAdapter(),
   };
   beforeEach(() => {
     spies.email.reset();
+    spies.emailFallback = null;
     spies.whatsapp.reset();
     spies.storage.reset();
+    spies.certificate.reset();
     setIntegrations({
       email: spies.email,
+      emailFallback: null,
       whatsapp: spies.whatsapp,
       storage: spies.storage,
+      certificate: spies.certificate,
     });
   });
   afterEach(() => {

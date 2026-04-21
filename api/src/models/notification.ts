@@ -17,6 +17,8 @@ export interface NotificationDoc {
   emailError: string | null;
   whatsappSentAt: Date | null;
   whatsappError: string | null;
+  retryCount: number;
+  lastRetryAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +51,7 @@ const NotificationSchema = new Schema<NotificationDoc>(
         'ticket.sla_resolve_breached',
         'assessment.graded',
         'feedback.published',
+        'certificate.issued',
       ],
       required: true,
     },
@@ -64,6 +67,8 @@ const NotificationSchema = new Schema<NotificationDoc>(
     readAt: { type: Date, default: null },
     emailSentAt: { type: Date, default: null },
     emailError: { type: String, default: null, maxlength: 500 },
+    retryCount: { type: Number, default: 0, min: 0 },
+    lastRetryAt: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -80,6 +85,9 @@ const NotificationSchema = new Schema<NotificationDoc>(
 );
 
 NotificationSchema.index({ userId: 1, readAt: 1, createdAt: -1 });
+// M8 retry sweep — finds failed notifications (email or whatsapp error with
+// unsent status) ordered by most recently attempted.
+NotificationSchema.index({ emailError: 1, emailSentAt: 1, createdAt: -1 });
 
 export type HydratedNotification = HydratedDocument<NotificationDoc>;
 

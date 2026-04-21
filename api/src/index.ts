@@ -2,10 +2,14 @@ import { createApp } from './app.js';
 import { connectDb, disconnectDb } from './config/db.js';
 import { loadEnv } from './config/env.js';
 import { logger } from './config/logger.js';
+import { registerCertificateListener } from './services/certificateService.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
   await connectDb();
+  // M8 — wire `course.completed` → certificate issuance before the server
+  // starts accepting requests so race conditions at boot don't drop events.
+  registerCertificateListener();
   const app = createApp();
 
   const server = app.listen(env.PORT, () => {

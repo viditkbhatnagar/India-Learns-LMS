@@ -17,6 +17,7 @@ type Listener = (
 
 const LISTENERS: Record<DomainEventType, Listener[]> = {
   'course.completed': [],
+  'certificate.issued': [],
 };
 
 export function registerListener(type: DomainEventType, fn: Listener): void {

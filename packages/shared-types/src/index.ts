@@ -11,3 +11,5 @@ export * from './dto/fees.js';
 export * from './dto/tickets.js';
 export * from './dto/assessments.js';
 export * from './dto/feedback.js';
+export * from './dto/certificate.js';
+export * from './dto/analytics.js';

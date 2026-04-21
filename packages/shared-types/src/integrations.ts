@@ -65,3 +65,25 @@ export interface StorageAdapter {
     ttlSec?: number;
   }): Promise<StorageSignedUploadTicket>;
 }
+
+// M8 — Certifier.io (TRD §9.4). Idempotency key is the enrolment id; if the
+// upstream returns a duplicate, capture the existing certificate URL rather
+// than failing. Stub adapter returns a deterministic fake URL in dev.
+export interface CertificateIssueInput {
+  studentName: string;
+  email: string;
+  courseName: string;
+  completionDate: Date;
+  templateId: string;
+  /** Idempotency key — the enrolment _id. Upstream uses this to dedupe. */
+  idempotencyKey: string;
+}
+
+export interface CertificateIssueResult {
+  certificateUrl: string;
+  providerId: string;
+}
+
+export interface CertificateAdapter {
+  issue(input: CertificateIssueInput): Promise<CertificateIssueResult>;
+}

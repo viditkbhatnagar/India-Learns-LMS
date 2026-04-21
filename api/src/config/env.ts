@@ -71,6 +71,18 @@ const EnvSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  // M8 — api-cost tracking rates (PRD §15). Values are configurable paise per
+  // unit; defaults below are sensible India-typical estimates that Logan will
+  // reconcile against real invoices (Q-M8-01). Storage is counted per upload.
+  EMAIL_UNIT_PAISE: z.coerce.number().int().nonnegative().default(50),
+  WHATSAPP_UNIT_PAISE: z.coerce.number().int().nonnegative().default(200),
+  STORAGE_UNIT_PAISE: z.coerce.number().int().nonnegative().default(5),
+  CERTIFIER_UNIT_PAISE: z.coerce.number().int().nonnegative().default(2500),
+
+  // M8 retry sweep — max attempts and window.
+  NOTIFICATIONS_RETRY_MAX: z.coerce.number().int().positive().default(3),
+  NOTIFICATIONS_RETRY_WINDOW_HOURS: z.coerce.number().int().positive().default(24),
+
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),

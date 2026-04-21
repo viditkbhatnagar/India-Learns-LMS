@@ -16,7 +16,7 @@ const DomainEventSchema = new Schema<DomainEventDoc>(
   {
     type: {
       type: String,
-      enum: ['course.completed'],
+      enum: ['course.completed', 'certificate.issued'],
       required: true,
       index: true,
     },

@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import type {
+  EmailSendInput,
   NotificationChannel,
   NotificationDto,
   NotificationType,
@@ -12,9 +13,13 @@ import { HttpError } from '../middleware/error.js';
 import {
   Enrollment,
   Notification,
+  NotificationPrefs,
   User,
   type HydratedNotification,
+  type HydratedNotificationPrefs,
 } from '../models/index.js';
+import { recordApiCost } from './apiCostService.js';
+import { nowUtc } from './clockService.js';
 
 // BRD §6.1: WhatsApp is reserved for fee-due, payment-received, ticket-updated.
 // Timetable does NOT use WhatsApp (D-037). Fee upcoming T-14/T+3 stay email-only.
@@ -40,6 +45,9 @@ const CHANNELS_BY_TYPE: Record<NotificationType, NotificationChannel[]> = {
   // assessment/feedback templates at launch (Q-M7-02).
   'assessment.graded': ['inapp', 'email'],
   'feedback.published': ['inapp', 'email'],
+  // M8 — PRD §14.3 line 553. No WhatsApp (not in the 3-template allowlist,
+  // D-007); inapp + email only.
+  'certificate.issued': ['inapp', 'email'],
 };
 
 // Only three WABA templates are pre-approved at launch (D-007): `il_fee_due`,
@@ -54,6 +62,13 @@ const WABA_TEMPLATE_BY_TYPE: Partial<Record<NotificationType, string>> = {
   'fees.paid': 'il_payment_received',
   'ticket.state_changed': 'il_ticket_update',
 };
+
+// M8 — WhatsApp is only permitted for NotificationTypes whose map entry in
+// WABA_TEMPLATE_BY_TYPE is set. Student prefs that try to enable WhatsApp for
+// a non-templated type are rejected at the prefs-update route.
+export function typeSupportsWhatsApp(type: NotificationType): boolean {
+  return type in WABA_TEMPLATE_BY_TYPE;
+}
 
 export function typeToChannels(type: NotificationType): NotificationChannel[] {
   return [...CHANNELS_BY_TYPE[type]];
@@ -79,6 +94,10 @@ export function toNotificationDto(
     readAt: iso(json.readAt),
     emailSentAt: iso(json.emailSentAt),
     emailError: (json.emailError as string | null) ?? null,
+    whatsappSentAt: iso(json.whatsappSentAt),
+    whatsappError: (json.whatsappError as string | null) ?? null,
+    retryCount: typeof json.retryCount === 'number' ? json.retryCount : 0,
+    lastRetryAt: iso(json.lastRetryAt),
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
   };
 }
@@ -125,6 +144,8 @@ export async function enqueueNotification(
         emailError: null,
         whatsappSentAt: null,
         whatsappError: null,
+        retryCount: 0,
+        lastRetryAt: null,
       }),
     ),
   );
@@ -145,32 +166,35 @@ export async function enqueueNotification(
     });
   });
 
+  // M8 — batch-load per-user prefs so each recipient can opt-out of email /
+  // WhatsApp for this event type. Missing rows default to "on" for email and
+  // "on" for WhatsApp (when the type is in the allowlist). In-app is always on.
+  const prefsRows = await NotificationPrefs.find({
+    userId: { $in: userIds },
+  });
+  const prefsByUser = new Map<string, HydratedNotificationPrefs>();
+  prefsRows.forEach((p) => prefsByUser.set(p.userId.toString(), p));
+
+  function emailEnabledFor(userId: string): boolean {
+    const p = prefsByUser.get(userId);
+    if (!p || !p.emailByType) return true;
+    const v = p.emailByType[input.type];
+    return v !== false; // missing key → default on
+  }
+  function whatsappEnabledFor(userId: string): boolean {
+    const p = prefsByUser.get(userId);
+    if (!p || !p.whatsappByType) return true;
+    const v = p.whatsappByType[input.type];
+    return v !== false; // missing key → default on (WhatsApp overall gated by WHATSAPP_ENABLED)
+  }
+
   if (effectiveChannels.includes('email')) {
-    const { email } = getIntegrations();
     await Promise.all(
       docs.map(async (doc) => {
         const target = userById.get(doc.userId.toString());
         if (!target) return;
-        try {
-          await email.send({
-            to: target.email,
-            subject: doc.title,
-            html: `<p>${escapeHtml(doc.body)}</p>`,
-            text: doc.body,
-            tag: doc.type,
-            vars: { ...doc.data, recipientName: target.name },
-          });
-          doc.emailSentAt = new Date();
-          await doc.save();
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          doc.emailError = message.slice(0, 500);
-          await doc.save();
-          logger.warn(
-            { err, notificationId: doc._id.toString(), type: doc.type },
-            'notification.email_failed',
-          );
-        }
+        if (!emailEnabledFor(doc.userId.toString())) return;
+        await dispatchEmailOnce(doc, target);
       }),
     );
   }
@@ -178,36 +202,126 @@ export async function enqueueNotification(
   if (effectiveChannels.includes('whatsapp')) {
     const templateName = WABA_TEMPLATE_BY_TYPE[input.type];
     if (templateName) {
-      const { whatsapp } = getIntegrations();
       await Promise.all(
         docs.map(async (doc) => {
           const target = userById.get(doc.userId.toString());
           if (!target || !target.phoneE164) return;
-          const vars = waTemplateVars(input.type, target.name, input.data ?? {});
-          try {
-            await whatsapp.sendTemplate({
-              toE164: target.phoneE164,
-              templateName,
-              languageCode: 'en',
-              vars,
-            });
-            doc.whatsappSentAt = new Date();
-            await doc.save();
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            doc.whatsappError = message.slice(0, 500);
-            await doc.save();
-            logger.warn(
-              { err, notificationId: doc._id.toString(), type: doc.type },
-              'notification.whatsapp_failed',
-            );
-          }
+          if (!whatsappEnabledFor(doc.userId.toString())) return;
+          await dispatchWhatsAppOnce(doc, target, templateName, input.data ?? {});
         }),
       );
     }
   }
 
   return docs;
+}
+
+interface RecipientContact {
+  email: string;
+  name: string;
+  phoneE164: string;
+}
+
+// Primary send, with Resend→SendGrid fallback per TRD §9.2. Each successful
+// send increments the cost ledger; a fallback win counts both adapter calls.
+async function sendEmailWithFallback(
+  input: EmailSendInput,
+  refId: Types.ObjectId,
+): Promise<void> {
+  const { email, emailFallback } = getIntegrations();
+  try {
+    await email.send(input);
+    await recordApiCost({
+      provider: 'email',
+      operation: 'email.send.primary',
+      refType: 'Notification',
+      refId,
+    });
+  } catch (primaryErr) {
+    if (!emailFallback) throw primaryErr;
+    logger.warn(
+      { err: primaryErr, to: input.to, tag: input.tag },
+      'email.primary_failed_retry_fallback',
+    );
+    await recordApiCost({
+      provider: 'email',
+      operation: 'email.send.primary_failed',
+      refType: 'Notification',
+      refId,
+    });
+    await emailFallback.send(input);
+    await recordApiCost({
+      provider: 'email',
+      operation: 'email.send.fallback',
+      refType: 'Notification',
+      refId,
+    });
+  }
+}
+
+async function dispatchEmailOnce(
+  doc: HydratedNotification,
+  target: RecipientContact,
+): Promise<void> {
+  try {
+    await sendEmailWithFallback(
+      {
+        to: target.email,
+        subject: doc.title,
+        html: `<p>${escapeHtml(doc.body)}</p>`,
+        text: doc.body,
+        tag: doc.type,
+        vars: { ...doc.data, recipientName: target.name },
+      },
+      doc._id,
+    );
+    doc.emailSentAt = nowUtc();
+    doc.emailError = null;
+    await doc.save();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    doc.emailError = message.slice(0, 500);
+    await doc.save();
+    logger.warn(
+      { err, notificationId: doc._id.toString(), type: doc.type },
+      'notification.email_failed',
+    );
+  }
+}
+
+async function dispatchWhatsAppOnce(
+  doc: HydratedNotification,
+  target: RecipientContact,
+  templateName: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const { whatsapp } = getIntegrations();
+  const vars = waTemplateVars(doc.type, target.name, data);
+  try {
+    await whatsapp.sendTemplate({
+      toE164: target.phoneE164,
+      templateName,
+      languageCode: 'en',
+      vars,
+    });
+    doc.whatsappSentAt = nowUtc();
+    doc.whatsappError = null;
+    await doc.save();
+    await recordApiCost({
+      provider: 'whatsapp',
+      operation: `whatsapp.template.${templateName}`,
+      refType: 'Notification',
+      refId: doc._id,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    doc.whatsappError = message.slice(0, 500);
+    await doc.save();
+    logger.warn(
+      { err, notificationId: doc._id.toString(), type: doc.type },
+      'notification.whatsapp_failed',
+    );
+  }
 }
 
 function waTemplateVars(
@@ -346,4 +460,116 @@ export async function markNotificationRead(
     await doc.save();
   }
   return doc;
+}
+
+export async function countUnreadForUser(userId: Types.ObjectId): Promise<number> {
+  return Notification.countDocuments({ userId, readAt: null });
+}
+
+// M8 — Retry sweep for transient email failures (TRD §9.2 Resend primary +
+// SendGrid fallback; BR-13 observability). Runs via `/v1/jobs/notifications-retry`
+// every 15 min per D-068. Exponential backoff: minute * 2^retryCount — so
+// attempt #1 fires ≥60s after original failure, #2 ≥120s, #3 ≥240s. After 3
+// attempts the notification is left as-is and the failure stays visible via
+// `emailError` for admin review.
+export interface RetryFailedInput {
+  now: Date;
+  maxAttempts?: number;
+  windowHours?: number;
+}
+
+export interface RetrySweepResult {
+  processed: number;
+  succeeded: number;
+  failed: number;
+  skipped: number;
+}
+
+export async function retryFailedNotifications(
+  input: RetryFailedInput,
+): Promise<RetrySweepResult> {
+  const env = loadEnv();
+  const { now } = input;
+  const maxAttempts = input.maxAttempts ?? env.NOTIFICATIONS_RETRY_MAX;
+  const windowMs = (input.windowHours ?? env.NOTIFICATIONS_RETRY_WINDOW_HOURS) * 3600_000;
+  const cutoff = new Date(now.getTime() - windowMs);
+
+  const candidates = await Notification.find({
+    createdAt: { $gte: cutoff },
+    channels: 'email',
+    emailError: { $ne: null },
+    emailSentAt: null,
+    retryCount: { $lt: maxAttempts },
+  })
+    .sort({ createdAt: 1 })
+    .limit(200);
+
+  let succeeded = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  const userIds = Array.from(new Set(candidates.map((c) => c.userId.toString())));
+  const users = await User.find({
+    _id: { $in: userIds },
+    deletedAt: null,
+  }).select('email name phoneE164');
+  const userById = new Map<string, RecipientContact>();
+  users.forEach((u) =>
+    userById.set(u._id.toString(), {
+      email: u.email,
+      name: u.name,
+      phoneE164: u.phoneE164,
+    }),
+  );
+
+  for (const doc of candidates) {
+    const backoffMs = 60_000 * 2 ** doc.retryCount;
+    if (
+      doc.lastRetryAt
+      && now.getTime() - doc.lastRetryAt.getTime() < backoffMs
+    ) {
+      skipped += 1;
+      continue;
+    }
+    const target = userById.get(doc.userId.toString());
+    if (!target) {
+      skipped += 1;
+      continue;
+    }
+    doc.retryCount += 1;
+    doc.lastRetryAt = now;
+    try {
+      await sendEmailWithFallback(
+        {
+          to: target.email,
+          subject: doc.title,
+          html: `<p>${escapeHtml(doc.body)}</p>`,
+          text: doc.body,
+          tag: doc.type,
+          vars: { ...doc.data, recipientName: target.name },
+        },
+        doc._id,
+      );
+      doc.emailSentAt = now;
+      doc.emailError = null;
+      await doc.save();
+      succeeded += 1;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      doc.emailError = message.slice(0, 500);
+      await doc.save();
+      failed += 1;
+      logger.warn(
+        { err, notificationId: doc._id.toString(), attempts: doc.retryCount },
+        'notification.retry_failed',
+      );
+    }
+  }
+
+  return {
+    processed: candidates.length,
+    succeeded,
+    failed,
+    skipped,
+  };
 }

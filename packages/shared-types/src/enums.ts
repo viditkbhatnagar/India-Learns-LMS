@@ -151,7 +151,7 @@ export type FeedbackLevel = (typeof FEEDBACK_LEVELS)[number];
 export const FEEDBACK_STATUSES = ['draft', 'published'] as const;
 export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
 
-export const DOMAIN_EVENT_TYPES = ['course.completed'] as const;
+export const DOMAIN_EVENT_TYPES = ['course.completed', 'certificate.issued'] as const;
 export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];
 
 export const NOTIFICATION_TYPES = [
@@ -173,8 +173,13 @@ export const NOTIFICATION_TYPES = [
   // M7 — assessments + feedback (PRD §14.3)
   'assessment.graded',
   'feedback.published',
+  // M8 — certificates (PRD §14.3)
+  'certificate.issued',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const API_COST_PROVIDERS = ['email', 'whatsapp', 'storage', 'certifier'] as const;
+export type ApiCostProvider = (typeof API_COST_PROVIDERS)[number];
 
 export const NOTIFICATION_CHANNELS = ['inapp', 'email', 'whatsapp'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
@@ -262,5 +267,13 @@ export const AUDIT_ACTIONS = [
   'feedback.published',
   'enrollment.completed',
   'jobs.faculty_digest.invoked',
+  // M8 — certificates + notifications + analytics
+  'certificate.issued',
+  'certificate.reissue_attempted',
+  'certificate.issue_failed',
+  'notification.prefs.updated',
+  'notification.retry_succeeded',
+  'notification.retry_exhausted',
+  'jobs.notifications_retry.invoked',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

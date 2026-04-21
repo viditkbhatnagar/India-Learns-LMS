@@ -37,6 +37,14 @@ function feesSuspensionAllowed(req: Request): boolean {
   if (method === 'POST' && /\/auth\/refresh(?:$|\?)/.test(url)) return true;
   // Notification list/read stays allowed so students see the suspension-notice.
   if (/\/notifications\/me/.test(url)) return true;
+  // M8 — TRD §5.11 canonical paths for the same notification endpoints and
+  // per-user notification-prefs; suspension must not block the list so
+  // students can still read the warning messages.
+  if (/\/me\/notifications/.test(url)) return true;
+  if (/\/me\/notification-prefs/.test(url)) return true;
+  // M8 — student's certificate list stays accessible when suspended so they
+  // can still show a past-issued certificate to an employer.
+  if (method === 'GET' && /\/me\/certificates/.test(url)) return true;
   // PRD §9.5 / D-052: fees-suspended students can raise a Finance-category
   // ticket and read their own ticket thread so they can negotiate payment.
   if (method === 'POST' && /\/tickets\/?(?:$|\?)/.test(url)) {

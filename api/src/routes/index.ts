@@ -35,6 +35,16 @@ import { quizzesRouter, quizAttemptsRouter } from './quizzes.js';
 import { examsRouter, examAttemptsRouter } from './exams.js';
 import { rubricsRouter } from './rubrics.js';
 import { feedbackRouter, meFeedbackRouter } from './feedback.js';
+import {
+  enrollmentCertificateAdminRouter,
+  meCertificatesRouter,
+} from './certificates.js';
+import {
+  meNotificationsAliasRouter,
+  notificationPrefsRouter,
+} from './notificationPrefs.js';
+import { analyticsRouter } from './analytics.js';
+import { jobsNotificationsRouter } from './jobsNotifications.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -43,6 +53,7 @@ export function v1Router(): Router {
   router.use('/jobs', jobsFeesRouter());
   router.use('/jobs', jobsSlaRouter());
   router.use('/jobs', jobsFacultyDigestRouter());
+  router.use('/jobs', jobsNotificationsRouter());
 
   router.use('/auth', authRouter());
   router.use('/users', usersRouter());
@@ -54,6 +65,8 @@ export function v1Router(): Router {
   router.use('/batches', batchTimetableRouter());
   router.use('/enrollments', enrollmentsRouter());
   router.use('/enrollments', generateFeesRouter());
+  // M8 — admin certificate retry lives alongside enrolments.
+  router.use('/enrollments', enrollmentCertificateAdminRouter());
   router.use('/me/courses', meCoursesRouter());
   router.use('/me/timetable', meTimetableRouter());
   router.use('/students/me', studentDashboardRouter());
@@ -65,6 +78,12 @@ export function v1Router(): Router {
   router.use('/timetable', timetableEntriesRouter());
   router.use('/holidays', holidaysRouter());
   router.use('/notifications', notificationsRouter());
+  // M8 — TRD §5.11 paths (`/v1/me/notifications` + `/v1/me/notification-prefs`)
+  // live alongside the M4 alias router at `/v1/notifications/me`.
+  router.use('/me/notifications', meNotificationsAliasRouter());
+  router.use('/me/notification-prefs', notificationPrefsRouter());
+  router.use('/me/certificates', meCertificatesRouter());
+  router.use('/analytics', analyticsRouter());
   router.use('/fee-structures', feeStructuresRouter());
   router.use('/payments', paymentsRouter());
   router.use('/finance/payments', paymentsRouter());

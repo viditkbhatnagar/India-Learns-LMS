@@ -103,3 +103,13 @@ export type {
 } from './feedbackEntry.js';
 export { DomainEvent } from './domainEvent.js';
 export type { DomainEventDoc, HydratedDomainEvent } from './domainEvent.js';
+export { NotificationPrefs } from './notificationPrefs.js';
+export type {
+  NotificationPrefsDoc,
+  HydratedNotificationPrefs,
+} from './notificationPrefs.js';
+export { ApiCostLedger } from './apiCostLedger.js';
+export type {
+  ApiCostLedgerDoc,
+  HydratedApiCostLedger,
+} from './apiCostLedger.js';

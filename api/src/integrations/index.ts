@@ -1,4 +1,5 @@
 import type {
+  CertificateAdapter,
   EmailAdapter,
   StorageAdapter,
   WhatsAppAdapter,
@@ -17,17 +18,26 @@ import {
   CloudinaryStorageAdapter,
   ConsoleStorageAdapter,
 } from './storageAdapter.js';
+import {
+  CertifierIoAdapter,
+  ConsoleCertificateAdapter,
+} from './certificateAdapter.js';
 
 export interface Integrations {
   email: EmailAdapter;
+  /** Optional fallback email adapter (SendGrid). Used when primary 5xx/timeouts. */
+  emailFallback: EmailAdapter | null;
   whatsapp: WhatsAppAdapter;
   storage: StorageAdapter;
+  certificate: CertificateAdapter;
 }
 
 export interface IntegrationsOverride {
   email?: EmailAdapter;
+  emailFallback?: EmailAdapter | null;
   whatsapp?: WhatsAppAdapter;
   storage?: StorageAdapter;
+  certificate?: CertificateAdapter;
 }
 
 let override: IntegrationsOverride | null = null;
@@ -42,6 +52,14 @@ function build(): Integrations {
       : env.EMAIL_PROVIDER === 'resend'
         ? new ResendEmailAdapter()
         : new ConsoleEmailAdapter();
+  // M8 — Resend primary + SendGrid fallback (TRD §9.2). Wrapper lives in
+  // notificationService; we expose both adapters here so the service can
+  // try the primary, catch, retry via fallback, and write two cost-ledger
+  // rows accordingly.
+  const emailFallback: EmailAdapter | null =
+    !stub && env.EMAIL_PROVIDER === 'resend' && env.SENDGRID_API_KEY
+      ? new SendGridEmailAdapter()
+      : null;
   const whatsapp: WhatsAppAdapter =
     stub || !env.WHATSAPP_ENABLED
       ? new ConsoleWhatsAppAdapter()
@@ -50,7 +68,11 @@ function build(): Integrations {
     stub || env.STORAGE_PROVIDER === 'stub'
       ? new ConsoleStorageAdapter()
       : new CloudinaryStorageAdapter();
-  return { email, whatsapp, storage };
+  const certificate: CertificateAdapter =
+    stub || !env.CERTIFIER_ENABLED
+      ? new ConsoleCertificateAdapter()
+      : new CertifierIoAdapter();
+  return { email, emailFallback, whatsapp, storage, certificate };
 }
 
 let cached: Integrations | null = null;
@@ -60,8 +82,13 @@ export function getIntegrations(): Integrations {
   if (override) {
     return {
       email: override.email ?? cached.email,
+      emailFallback:
+        override.emailFallback !== undefined
+          ? override.emailFallback
+          : cached.emailFallback,
       whatsapp: override.whatsapp ?? cached.whatsapp,
       storage: override.storage ?? cached.storage,
+      certificate: override.certificate ?? cached.certificate,
     };
   }
   return cached;

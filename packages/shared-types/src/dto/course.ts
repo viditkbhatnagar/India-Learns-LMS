@@ -198,4 +198,7 @@ export interface StudentDashboardDto {
   outstandingFees: { stub: true; totalPaise: number } | OutstandingFeesDto;
   openTickets: { stub: true; count: number };
   newFeedback: { stub: true; count: number };
+  // M8 — real buckets (no longer stubs after certificates + notifications land).
+  certificates: { count: number; latestIssuedAt: string | null };
+  unreadNotifications: { count: number };
 }
