@@ -48,10 +48,20 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Session-end memory checkpoint (D-024 … D-034 + Q-M3-01/02/03 + M3 milestone file)
 - [ ] M3 web client (deferred with M2 admin screens — ships alongside M4 UI per TASKS M2 backlog)
 
-## M4 — Timetable (day 13–15)
+## M4 — Timetable (day 13–15) — BACKEND DONE 2026-04-21
 
-- [ ] Weekly recurring timetable per batch, admin CRUD, student read-only view
-- [ ] Schedule-change notifications (email + WhatsApp + in-app)
+- [x] TimetableEntry / TimetableOverride / Holiday / Notification models
+- [x] Admin CRUD: `/v1/batches/:id/timetable`, `/v1/timetable/:entryId`, `/v1/timetable/overrides`, `/v1/holidays`
+- [x] Resolver `/v1/timetable?batchId=&from=&to=` with IST wall-clock ISO (+05:30) occurrence DTOs
+- [x] `/v1/me/timetable?week=YYYY-Www | from=&to=` (student + faculty), faculty auto-filtered
+- [x] Overlap validation (same-batch OR same-faculty OR same-non-empty-room) → `TIMETABLE_OVERLAP`
+- [x] NotificationService (in-app + email; NO WhatsApp — D-037/BRD §6.1) + `/v1/notifications/me`, `/:id/read`
+- [x] `getNextClassForStudent` — populates `StudentDashboardDto.nextClass.value`
+- [x] IST helpers via `date-fns-tz` (finally installed per D-040)
+- [x] Seed extended: Aviation Batch 1 + 2 entries + 1 reschedule override + 15 Aug holiday (D-042)
+- [x] 166 tests green (35 files, +11 new) · services coverage 81.3% lines / 93.16% functions / 64.15% branches
+- [x] `docs/smoke/m4-timetable.md` + memory checkpoint (D-036…D-042, Q-M4-01…05)
+- [ ] M4 web client (deferred with M2/M3 UI backlog per TASKS M3 note)
 
 ## M5 — Fees + suspension (day 16–22)
 

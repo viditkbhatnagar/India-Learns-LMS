@@ -6,6 +6,7 @@ import {
   listEnrollmentsForStudent,
   toEnrollmentDto,
 } from './enrollmentService.js';
+import { getNextClassForStudent } from './timetableResolutionService.js';
 import { toUserDto } from './userService.js';
 
 export async function buildStudentDashboard(
@@ -14,14 +15,15 @@ export async function buildStudentDashboard(
   if (student.role !== 'student') {
     throw new HttpError(403, 'FORBIDDEN', 'Only students have a student dashboard.');
   }
-  const enrolments = await listEnrollmentsForStudent(
-    student._id as unknown as Types.ObjectId,
-  );
+  const studentId = student._id as unknown as Types.ObjectId;
+  const [enrolments, nextClass] = await Promise.all([
+    listEnrollmentsForStudent(studentId),
+    getNextClassForStudent(studentId),
+  ]);
   return {
     student: toUserDto(student),
     enrolments: enrolments.map(toEnrollmentDto),
-    // M4 fills this with actual next-class data from Timetable.
-    nextClass: { stub: true, value: null },
+    nextClass: { stub: false, value: nextClass },
     // M5 fills with outstanding installments.
     outstandingFees: { stub: true, totalPaise: 0 },
     // M6 fills with open ticket count.

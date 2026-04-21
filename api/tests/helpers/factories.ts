@@ -1,20 +1,29 @@
 import type { Types } from 'mongoose';
-import type { Role } from 'india-learns-shared-types';
+import type { OverrideAction, Role } from 'india-learns-shared-types';
 import {
   Batch,
   Course,
   Enrollment,
+  Holiday,
   ModuleModel,
+  Notification,
   Program,
+  TimetableEntry,
+  TimetableOverride,
   User,
   type BatchDoc,
   type CourseDoc,
   type EnrollmentDoc,
+  type HolidayDoc,
   type ModuleDoc,
+  type NotificationDoc,
   type ProgramDoc,
+  type TimetableEntryDoc,
+  type TimetableOverrideDoc,
   type UserDoc,
 } from '../../src/models/index.js';
 import { hashPassword } from '../../src/services/passwordService.js';
+import { utcDateForIstDay } from '../../src/services/timetableTz.js';
 
 export interface MakeUserInput {
   role?: Role;
@@ -198,6 +207,97 @@ export async function makeEnrollment(
     validTo: input.validTo ?? new Date('2027-07-01T00:00:00Z'),
     status: input.status ?? 'active',
     accessState: input.accessState ?? 'active',
+  });
+}
+
+export interface MakeTimetableEntryInput {
+  batchId: Types.ObjectId;
+  courseId: Types.ObjectId;
+  facultyId: Types.ObjectId;
+  dayOfWeek: number;
+  startTimeMinutes?: number;
+  endTimeMinutes?: number;
+  room?: string;
+  notes?: string;
+}
+
+export async function makeTimetableEntry(
+  input: MakeTimetableEntryInput,
+): Promise<TimetableEntryDoc> {
+  return TimetableEntry.create({
+    batchId: input.batchId,
+    courseId: input.courseId,
+    facultyId: input.facultyId,
+    dayOfWeek: input.dayOfWeek,
+    startTimeMinutes: input.startTimeMinutes ?? 1080,
+    endTimeMinutes: input.endTimeMinutes ?? 1200,
+    room: input.room ?? 'Room 1',
+    notes: input.notes ?? '',
+  });
+}
+
+export interface MakeTimetableOverrideInput {
+  batchId: Types.ObjectId;
+  entryId?: Types.ObjectId | null;
+  istDate: string;
+  action: OverrideAction;
+  newCourseId?: Types.ObjectId | null;
+  newFacultyId?: Types.ObjectId | null;
+  newStartMinutes?: number | null;
+  newEndMinutes?: number | null;
+  newRoom?: string | null;
+  reason?: string;
+}
+
+export async function makeTimetableOverride(
+  input: MakeTimetableOverrideInput,
+): Promise<TimetableOverrideDoc> {
+  return TimetableOverride.create({
+    batchId: input.batchId,
+    entryId: input.entryId ?? null,
+    date: utcDateForIstDay(input.istDate),
+    action: input.action,
+    newCourseId: input.newCourseId ?? null,
+    newFacultyId: input.newFacultyId ?? null,
+    newStartMinutes: input.newStartMinutes ?? null,
+    newEndMinutes: input.newEndMinutes ?? null,
+    newRoom: input.newRoom ?? null,
+    reason: input.reason ?? '',
+  });
+}
+
+export interface MakeHolidayInput {
+  istDate: string;
+  name?: string;
+  kind?: HolidayDoc['kind'];
+}
+
+export async function makeHoliday(input: MakeHolidayInput): Promise<HolidayDoc> {
+  return Holiday.create({
+    date: utcDateForIstDay(input.istDate),
+    name: input.name ?? 'Test Holiday',
+    kind: input.kind ?? 'public',
+  });
+}
+
+export interface MakeNotificationInput {
+  userId: Types.ObjectId;
+  type?: NotificationDoc['type'];
+  title?: string;
+  body?: string;
+  data?: Record<string, unknown>;
+}
+
+export async function makeNotification(
+  input: MakeNotificationInput,
+): Promise<NotificationDoc> {
+  return Notification.create({
+    userId: input.userId,
+    type: input.type ?? 'timetable.change',
+    title: input.title ?? 'Test',
+    body: input.body ?? 'Test body',
+    data: input.data ?? {},
+    channels: ['inapp'],
   });
 }
 

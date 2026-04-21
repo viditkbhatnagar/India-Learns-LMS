@@ -91,3 +91,33 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Owner:** Logan.
 **Context:** Current implementation soft-deletes Module on `DELETE /v1/modules/:id`. AuditLog rows for `module.viewed` reference `targetId = module._id`, which now points at a tombstoned doc. M6 audit UI will need to handle "module deleted but audit rows remain". Also open: should we prevent deletion when there are view events, or allow and just mark? Plan's integration test for `9 delete with viewed audit rows` wasn't added because the behaviour isn't spec'd — we silently allow.
 **Impact:** Low. M6 UI will resolve this; safe default today is "allow soft-delete, preserve audit rows."
+
+## Q-M4-01 — TimetableOverride `action='add'` extends the TRD enum
+**Raised:** 2026-04-21 (M4)
+**Owner:** Logan (spec ratification).
+**Context:** TRD §4.5 enumerates `action: 'cancel' | 'reschedule'`. The M4 prompt §3 explicitly requires **cancel, reschedule, add**. Shipped as an additive extension: `'add'` with `entryId: null` represents a one-off extra class (newCourseId + newFacultyId + new time required). Need Logan's sign-off on the spec amendment.
+**Impact:** Medium. The behaviour is merged and tested; the TRD text just needs to catch up.
+
+## Q-M4-02 — Faculty `/v1/me/timetable` filter rule
+**Raised:** 2026-04-21 (M4)
+**Owner:** Logan (spec clarity).
+**Context:** PRD §8.2 US-TT-04 says "As Faculty, I see only my own classes." M4 implements this by filtering resolved occurrences to `facultyId === self`. Works today — but a coordinator or multi-role user (future-proof) might want all-faculty-on-their-batches visibility.
+**Impact:** Low. Current behaviour matches the literal PRD wording.
+
+## Q-M4-03 — Notification retention policy
+**Raised:** 2026-04-21 (M4)
+**Owner:** Vidit (M9 runbook author).
+**Context:** `Notification` docs accumulate per user per event with no TTL. In-app inbox UI (M8) will likely want pagination + archive; for now, `/v1/notifications/me?limit=50` is the only read path.
+**Impact:** Low for Phase 1 scale (≤ 126 admissions Y1); revisit before scale-out. Likely: add a `retainUntil` Date + TTL index OR a cron that archives `readAt`-set docs older than 90 days.
+
+## Q-M4-04 — Room-overlap detection scope
+**Raised:** 2026-04-21 (M4)
+**Owner:** Logan.
+**Context:** `assertNoOverlap` rejects same-room overlaps across **all batches** (room = physical resource). Empty `room: ''` never conflicts. PRD §8.3 AC says "No two timetable entries overlap for the same Batch, same Faculty, or same Room" — ambiguous whether "same Room" scoping is cross-batch. Current implementation is the stricter reading (cross-batch).
+**Impact:** Low. If Logan wants per-batch room scoping, add `batchId` equality to the room branch of the $or.
+
+## Q-M4-05 — Notification copy currently hardcoded
+**Raised:** 2026-04-21 (M4)
+**Owner:** Vidit (M8 template registry author).
+**Context:** `notifyTimetableChange` renders its own title/body strings (e.g. "Timetable update: Airport Ground Ops rescheduled"). Copy should move into the M8 template registry so Logan/Rejin can edit without a code change. Currently English-only; i18n TBD.
+**Impact:** Low. Copy works for Phase 1; templates harden in M8.

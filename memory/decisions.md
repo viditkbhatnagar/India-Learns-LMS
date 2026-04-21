@@ -213,3 +213,45 @@ Append-only log. Every entry: ID, date, decision, why, source.
 **Why:** M3 integration tests that create several null-code users (admin + multiple students) hit `E11000 { code: null }`. MongoDB 5+ `sparse: true` only skips missing fields, not explicit `null` values, and `default: null` on the `code` field wrote null into every non-coded doc. M2 tests only got lucky by creating ≤1 null-code user per case.
 **Source:** M3 test-harness debugging.
 **How to apply:** [api/src/models/user.ts](../api/src/models/user.ts) replaces the inline `unique: true, sparse: true` on `code` with a separate `UserSchema.index({ code: 1 }, { unique: true, partialFilterExpression: { code: { $type: 'string' } } })`. Only string-valued `code` fields are indexed, so null admins/superadmins/finance coexist. No data migration needed yet — no prod deploy, mongodb-memory-server starts fresh per run.
+
+## D-036 — `/v1/timetable` mounted as alias alongside `/v1/batches/:id/timetable` + `/v1/me/timetable`
+**Date:** 2026-04-21
+**Why:** TRD §5.5 specifies `/v1/batches/:id/timetable` (entry list) + `/v1/me/timetable?week=…`. M4 prompt §3 specifies a flat `/v1/timetable?batchId=&from=&to=` for resolved occurrences. These three endpoints serve different purposes (entry list vs resolved window vs per-user alias) so all three are mounted — no contradiction, and D-031 already established the alias pattern for `/v1/enrollments/me` vs `/v1/me/courses`.
+**Source:** TRD §5.5 vs M4 prompt §3.
+**How to apply:** [api/src/routes/index.ts](../api/src/routes/index.ts) mounts `batchTimetableRouter` under `/batches`, `timetableRouter` (flat resolver) and `timetableEntriesRouter` (`/:entryId` CRUD) both under `/timetable`, and `meTimetableRouter` under `/me/timetable`. `timetableOverridesRouter` mounts earlier under `/timetable/overrides` so prefix matching never collides with `/:entryId`.
+
+## D-037 — `timetable.change` notifications go in-app + email only (no WhatsApp)
+**Date:** 2026-04-21
+**Why:** BRD §6.1 restricts WhatsApp to Fee Due / Payment Received / Ticket Updated; PRD US-TT-05 says "WhatsApp optional, off by default for launch". M4 prompt explicitly forbids WhatsApp for timetable. Including WhatsApp would burn pre-approved-template quota and spam students.
+**Source:** BRD §6.1, PRD §8.2 US-TT-05, M4 prompt §5.
+**How to apply:** `typeToChannels('timetable.change')` in [api/src/services/notificationService.ts](../api/src/services/notificationService.ts) returns `['inapp', 'email']`. `SpyWhatsAppAdapter.calls` asserted empty in `notificationService.test.ts` and `timetableOverrides.test.ts`.
+
+## D-038 — Timetable stores IST wall-clock; `Override.date`/`Holiday.date` are UTC of IST-midnight
+**Date:** 2026-04-21
+**Why:** TRD §4.5 specifies `dayOfWeek` + `startTimeMinutes`/`endTimeMinutes` on entries (IST wall-clock, no Date). Overrides and Holidays carry a `date: Date`; to keep day comparisons unambiguous we store `(IST YYYY-MM-DD)T00:00+05:30` → UTC `(YMD)T18:30:00Z`. Day-matching is done via `date-fns-tz` + `Asia/Kolkata`, not via bare UTC slicing.
+**Source:** TRD §4.5 + §4.12; CLAUDE.md §5 ("Store UTC in Mongo, display IST").
+**How to apply:** `utcDateForIstDay(ymd)` in [api/src/services/timetableTz.ts](../api/src/services/timetableTz.ts) performs the conversion. All writes (seed, createOverride, createHoliday) go through it; reads normalise back via `+330 minutes → toISOString().slice(0,10)` (Holiday) or `istDateStringFromUtc` (Override).
+
+## D-039 — NotificationService is minimal in M4; full template registry lands in M8
+**Date:** 2026-04-21
+**Why:** CLAUDE.md §4 M8 step 27 scopes the "Email + WhatsApp notification engine (template registry)". M4 only needs `timetable.change` and wants it shippable. Premature template registry would block M4 on cross-milestone design.
+**Source:** CLAUDE.md §4 M8.
+**How to apply:** Subject/body are rendered inline in `notifyTimetableChange`. `NOTIFICATION_TYPES = ['timetable.change']` starts as a one-element union; M5 extends for fees, M6 for tickets, M8 wires up Resend templates + WABA templates via a registry keyed on `NotificationType`.
+
+## D-040 — `date-fns-tz` added (finally fulfilling CLAUDE.md §5 locked stack)
+**Date:** 2026-04-21
+**Why:** CLAUDE.md §5 mandates "Use `date-fns-tz`, not Moment." M1–M3 never installed it because no feature required IST rendering. M4 timetable finally needs `Asia/Kolkata` day-of-week + `+05:30` formatting, so the dep is added per spec. Not a `DEPENDENCY_REQUEST.md` — it's in the locked stack.
+**Source:** CLAUDE.md §5.
+**How to apply:** `date-fns@^3.6.0` and `date-fns-tz@^3.2.0` added to [api/package.json](../api/package.json). Usage confined to [api/src/services/timetableTz.ts](../api/src/services/timetableTz.ts).
+
+## D-041 — Holidays drop the whole IST day after overrides are applied
+**Date:** 2026-04-21
+**Why:** Spec silent on holiday/override precedence. Practical stance: if a date is a holiday, no class happens — not a rescheduled one, not an added one. A reschedule that *lands on* a holiday must fail (admin responsibility) or the day just disappears from the resolved feed; we pick the latter so the resolver stays pure. This also ensures M8 analytics don't accidentally count class-hours on holidays.
+**Source:** PRD §8.3 (resolved) + M4 prompt §3 ("holidays removed").
+**How to apply:** [api/src/services/timetableResolutionService.ts](../api/src/services/timetableResolutionService.ts) checks `holidaySet.has(istYmd)` before emitting any recurring entry OR `add`-override for that day.
+
+## D-042 — Seed extended with sample Aviation batch + entries + override + holiday
+**Date:** 2026-04-21
+**Why:** The M4 DoD curl `GET /v1/timetable?batchId=<seeded>&from=…&to=…` can't be demoed without a seeded batch. The seed stays idempotent via natural keys (`{programId, name}` for Batch, `{batchId, dayOfWeek, startTimeMinutes}` for TimetableEntry, `{batchId, entryId, date}` for Override, `{date}` for Holiday).
+**Source:** M4 prompt DoD ("seeded Aviation batch for next 14 days").
+**How to apply:** [api/scripts/seed.ts](../api/scripts/seed.ts) now also creates one faculty user, a published `airport-ground-ops` course, one batch, two Mon/Wed entries, one Wed-8-Jul reschedule override, and the 15 Aug 2026 Independence Day holiday.

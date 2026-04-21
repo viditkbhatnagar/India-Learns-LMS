@@ -80,6 +80,12 @@ export function errorHandler(
     } else if (keys.includes('studentId') && keys.includes('courseId')) {
       code = 'ENROLLMENT_DUPLICATE';
       message = 'Student already has an active enrolment for this course.';
+    } else if (keys.includes('batchId') && keys.includes('entryId') && keys.includes('date')) {
+      code = 'OVERRIDE_DUPLICATE';
+      message = 'An override already exists for this entry and date.';
+    } else if (keys.length === 1 && keys.includes('date')) {
+      code = 'HOLIDAY_DUPLICATE';
+      message = 'A holiday already exists on this date.';
     }
     res.status(409).json({
       error: { code, message, details: err.keyValue },

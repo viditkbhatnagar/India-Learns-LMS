@@ -49,6 +49,18 @@ export const STORAGE_FOLDERS = [
 ] as const;
 export type StorageFolder = (typeof STORAGE_FOLDERS)[number];
 
+export const OVERRIDE_ACTIONS = ['cancel', 'reschedule', 'add'] as const;
+export type OverrideAction = (typeof OVERRIDE_ACTIONS)[number];
+
+export const HOLIDAY_KINDS = ['public', 'institutional'] as const;
+export type HolidayKind = (typeof HOLIDAY_KINDS)[number];
+
+export const NOTIFICATION_TYPES = ['timetable.change'] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const NOTIFICATION_CHANNELS = ['inapp', 'email'] as const;
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
 export const AUDIT_ACTIONS = [
   'user.created',
   'user.updated',
@@ -81,5 +93,13 @@ export const AUDIT_ACTIONS = [
   'enrollment.created',
   'enrollment.updated',
   'enrollment.revoked',
+  'timetable.entry.created',
+  'timetable.entry.updated',
+  'timetable.entry.deleted',
+  'timetable.override.created',
+  'timetable.override.updated',
+  'timetable.override.deleted',
+  'holiday.created',
+  'holiday.deleted',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

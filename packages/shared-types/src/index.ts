@@ -5,3 +5,5 @@ export * from './dto/user.js';
 export * from './dto/auth.js';
 export * from './dto/course.js';
 export * from './dto/storage.js';
+export * from './dto/timetable.js';
+export * from './dto/notification.js';

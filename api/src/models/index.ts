@@ -22,3 +22,20 @@ export { Batch } from './batch.js';
 export type { BatchDoc, HydratedBatch } from './batch.js';
 export { Enrollment } from './enrollment.js';
 export type { EnrollmentDoc, HydratedEnrollment } from './enrollment.js';
+export { TimetableEntry } from './timetableEntry.js';
+export type {
+  TimetableEntryDoc,
+  HydratedTimetableEntry,
+} from './timetableEntry.js';
+export { TimetableOverride } from './timetableOverride.js';
+export type {
+  TimetableOverrideDoc,
+  HydratedTimetableOverride,
+} from './timetableOverride.js';
+export { Holiday } from './holiday.js';
+export type { HolidayDoc, HydratedHoliday } from './holiday.js';
+export { Notification } from './notification.js';
+export type {
+  NotificationDoc,
+  HydratedNotification,
+} from './notification.js';
