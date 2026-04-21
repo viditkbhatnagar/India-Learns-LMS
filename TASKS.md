@@ -63,13 +63,31 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] `docs/smoke/m4-timetable.md` + memory checkpoint (D-036…D-042, Q-M4-01…05)
 - [ ] M4 web client (deferred with M2/M3 UI backlog per TASKS M3 note)
 
-## M5 — Fees + suspension (day 16–22)
+## M5 — Fees + suspension (day 16–22) — BACKEND DONE 2026-04-21
 
-- [ ] FeeStructure, Invoice, FeeInstallment, Payment, Receipt models
-- [ ] Finance UI: record payments, generate PDF receipts, view collections
-- [ ] Student fees dashboard
-- [ ] Fee reminder cron (7 fire points per installment)
-- [ ] Auto-suspension state machine with 2 warnings + admin override
+- [x] FeeStructure, Invoice, FeeInstallment, Payment, Receipt, CreditNote models (D-043)
+- [x] FeeStructure CRUD + admin-only POST/PATCH, finance + admin GET
+- [x] `POST /v1/enrollments/:id/generate-fees` idempotent invoice generation with dueRuleResolver
+- [x] `POST /v1/payments` with auto-allocation (oldest-first) + explicit allocations + overpayment → CreditNote
+- [x] `POST /v1/payments/:id/reverse` within 24h window (D-044) → CreditNote
+- [x] Receipt PDF via pdfkit with Indian-locale amount-in-words + FY-scoped RCP code (D-051)
+- [x] CloudinaryStorageAdapter wired live + ConsoleStorageAdapter byte cache for stub mode (D-048)
+- [x] `GET /v1/receipts/:id/download` streams PDF (stub) or returns Cloudinary signed URL (live)
+- [x] `GET /v1/students/:id/fees` + `/v1/students/me/fees` alias with access-state aggregate
+- [x] `outstandingFees` bucket on `StudentDashboardDto` populated (real)
+- [x] NotificationService extended: 8 `fees.*` types, `whatsapp` channel + gating + 2 WABA template mapping (D-049)
+- [x] Fee reminder cron service — 7 fire points × idempotent `$addToSet` (T-14, T-7, T0, T+3, T+14 warn1, T+21 warn2, T+28 suspend)
+- [x] `clockService.nowUtc()` + test-injection (D-047)
+- [x] suspensionService with 5-state machine (active/warn1/warn2/override/suspended) + auto-reconcile on payment
+- [x] `POST /v1/users/:id/suspension/override` (+ DELETE) on User (D-045)
+- [x] Fees-suspension route whitelist inside `requireAuth` (D-050)
+- [x] `requireJobAuth` HMAC + 5-min replay guard (D-046)
+- [x] `POST /v1/jobs/fee-reminders`, `POST /v1/jobs/autosuspend` cron endpoints
+- [x] Seed extended: finance user + FeeStructure + sample student + invoices + sample payment
+- [x] 83 new tests (48 files / 249 tests total) · services coverage 83.56% lines
+- [x] `docs/smoke/m5-fees.md`
+- [x] Memory checkpoint (D-043 … D-051 + Q-M5-01…06 + M5 milestone file)
+- [ ] M5 web client (deferred with M2/M3/M4 UI backlog; Finance + student fees screens map 1:1 to the API contract per plan research)
 
 ## M6 — Tickets (day 23–28)
 

@@ -255,3 +255,57 @@ Append-only log. Every entry: ID, date, decision, why, source.
 **Why:** The M4 DoD curl `GET /v1/timetable?batchId=<seeded>&from=…&to=…` can't be demoed without a seeded batch. The seed stays idempotent via natural keys (`{programId, name}` for Batch, `{batchId, dayOfWeek, startTimeMinutes}` for TimetableEntry, `{batchId, entryId, date}` for Override, `{date}` for Holiday).
 **Source:** M4 prompt DoD ("seeded Aviation batch for next 14 days").
 **How to apply:** [api/scripts/seed.ts](../api/scripts/seed.ts) now also creates one faculty user, a published `airport-ground-ops` course, one batch, two Mon/Wed entries, one Wed-8-Jul reschedule override, and the 15 Aug 2026 Independence Day holiday.
+
+## D-043 — FeeStructure follows TRD §4.6 components model with optional `weights[]`
+**Date:** 2026-04-21
+**Why:** M5 prompt proposed "40/30/30 at T0/T+60/T+120" default; TRD §4.6 pins a different model (`components[{kind, cadence: 'one_time' | 'monthly_x', monthlyCount, dueRule}]`). Source-of-truth hierarchy (TRD > PRD > BRD > prompt) resolves to the spec model. Added an optional `weights: number[] | null` field on each component so a monthly_x tuition can split 40/30/30 (largest-remainder allocation) if Logan confirms that need later — additive, not a schema break. Default behaviour is equal split. User confirmed via AskUserQuestion 2026-04-21.
+**Source:** TRD §4.6, PRD §9.4, M5 prompt §1.
+**How to apply:** [api/src/models/feeStructure.ts](../api/src/models/feeStructure.ts) carries `components[].weights`. [api/src/services/invoiceGenerationService.ts](../api/src/services/invoiceGenerationService.ts) `computeInstallmentAmountsPaise` uses largest-remainder allocation when weights are set. Logged as Q-M5-01.
+
+## D-044 — Payment reversal creates a CreditNote; no separate apply-credit endpoint
+**Date:** 2026-04-21
+**Why:** TRD §5.6 has `POST /v1/payments/:id/reverse` → CreditNote. It does not define an explicit "apply credit" endpoint, and overpayments on `POST /v1/payments` also produce a CreditNote. M5 prompt asked for `POST /v1/finance/credit-notes/:id/apply` — not in spec, so deferred. `CreditNote.consumed` stays `false` and finance can reference it in payment `notes` when recording the next payment.
+**Source:** TRD §5.6, PRD §9.6.
+**How to apply:** [api/src/services/paymentService.ts](../api/src/services/paymentService.ts) `reversePayment` creates a CreditNote with `balancePaise === amountPaise`, `consumed: false`. Logged as Q-M5-02.
+
+## D-045 — Admin fees-override endpoint lives on User (not Enrollment)
+**Date:** 2026-04-21
+**Why:** M5 prompt suggested `PATCH /v1/enrollments/:id/access-state` for the override. TRD §4.1 stores `suspensionOverrideUntil/By` on the User; D-026 stores `accessState` on Enrollment. These are both real — override needs a single grace-window timer per student to avoid "overridden in Aviation but suspended in Retail" splits. Endpoint operates on User and reconciles all active enrolments to `accessState='override'` inside a service transaction. User confirmed via AskUserQuestion 2026-04-21.
+**Source:** TRD §4.1, D-026, PRD §9.5 US-FEE-04.
+**How to apply:** [api/src/routes/suspensionOverride.ts](../api/src/routes/suspensionOverride.ts) mounts `POST/DELETE /v1/users/:id/suspension/override`. Service in [api/src/services/suspensionService.ts](../api/src/services/suspensionService.ts): `applyOverride`, `revokeOverride`. Audit actions `fees.suspension.override_applied/revoked`. Logged as Q-M5-03.
+
+## D-046 — First cron infra: HMAC-SHA256 over body+timestamp, 5-min replay window
+**Date:** 2026-04-21
+**Why:** M5 needed signed cron endpoints for Render to invoke (`POST /v1/jobs/fee-reminders`, `POST /v1/jobs/autosuspend`). No cron pattern existed pre-M5. Chose HMAC-SHA256 over `rawBody + x-job-timestamp` with a 5-minute replay guard; secret is `JOB_SECRET` (already prod-guarded via D-020). Timing-safe compare via `crypto.timingSafeEqual`. `express.json({verify})` captures `req.rawBody` so the server verifies exactly the bytes the caller signed. M6 ticket SLA cron + M8 analytics cron reuse the same middleware.
+**Source:** TRD §10.1, §14; CLAUDE.md §5.
+**How to apply:** [api/src/middleware/requireJobAuth.ts](../api/src/middleware/requireJobAuth.ts) (verify) + `signJobRequest()` helper (sign). Tests cover signed happy path + missing sig + bad sig + stale timestamp.
+
+## D-047 — `clockService.nowUtc()` is the single time source for new code
+**Date:** 2026-04-21
+**Why:** The fee-reminder cron and auto-suspension state machine both need deterministic time-travel in tests. A central helper (`nowUtc`, `setTestNow`, `advanceTestNow`, `resetClock`) avoids per-service `Date.now()` sprinkles. Tests call `setTestNow(new Date('…'))` and production always gets wall-clock time. Backfill into M1–M4 services is non-blocking (safe to defer).
+**Source:** M5 test harness needs.
+**How to apply:** All new M5 services import `nowUtc` from [api/src/services/clockService.ts](../api/src/services/clockService.ts). Existing services that currently use `new Date()` are not yet migrated; follow-up during M9 polish is optional.
+
+## D-048 — CloudinaryStorageAdapter goes live in M5 per D-027
+**Date:** 2026-04-21
+**Why:** D-027 scheduled Cloudinary wiring for M5 receipts. Implemented `upload` via `cloudinary.uploader.upload_stream` (authenticated delivery), `signedUrl` via `cloudinary.utils.private_download_url` (1h TTL), `delete` via `uploader.destroy`, and `signedUploadTicket` via `utils.api_sign_request`. Receipts stored under `il/receipts/<code>.pdf`. Stub mode (default in tests + dev) continues to use `ConsoleStorageAdapter` with in-process byte cache so the receipt download endpoint can stream the PDF without hitting Cloudinary.
+**Source:** TRD §9, §12; D-027.
+**How to apply:** [api/src/integrations/storageAdapter.ts](../api/src/integrations/storageAdapter.ts) `CloudinaryStorageAdapter` now real. [api/src/routes/receipts.ts](../api/src/routes/receipts.ts) streams the stub cache when `pdfKey.startsWith('stub:')`, otherwise returns a signed URL JSON envelope. Live-mode smoke deferred to M9 (Q-M5-06/Q-PENDING-09).
+
+## D-049 — WhatsApp templates for fees use the two pre-approved WABA templates (D-007)
+**Date:** 2026-04-21
+**Why:** Only `il_fee_due` and `il_payment_received` are pre-approved at launch (D-007). M5 has 8 `fees.*` notification types; mapping them 1:1 to distinct templates would require 6 more Meta approvals. Instead: `il_fee_due` covers T-7/T0/warn1/warn2/suspended; `il_payment_received` covers `fees.paid`. T-14 and T+3 are email-only per BRD §6.1 (no WhatsApp).
+**Source:** BRD §6.1, TRD §9.3, D-007.
+**How to apply:** `WABA_TEMPLATE_BY_TYPE` map in [api/src/services/notificationService.ts](../api/src/services/notificationService.ts). WhatsApp dispatch is gated by `WHATSAPP_ENABLED=true` env; default false in dev/test drops the channel silently.
+
+## D-050 — Fees-suspension enforcement lives in `requireAuth`
+**Date:** 2026-04-21
+**Why:** PRD §9.5 + D-021 require fees-suspended students to retain login but be restricted to /fees, /users/me, /notifications/me, receipts, Finance tickets, and logout. A separate `requireNotSuspended` middleware would need mounting after `requireAuth` in every router (lots of edits) and would only work once `req.auth` is populated. Folding the whitelist check into `requireAuth` itself keeps the enforcement in one place and matches D-021's exemption for fees-suspended sessions at the login wall.
+**Source:** PRD §9.5, D-021, M5 review.
+**How to apply:** [api/src/middleware/auth.ts](../api/src/middleware/auth.ts) `feesSuspensionAllowed` inline whitelist. `requireNotSuspended` exists as a reserved helper for M6 ticket flow but isn't wired — auth.ts is the single source of truth.
+
+## D-051 — Receipt code resets on Indian financial year (1 Apr)
+**Date:** 2026-04-21
+**Why:** PRD §9.6 pins receipt code reset to 1 April annually (Indian FY). `financialYearFor(date)` returns the FY by checking IST month ≥ 4. Invoice and Credit Note codes still reset on the calendar year — PRD is silent on them so TRD default (calendar) holds.
+**Source:** PRD §9.6.
+**How to apply:** [api/src/services/receiptService.ts](../api/src/services/receiptService.ts) `financialYearFor()` drives the counter key for `nextReceiptCode`.

@@ -13,6 +13,7 @@ Quick map of cross-session memory. Load these at every session start per [`/CLAU
 | [milestones/M2-auth.md](milestones/M2-auth.md) | M2 — auth + user management (server-only) |
 | [milestones/M3-course-enrolment.md](milestones/M3-course-enrolment.md) | M3 — Program/Course/Module/Batch/Enrollment + student dashboard + StorageAdapter |
 | [milestones/M4-timetable.md](milestones/M4-timetable.md) | M4 — Timetable entries/overrides/holidays + NotificationService + dashboard nextClass |
+| [milestones/M5-fees.md](milestones/M5-fees.md) | M5 — FeeStructure + Invoice + Installment + Payment + Receipt + CreditNote + reminder/autosuspend crons + CloudinaryStorageAdapter |
 
 ## Conventions
 

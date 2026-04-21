@@ -121,3 +121,45 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Owner:** Vidit (M8 template registry author).
 **Context:** `notifyTimetableChange` renders its own title/body strings (e.g. "Timetable update: Airport Ground Ops rescheduled"). Copy should move into the M8 template registry so Logan/Rejin can edit without a code change. Currently English-only; i18n TBD.
 **Impact:** Low. Copy works for Phase 1; templates harden in M8.
+
+## Q-M5-01 — FeeStructure component `weights[]` field (uneven monthly split)
+**Raised:** 2026-04-21 (M5)
+**Owner:** Logan (product call).
+**Context:** M5 prompt proposed 40/30/30 installment default; TRD §4.6 pins the component model (`cadence: 'monthly_x'`, `monthlyCount`) with an implicit equal split. D-043: shipped spec model + optional `weights: number[]` on each component (largest-remainder allocation when provided) so 40/30/30 is a one-PATCH away if Logan confirms the need. Currently `weights: null` everywhere.
+**Impact:** Low. If confirmed, just populate weights on existing FeeStructure rows; no schema change.
+
+## Q-M5-02 — Credit-note apply endpoint vs. auto-consumption
+**Raised:** 2026-04-21 (M5)
+**Owner:** Logan / Vidit.
+**Context:** Spec (TRD §5.6) has `POST /v1/payments/:id/reverse` → CreditNote + `POST /v1/payments` over-payment → CreditNote. It does NOT have an endpoint to re-apply a CreditNote to a later installment. M5 currently leaves credit notes with `consumed=false` and does not automatically burn them on next payment. If Logan wants explicit "apply-credit" UX, we'll add `POST /v1/credit-notes/:id/apply { amountPaise?, installmentId? }` in M6 or M9.
+**Impact:** Low for Phase 1 — finance can manually record a new payment referencing the credit note in `notes`.
+
+## Q-M5-03 — Admin override default duration
+**Raised:** 2026-04-21 (M5)
+**Owner:** Logan.
+**Context:** PRD §9.5 US-FEE-04 says "override for 30 days". M5 endpoint `POST /v1/users/:id/suspension/override { until, reason }` accepts any future date — admin-driven. If product wants the 30-day duration as a hard cap (not just a UI default), the service needs an extra guard.
+**Impact:** Low. Currently admins can set any future date; UI can default to now+30d when it ships.
+
+## Q-M5-04 — Reversal window (24h) is implied, not spec-pinned
+**Raised:** 2026-04-21 (M5)
+**Owner:** Logan.
+**Context:** PRD §9.6 implies a 24-hour reversal window but doesn't pin it. M5 hard-codes 24h (`REVERSAL_WINDOW_MS` in paymentService). If Logan wants 48h (or "any time, audited"), single-constant change.
+**Impact:** Low.
+
+## Q-M5-05 — Auto-suspend cron respects weekends/holidays?
+**Raised:** 2026-04-21 (M5)
+**Owner:** Logan.
+**Context:** TRD §10.1 schedules `autosuspend` daily at 03:30 IST with no weekend/holiday carve-out. M5 honours that — suspensions fire on a Sunday if a Saturday was T+28. Policy may prefer to hold suspension until next business day.
+**Impact:** Low; day-of-suspend drift is ≤ 2 days.
+
+## Q-M5-06 — Cloudinary live mode smoke test
+**Raised:** 2026-04-21 (M5)
+**Owner:** Vidit (needs a sandbox Cloudinary account).
+**Context:** `CloudinaryStorageAdapter` is fully wired (upload via upload_stream, signedUrl via private_download_url). Dev/test continue to use `ConsoleStorageAdapter` per D-016/D-027. No end-to-end smoke against a real Cloudinary account yet.
+**Impact:** Medium — must exercise before M9 deploy. Covered by Q-PENDING-09 (new).
+
+## Q-PENDING-09 — Cloudinary credentials for live-mode smoke
+**Raised:** 2026-04-21 (M5)
+**Owner:** Rejin / LUC IT.
+**Context:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` are declared in env schema and expected at deploy time. Live-mode wiring is in place; M9 deploy needs to verify a real upload/signed-download round-trip.
+**Impact:** Blocks real receipt URLs in production. Dev path (stub) continues to work for demo.
