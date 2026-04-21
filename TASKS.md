@@ -4,22 +4,22 @@ Live task list. Update at every session start (mark new) and every session end (
 
 ---
 
-## M1 — Foundations (day 1–3) — IN PROGRESS
+## M1 — Foundations (day 1–3) — DONE 2026-04-21
 
-- [ ] Repo bootstrap — monorepo with `/api`, `/web`, `/packages/shared-types`
-- [ ] Memory directory + `TASKS.md` per CLAUDE.md §10
-- [ ] Root tooling: TS 5.4, ESLint 9 (airbnb-base via FlatCompat) + Prettier, .editorconfig, .nvmrc
-- [ ] `/api` skeleton: Express 4 + Mongoose 8 + pino + helmet + zod + vitest + supertest + mongodb-memory-server
-- [ ] `/web` skeleton: React 18 + Vite 5 + Tailwind 3 + vite-plugin-pwa + React Router 6
-- [ ] `/packages/shared-types` placeholder (proves workspace link graph)
-- [ ] `.env.example` per package (full TRD §12 list)
-- [ ] GitHub Actions CI: lint + typecheck + test + build on push
-- [ ] `GET /health` returns `{ ok: true, commit, uptimeSec, ts }`
-- [ ] Vite "Hello India Learns" landing page with brand palette
-- [ ] `npm install` + `npm run dev` work end-to-end locally
-- [ ] Initial commit + push to `https://github.com/viditkbhatnagar/India-Learns-LMS.git`
-- [ ] CI green
-- [ ] Session-end memory checkpoint (`memory/milestones/M1-foundations.md` + `chore(memory): checkpoint after M1`)
+- [x] Repo bootstrap — monorepo with `/api`, `/web`, `/packages/shared-types`
+- [x] Memory directory + `TASKS.md` per CLAUDE.md §10
+- [x] Root tooling: TS 5.4, ESLint 9 (airbnb-base via FlatCompat) + Prettier, .editorconfig, .nvmrc
+- [x] `/api` skeleton: Express 4 + Mongoose 8 + pino + helmet + zod + vitest + supertest + mongodb-memory-server
+- [x] `/web` skeleton: React 18 + Vite 5 + Tailwind 3 + vite-plugin-pwa + React Router 6
+- [x] `/packages/shared-types` placeholder (proves workspace link graph)
+- [x] `.env.example` per package (full TRD §12 list)
+- [x] GitHub Actions CI: lint + typecheck + test + build on push
+- [x] `GET /health` returns `{ ok: true, commit, uptimeSec, ts }`
+- [x] Vite "Hello India Learns" landing page with brand palette
+- [x] `npm install` + `npm run dev` work end-to-end locally
+- [x] Initial commit + push to `https://github.com/viditkbhatnagar/India-Learns-LMS.git`
+- [x] CI green — https://github.com/viditkbhatnagar/India-Learns-LMS/actions/runs/24719414240
+- [x] Session-end memory checkpoint (`memory/milestones/M1-foundations.md` + `chore(memory): checkpoint after M1`)
 
 ## M2 — Auth + user management (day 4–7)
 
