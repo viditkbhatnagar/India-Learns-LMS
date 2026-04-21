@@ -39,3 +39,27 @@ export type {
   NotificationDoc,
   HydratedNotification,
 } from './notification.js';
+export { FeeStructure } from './feeStructure.js';
+export type {
+  FeeStructureDoc,
+  FeeComponentDoc,
+  HydratedFeeStructure,
+} from './feeStructure.js';
+export { Invoice } from './invoice.js';
+export type { InvoiceDoc, HydratedInvoice } from './invoice.js';
+export { FeeInstallment } from './feeInstallment.js';
+export type {
+  FeeInstallmentDoc,
+  HydratedFeeInstallment,
+  ReminderSentEntry,
+} from './feeInstallment.js';
+export { Payment } from './payment.js';
+export type {
+  PaymentDoc,
+  PaymentAllocation,
+  HydratedPayment,
+} from './payment.js';
+export { Receipt } from './receipt.js';
+export type { ReceiptDoc, HydratedReceipt } from './receipt.js';
+export { CreditNote } from './creditNote.js';
+export type { CreditNoteDoc, HydratedCreditNote } from './creditNote.js';

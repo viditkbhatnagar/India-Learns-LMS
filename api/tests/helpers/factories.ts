@@ -1,29 +1,50 @@
 import type { Types } from 'mongoose';
-import type { OverrideAction, Role } from 'india-learns-shared-types';
+import type {
+  FeeComponentCadence,
+  FeeComponentKind,
+  FeeDueRule,
+  OverrideAction,
+  PaymentMethod,
+  Role,
+} from 'india-learns-shared-types';
 import {
   Batch,
   Course,
+  CreditNote,
   Enrollment,
+  FeeInstallment,
+  FeeStructure,
   Holiday,
+  Invoice,
   ModuleModel,
   Notification,
+  Payment,
   Program,
+  Receipt,
   TimetableEntry,
   TimetableOverride,
   User,
   type BatchDoc,
   type CourseDoc,
+  type CreditNoteDoc,
   type EnrollmentDoc,
+  type FeeComponentDoc,
+  type FeeInstallmentDoc,
+  type FeeStructureDoc,
   type HolidayDoc,
+  type InvoiceDoc,
   type ModuleDoc,
   type NotificationDoc,
+  type PaymentDoc,
   type ProgramDoc,
+  type ReceiptDoc,
   type TimetableEntryDoc,
   type TimetableOverrideDoc,
   type UserDoc,
 } from '../../src/models/index.js';
 import { hashPassword } from '../../src/services/passwordService.js';
 import { utcDateForIstDay } from '../../src/services/timetableTz.js';
+import { nextInvoiceCode, nextReceiptCode } from '../../src/services/counterService.js';
 
 export interface MakeUserInput {
   role?: Role;
@@ -299,5 +320,243 @@ export async function makeNotification(
     data: input.data ?? {},
     channels: ['inapp'],
   });
+}
+
+export interface MakeFeeStructureInput {
+  programId: Types.ObjectId;
+  name?: string;
+  components?: Array<{
+    kind: FeeComponentKind;
+    label: string;
+    amountPaise: number;
+    cadence: FeeComponentCadence;
+    monthlyCount?: number | null;
+    dueRule: FeeDueRule;
+    weights?: number[] | null;
+  }>;
+}
+
+export async function makeFeeStructure(
+  input: MakeFeeStructureInput,
+): Promise<FeeStructureDoc> {
+  counter += 1;
+  const components: FeeComponentDoc[] = (
+    input.components ?? [
+      {
+        kind: 'registration',
+        label: 'Registration',
+        amountPaise: 1_000_000,
+        cadence: 'one_time',
+        monthlyCount: null,
+        dueRule: 'on_enrolment',
+        weights: null,
+      },
+      {
+        kind: 'tuition',
+        label: 'Tuition',
+        amountPaise: 6_000_000,
+        cadence: 'monthly_x',
+        monthlyCount: 3,
+        dueRule: 'on_enrolment',
+        weights: null,
+      },
+    ]
+  ).map((c) => ({
+    kind: c.kind,
+    label: c.label,
+    amountPaise: c.amountPaise,
+    cadence: c.cadence,
+    monthlyCount: c.monthlyCount ?? null,
+    dueRule: c.dueRule,
+    weights: c.weights ?? null,
+  }));
+  return FeeStructure.create({
+    programId: input.programId,
+    name: input.name ?? `Structure ${counter}`,
+    components,
+    paymentTerms: '',
+  });
+}
+
+export interface MakeInvoiceInput {
+  enrollmentId: Types.ObjectId;
+  studentId: Types.ObjectId;
+  feeStructureId: Types.ObjectId;
+  totalPaise?: number;
+  componentKind?: FeeComponentKind;
+  componentLabel?: string;
+  code?: string;
+}
+
+export async function makeInvoice(input: MakeInvoiceInput): Promise<InvoiceDoc> {
+  counter += 1;
+  const code = input.code ?? (await nextInvoiceCode(new Date().getUTCFullYear()));
+  const total = input.totalPaise ?? 1_000_000;
+  return Invoice.create({
+    code,
+    enrollmentId: input.enrollmentId,
+    studentId: input.studentId,
+    feeStructureId: input.feeStructureId,
+    componentKind: input.componentKind ?? 'tuition',
+    componentLabel: input.componentLabel ?? `Invoice ${counter}`,
+    totalPaise: total,
+    paidPaise: 0,
+    balancePaise: total,
+    status: 'open',
+  });
+}
+
+export interface MakeInstallmentInput {
+  invoiceId: Types.ObjectId;
+  studentId: Types.ObjectId;
+  amountPaise?: number;
+  dueDate?: Date;
+  label?: string;
+  status?: FeeInstallmentDoc['status'];
+  paidPaise?: number;
+  remindersSent?: FeeInstallmentDoc['remindersSent'];
+}
+
+export async function makeInstallment(
+  input: MakeInstallmentInput,
+): Promise<FeeInstallmentDoc> {
+  counter += 1;
+  return FeeInstallment.create({
+    invoiceId: input.invoiceId,
+    studentId: input.studentId,
+    label: input.label ?? `Installment ${counter}`,
+    amountPaise: input.amountPaise ?? 1_000_000,
+    paidPaise: input.paidPaise ?? 0,
+    dueDate: input.dueDate ?? new Date(Date.now() + 14 * 86_400_000),
+    status: input.status ?? 'pending',
+    remindersSent: input.remindersSent ?? [],
+  });
+}
+
+export interface MakePaymentInput {
+  studentId: Types.ObjectId;
+  receivedByUserId: Types.ObjectId;
+  amountPaise?: number;
+  method?: PaymentMethod;
+  receivedAt?: Date;
+  allocations?: Array<{ installmentId: Types.ObjectId; amountPaise: number }>;
+}
+
+export async function makePayment(input: MakePaymentInput): Promise<PaymentDoc> {
+  return Payment.create({
+    studentId: input.studentId,
+    receivedAt: input.receivedAt ?? new Date(),
+    amountPaise: input.amountPaise ?? 1_000_000,
+    method: input.method ?? 'upi',
+    reference: 'TEST-REF',
+    allocations: input.allocations ?? [],
+    receivedByUserId: input.receivedByUserId,
+    notes: '',
+    reversed: false,
+    reversedAt: null,
+    creditNoteId: null,
+  });
+}
+
+export interface MakeReceiptInput {
+  paymentId: Types.ObjectId;
+  studentId: Types.ObjectId;
+  issuedByUserId: Types.ObjectId;
+  code?: string;
+  issuedAt?: Date;
+}
+
+export async function makeReceipt(input: MakeReceiptInput): Promise<ReceiptDoc> {
+  const year = (input.issuedAt ?? new Date()).getUTCFullYear();
+  counter += 1;
+  const doc = await Receipt.create({
+    code: input.code ?? (await nextReceiptCode(year)),
+    paymentId: input.paymentId,
+    studentId: input.studentId,
+    pdfUrl: 'https://stub.local/receipts/test.pdf',
+    pdfKey: `stub:receipts:test-${counter}`,
+    issuedAt: input.issuedAt ?? new Date(),
+    issuedByUserId: input.issuedByUserId,
+  });
+  return doc;
+}
+
+export interface MakeCreditNoteInput {
+  studentId: Types.ObjectId;
+  paymentId?: Types.ObjectId | null;
+  amountPaise?: number;
+  code?: string;
+  issuedByUserId?: Types.ObjectId | null;
+}
+
+export async function makeCreditNote(
+  input: MakeCreditNoteInput,
+): Promise<CreditNoteDoc> {
+  const amount = input.amountPaise ?? 100_000;
+  counter += 1;
+  return CreditNote.create({
+    code: input.code ?? `CN-TEST-${counter}`,
+    paymentId: input.paymentId ?? null,
+    studentId: input.studentId,
+    amountPaise: amount,
+    balancePaise: amount,
+    reason: 'Test credit note',
+    consumed: false,
+    issuedAt: new Date(),
+    issuedByUserId: input.issuedByUserId ?? null,
+  });
+}
+
+export interface MakeOverdueStudentInput {
+  programId: Types.ObjectId;
+  daysOverdue: number;
+  amountPaise?: number;
+}
+
+export async function makeOverdueStudent(
+  input: MakeOverdueStudentInput,
+): Promise<{
+  student: UserDoc;
+  program: ProgramDoc;
+  batch: BatchDoc;
+  course: CourseDoc;
+  enrolment: EnrollmentDoc;
+  invoice: InvoiceDoc;
+  installment: FeeInstallmentDoc;
+}> {
+  const program = await Program.findById(input.programId);
+  if (!program) throw new Error('makeOverdueStudent: program missing');
+  const faculty = await makeUser({ role: 'faculty' });
+  const course = await makeCourse({
+    programId: program._id,
+    state: 'published',
+    facultyIds: [faculty._id],
+  });
+  const batch = await makeBatch({ programId: program._id, status: 'active' });
+  const student = await makeUser({ role: 'student', status: 'active' });
+  const enrolment = await makeEnrollment({
+    studentId: student._id,
+    batchId: batch._id,
+    courseId: course._id,
+    programId: program._id,
+    validFrom: new Date(Date.now() - 365 * 86_400_000),
+    validTo: new Date(Date.now() + 365 * 86_400_000),
+  });
+  const structure = await makeFeeStructure({ programId: program._id });
+  const dueDate = new Date(Date.now() - input.daysOverdue * 86_400_000);
+  const invoice = await makeInvoice({
+    enrollmentId: enrolment._id,
+    studentId: student._id,
+    feeStructureId: structure._id,
+    totalPaise: input.amountPaise ?? 1_000_000,
+  });
+  const installment = await makeInstallment({
+    invoiceId: invoice._id,
+    studentId: student._id,
+    amountPaise: input.amountPaise ?? 1_000_000,
+    dueDate,
+    status: input.daysOverdue > 0 ? 'overdue' : 'pending',
+  });
+  return { student, program, batch, course, enrolment, invoice, installment };
 }
 

@@ -26,9 +26,54 @@ describe('notificationService', () => {
     const channels = typeToChannels('timetable.change');
     expect(channels).toEqual(['inapp', 'email']);
     expect(channels.includes('email')).toBe(true);
-    // Confirm WhatsApp is not wired.
-    // @ts-expect-error — WhatsApp channel isn't in the NotificationChannel type.
     expect(channels.includes('whatsapp')).toBe(false);
+  });
+
+  it('typeToChannels includes WhatsApp for the WABA-approved fee events', () => {
+    expect(typeToChannels('fees.due.today')).toEqual([
+      'inapp',
+      'email',
+      'whatsapp',
+    ]);
+    expect(typeToChannels('fees.paid')).toEqual(['inapp', 'email', 'whatsapp']);
+    // T-14 and T+3 stay email-only per BRD §6.1.
+    expect(typeToChannels('fees.upcoming.14d')).toEqual(['inapp', 'email']);
+    expect(typeToChannels('fees.overdue.3d')).toEqual(['inapp', 'email']);
+  });
+
+  it('drops the WhatsApp channel when WHATSAPP_ENABLED=false', async () => {
+    const { user: student } = await makeStudent();
+    await enqueueNotification({
+      type: 'fees.due.today',
+      recipients: [student._id],
+      title: 'Fee due today',
+      body: 'Body',
+    });
+    expect(spies.whatsapp.calls).toHaveLength(0);
+    expect(spies.email.calls).toHaveLength(1);
+    const stored = await Notification.findOne({ type: 'fees.due.today' });
+    expect(stored?.channels).toEqual(['inapp', 'email']);
+  });
+
+  it('dispatches WhatsApp when enabled', async () => {
+    process.env.WHATSAPP_ENABLED = 'true';
+    const { resetEnvCache } = await import('../../src/config/env.js');
+    resetEnvCache();
+    try {
+      const { user: student } = await makeStudent();
+      await enqueueNotification({
+        type: 'fees.due.today',
+        recipients: [student._id],
+        title: 'Fee due today',
+        body: 'Body',
+        data: { amountPaise: 500_000, installmentLabel: 'Tuition 1' },
+      });
+      expect(spies.whatsapp.calls.length).toBe(1);
+      expect(spies.whatsapp.calls[0]!.templateName).toBe('il_fee_due');
+    } finally {
+      process.env.WHATSAPP_ENABLED = 'false';
+      resetEnvCache();
+    }
   });
 
   it('enqueueNotification persists Notification per recipient and dispatches email', async () => {

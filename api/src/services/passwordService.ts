@@ -53,7 +53,6 @@ export async function assertNotReused(
     ...(user.passwordHistoryHashes ?? []),
   ];
   for (const candidate of candidates) {
-    // eslint-disable-next-line no-await-in-loop
     if (await verifyPassword(candidate, plain)) {
       throw new HttpError(
         422,

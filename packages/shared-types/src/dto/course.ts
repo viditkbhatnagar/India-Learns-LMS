@@ -5,6 +5,7 @@ import type {
   EnrollmentStatus,
   ModuleContentKind,
 } from '../enums.js';
+import type { OutstandingFeesDto } from './fees.js';
 import type { TimetableOccurrenceDto } from './timetable.js';
 import type { UserPublicDto } from './user.js';
 
@@ -194,7 +195,7 @@ export interface StudentDashboardDto {
   student: UserPublicDto;
   enrolments: EnrollmentDto[];
   nextClass: { stub: boolean; value: TimetableOccurrenceDto | null };
-  outstandingFees: { stub: true; totalPaise: number };
+  outstandingFees: { stub: true; totalPaise: number } | OutstandingFeesDto;
   openTickets: { stub: true; count: number };
   newFeedback: { stub: true; count: number };
 }

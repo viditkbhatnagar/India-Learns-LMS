@@ -36,7 +36,12 @@ describe('GET /v1/students/me/dashboard', () => {
     expect(res.body.data.student.id).toBe(student._id.toString());
     expect(res.body.data.enrolments.length).toBe(1);
     expect(res.body.data.nextClass).toMatchObject({ stub: false, value: null });
-    expect(res.body.data.outstandingFees).toMatchObject({ stub: true, totalPaise: 0 });
+    // M5: outstandingFees is now a real aggregate (stub flipped to false).
+    expect(res.body.data.outstandingFees).toMatchObject({
+      stub: false,
+      totalPaise: 0,
+      invoiceCount: 0,
+    });
     expect(res.body.data.openTickets).toMatchObject({ stub: true, count: 0 });
     expect(res.body.data.newFeedback).toMatchObject({ stub: true, count: 0 });
   });

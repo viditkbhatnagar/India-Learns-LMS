@@ -5,6 +5,8 @@ import { logger } from '../src/config/logger.js';
 import {
   Batch,
   Course,
+  Enrollment,
+  FeeStructure,
   Holiday,
   Program,
   TimetableEntry,
@@ -13,6 +15,8 @@ import {
   type HydratedUser,
 } from '../src/models/index.js';
 import { hashPassword } from '../src/services/passwordService.js';
+import { generateForEnrollment } from '../src/services/invoiceGenerationService.js';
+import { recordPayment } from '../src/services/paymentService.js';
 import { utcDateForIstDay } from '../src/services/timetableTz.js';
 
 const SeedEnv = z.object({
@@ -206,6 +210,174 @@ async function seedOverride(
   return { inserted: 1, skipped: 0 };
 }
 
+async function seedFinanceStaff(): Promise<{ inserted: number; skipped: number }> {
+  const email = 'finance-seed-1@luc.local';
+  let user = await User.findOne({ email });
+  if (user) return { inserted: 0, skipped: 1 };
+  const passwordHash = await hashPassword('Finance#12345');
+  user = await User.create({
+    role: 'finance',
+    code: null,
+    name: 'Seed Finance One',
+    email,
+    phoneE164: '+911234567891',
+    status: 'active',
+    passwordHash,
+    passwordUpdatedAt: new Date(),
+    deptTag: 'finance',
+  });
+  return { inserted: 1, skipped: 0 };
+}
+
+async function seedFeeStructure(
+  programSlug: string,
+): Promise<{ inserted: number; skipped: number }> {
+  const program = await Program.findOne({ slug: programSlug });
+  if (!program) return { inserted: 0, skipped: 1 };
+  const existing = await FeeStructure.findOne({
+    programId: program._id,
+    name: 'Aviation Diploma — 2026 default',
+  });
+  if (existing) return { inserted: 0, skipped: 1 };
+  await FeeStructure.create({
+    programId: program._id,
+    name: 'Aviation Diploma — 2026 default',
+    components: [
+      {
+        kind: 'registration',
+        label: 'Registration Fee',
+        amountPaise: 1_000_000,
+        cadence: 'one_time',
+        monthlyCount: null,
+        dueRule: 'on_enrolment',
+        weights: null,
+      },
+      {
+        kind: 'tuition',
+        label: 'Tuition Fee',
+        amountPaise: 6_000_000,
+        cadence: 'monthly_x',
+        monthlyCount: 3,
+        dueRule: 'on_enrolment',
+        weights: null,
+      },
+      {
+        kind: 'exam',
+        label: 'Examination Fee',
+        amountPaise: 400_000,
+        cadence: 'one_time',
+        monthlyCount: null,
+        dueRule: 'month_before_end',
+        weights: null,
+      },
+    ],
+    paymentTerms:
+      'Fees payable in INR. Installments due on the schedule shown on your Fees page. Late-payment notices start 14 days before the due date.',
+  });
+  return { inserted: 1, skipped: 0 };
+}
+
+async function seedStudentAndEnrolment(
+  programSlug: string,
+  batchName: string,
+): Promise<{
+  student: HydratedUser | null;
+  enrolment: Awaited<ReturnType<typeof Enrollment.findOne>> | null;
+  inserted: number;
+  skipped: number;
+}> {
+  const program = await Program.findOne({ slug: programSlug });
+  const batch = program
+    ? await Batch.findOne({ programId: program._id, name: batchName })
+    : null;
+  const course = program
+    ? await Course.findOne({ programId: program._id, slug: 'airport-ground-ops' })
+    : null;
+  if (!program || !batch || !course) {
+    return { student: null, enrolment: null, inserted: 0, skipped: 0 };
+  }
+
+  const email = 'student-seed-1@luc.local';
+  let student = await User.findOne({ email });
+  let inserted = 0;
+  let skipped = 0;
+  if (!student) {
+    const passwordHash = await hashPassword('Student#12345');
+    student = await User.create({
+      role: 'student',
+      code: 'IL-2026-0001',
+      name: 'Seed Student One',
+      email,
+      phoneE164: '+911234500001',
+      status: 'active',
+      passwordHash,
+      passwordUpdatedAt: new Date(),
+      programId: program._id,
+      batchId: batch._id,
+      enrolmentValidFrom: batch.startDate,
+      enrolmentValidTo: batch.endDate,
+    });
+    inserted += 1;
+  } else {
+    skipped += 1;
+  }
+
+  let enrolment = await Enrollment.findOne({
+    studentId: student._id,
+    courseId: course._id,
+    status: 'active',
+  });
+  if (!enrolment) {
+    enrolment = await Enrollment.create({
+      studentId: student._id,
+      batchId: batch._id,
+      courseId: course._id,
+      programId: program._id,
+      validFrom: batch.startDate,
+      validTo: batch.endDate,
+      status: 'active',
+      accessState: 'active',
+    });
+    inserted += 1;
+  } else {
+    skipped += 1;
+  }
+
+  return { student, enrolment, inserted, skipped };
+}
+
+async function seedSampleFees(
+  student: HydratedUser,
+  enrolmentId: Types.ObjectId,
+  financeUserId: Types.ObjectId,
+): Promise<{ inserted: number; skipped: number }> {
+  const result = await generateForEnrollment(String(enrolmentId), {
+    actorUserId: financeUserId,
+  });
+  return { inserted: result.createdCount, skipped: result.skippedCount };
+}
+
+async function seedSamplePayment(
+  student: HydratedUser,
+  financeUserId: Types.ObjectId,
+): Promise<{ inserted: number; skipped: number }> {
+  const { Payment } = await import('../src/models/index.js');
+  const existing = await Payment.findOne({ studentId: student._id });
+  if (existing) return { inserted: 0, skipped: 1 };
+  await recordPayment(
+    {
+      studentId: String(student._id),
+      amountPaise: 1_000_000,
+      method: 'upi',
+      reference: 'SEED-REG-FEE-001',
+      receivedAt: new Date().toISOString(),
+      notes: 'Seed: registration fee payment',
+    },
+    { actorUserId: financeUserId },
+  );
+  return { inserted: 1, skipped: 0 };
+}
+
 async function seedHoliday(): Promise<{ inserted: number; skipped: number }> {
   // 15 Aug — Independence Day (IST).
   const date = utcDateForIstDay('2026-08-15');
@@ -253,6 +425,28 @@ async function main(): Promise<void> {
 
   const holidayRes = await seedHoliday();
   logger.info(holidayRes, 'holiday seeded');
+
+  const financeRes = await seedFinanceStaff();
+  logger.info(financeRes, 'finance user seeded');
+
+  const feeStructureRes = await seedFeeStructure('aviation-diploma');
+  logger.info(feeStructureRes, 'fee structure seeded');
+
+  const { student, enrolment, inserted: sInserted, skipped: sSkipped } =
+    await seedStudentAndEnrolment(
+      'aviation-diploma',
+      'Aviation Batch 1 — July 2026',
+    );
+  logger.info({ inserted: sInserted, skipped: sSkipped }, 'student + enrolment seeded');
+
+  const finance = await User.findOne({ email: 'finance-seed-1@luc.local' });
+  if (student && enrolment && finance) {
+    const feesRes = await seedSampleFees(student, enrolment._id, finance._id);
+    logger.info(feesRes, 'invoices + installments seeded');
+
+    const payRes = await seedSamplePayment(student, finance._id);
+    logger.info(payRes, 'sample payment seeded');
+  }
 
   await disconnectDb();
 }

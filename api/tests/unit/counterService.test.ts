@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import '../helpers/env.js';
 import { useMongo } from '../helpers/db.js';
-import { nextUserCode } from '../../src/services/counterService.js';
+import {
+  nextCreditNoteCode,
+  nextInvoiceCode,
+  nextReceiptCode,
+  nextUserCode,
+} from '../../src/services/counterService.js';
 
 describe('counterService.nextUserCode', () => {
   useMongo();
@@ -25,5 +30,33 @@ describe('counterService.nextUserCode', () => {
     for (const code of codes) {
       expect(code).toMatch(/^IL-2030-\d{4}$/);
     }
+  });
+});
+
+describe('counterService fee-side codes', () => {
+  useMongo();
+
+  it('nextInvoiceCode produces 6-digit zero-padded INV codes per year', async () => {
+    const a = await nextInvoiceCode(2026);
+    const b = await nextInvoiceCode(2026);
+    expect(a).toBe('INV-2026-000001');
+    expect(b).toBe('INV-2026-000002');
+  });
+
+  it('nextReceiptCode produces 6-digit RCP codes', async () => {
+    const a = await nextReceiptCode(2026);
+    expect(a).toMatch(/^RCP-2026-\d{6}$/);
+  });
+
+  it('nextCreditNoteCode produces 6-digit CN codes', async () => {
+    const a = await nextCreditNoteCode(2026);
+    expect(a).toMatch(/^CN-2026-\d{6}$/);
+  });
+
+  it('user + invoice counters do not collide', async () => {
+    const u = await nextUserCode(2099);
+    const i = await nextInvoiceCode(2099);
+    expect(u).toBe('IL-2099-0001');
+    expect(i).toBe('INV-2099-000001');
   });
 });

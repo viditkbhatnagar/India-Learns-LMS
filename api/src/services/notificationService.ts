@@ -5,6 +5,7 @@ import type {
   NotificationType,
   OverrideAction,
 } from 'india-learns-shared-types';
+import { loadEnv } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { getIntegrations } from '../integrations/index.js';
 import { HttpError } from '../middleware/error.js';
@@ -15,9 +16,29 @@ import {
   type HydratedNotification,
 } from '../models/index.js';
 
+// BRD §6.1: WhatsApp is reserved for fee-due, payment-received, ticket-updated.
+// Timetable does NOT use WhatsApp (D-037). Fee upcoming T-14/T+3 stay email-only.
 const CHANNELS_BY_TYPE: Record<NotificationType, NotificationChannel[]> = {
-  // BRD §6.1 / PRD US-TT-05: WhatsApp is NOT used for timetable changes.
   'timetable.change': ['inapp', 'email'],
+  'fees.upcoming.14d': ['inapp', 'email'],
+  'fees.upcoming.7d': ['inapp', 'email', 'whatsapp'],
+  'fees.due.today': ['inapp', 'email', 'whatsapp'],
+  'fees.overdue.3d': ['inapp', 'email'],
+  'fees.warning.1': ['inapp', 'email', 'whatsapp'],
+  'fees.warning.2': ['inapp', 'email', 'whatsapp'],
+  'fees.suspended': ['inapp', 'email', 'whatsapp'],
+  'fees.paid': ['inapp', 'email', 'whatsapp'],
+};
+
+// Only two WABA templates are pre-approved at launch (D-007).
+// M5 maps the 8 fees.* notification types onto those two templates.
+const WABA_TEMPLATE_BY_TYPE: Partial<Record<NotificationType, string>> = {
+  'fees.upcoming.7d': 'il_fee_due',
+  'fees.due.today': 'il_fee_due',
+  'fees.warning.1': 'il_fee_due',
+  'fees.warning.2': 'il_fee_due',
+  'fees.suspended': 'il_fee_due',
+  'fees.paid': 'il_payment_received',
 };
 
 export function typeToChannels(type: NotificationType): NotificationChannel[] {
@@ -60,8 +81,17 @@ export interface EnqueueNotificationInput {
 export async function enqueueNotification(
   input: EnqueueNotificationInput,
 ): Promise<HydratedNotification[]> {
-  const channels = input.channels ?? typeToChannels(input.type);
+  const resolvedChannels = input.channels ?? typeToChannels(input.type);
   if (input.recipients.length === 0) return [];
+
+  const env = loadEnv();
+  // Per BRD §6.1 + CLAUDE.md §8: WhatsApp must stay off until WABA keys are
+  // loaded. `WHATSAPP_ENABLED=false` silently drops the whatsapp channel so the
+  // inapp+email paths still work.
+  const effectiveChannels = resolvedChannels.filter((c) => {
+    if (c === 'whatsapp' && !env.WHATSAPP_ENABLED) return false;
+    return true;
+  });
 
   const unique = new Map<string, Types.ObjectId>();
   input.recipients.forEach((id) => unique.set(id.toString(), id));
@@ -75,27 +105,37 @@ export async function enqueueNotification(
         title: input.title,
         body: input.body,
         data: input.data ?? {},
-        channels,
+        channels: effectiveChannels,
         readAt: null,
         emailSentAt: null,
         emailError: null,
+        whatsappSentAt: null,
+        whatsappError: null,
       }),
     ),
   );
 
-  if (channels.includes('email')) {
-    const users = await User.find({
-      _id: { $in: userIds },
-      deletedAt: null,
-    }).select('email name');
-    const emailByUserId = new Map<string, { email: string; name: string }>();
-    users.forEach((u) => {
-      emailByUserId.set(u._id.toString(), { email: u.email, name: u.name });
+  const users = await User.find({
+    _id: { $in: userIds },
+    deletedAt: null,
+  }).select('email name phoneE164');
+  const userById = new Map<
+    string,
+    { email: string; name: string; phoneE164: string }
+  >();
+  users.forEach((u) => {
+    userById.set(u._id.toString(), {
+      email: u.email,
+      name: u.name,
+      phoneE164: u.phoneE164,
     });
+  });
+
+  if (effectiveChannels.includes('email')) {
     const { email } = getIntegrations();
     await Promise.all(
       docs.map(async (doc) => {
-        const target = emailByUserId.get(doc.userId.toString());
+        const target = userById.get(doc.userId.toString());
         if (!target) return;
         try {
           await email.send({
@@ -121,7 +161,60 @@ export async function enqueueNotification(
     );
   }
 
+  if (effectiveChannels.includes('whatsapp')) {
+    const templateName = WABA_TEMPLATE_BY_TYPE[input.type];
+    if (templateName) {
+      const { whatsapp } = getIntegrations();
+      await Promise.all(
+        docs.map(async (doc) => {
+          const target = userById.get(doc.userId.toString());
+          if (!target || !target.phoneE164) return;
+          const vars = waTemplateVars(input.type, target.name, input.data ?? {});
+          try {
+            await whatsapp.sendTemplate({
+              toE164: target.phoneE164,
+              templateName,
+              languageCode: 'en',
+              vars,
+            });
+            doc.whatsappSentAt = new Date();
+            await doc.save();
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            doc.whatsappError = message.slice(0, 500);
+            await doc.save();
+            logger.warn(
+              { err, notificationId: doc._id.toString(), type: doc.type },
+              'notification.whatsapp_failed',
+            );
+          }
+        }),
+      );
+    }
+  }
+
   return docs;
+}
+
+function waTemplateVars(
+  type: NotificationType,
+  name: string,
+  data: Record<string, unknown>,
+): string[] {
+  // `il_fee_due`: [name, componentLabel, amount, dueDate, url]
+  // `il_payment_received`: [name, amount, componentLabel, receiptUrl]
+  const env = loadEnv();
+  const dashboardUrl = `${env.WEB_ORIGIN}/fees`;
+  const amount = typeof data.amountPaise === 'number'
+    ? `₹${(data.amountPaise / 100).toFixed(2)}`
+    : '';
+  const component = (data.installmentLabel as string) ?? (data.component as string) ?? 'Fee';
+  const due = (data.dueIst as string) ?? '';
+  const receiptUrl = (data.receiptUrl as string) ?? dashboardUrl;
+  if (type === 'fees.paid') {
+    return [name, amount, component, receiptUrl];
+  }
+  return [name, component, amount, due, dashboardUrl];
 }
 
 function escapeHtml(s: string): string {

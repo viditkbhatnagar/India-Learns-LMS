@@ -25,6 +25,31 @@ function readBearer(req: Request): string | null {
   return match?.[1] ?? null;
 }
 
+// PRD §9.5 + D-021: fees-suspended students keep a live session but can only
+// hit a whitelist of routes. Manual-suspended users are hard-blocked upstream.
+function feesSuspensionAllowed(req: Request): boolean {
+  const method = req.method.toUpperCase();
+  const url = req.originalUrl || req.url;
+  if (method === 'GET' && /\/students\/me\/fees(?:$|\?)/.test(url)) return true;
+  if (method === 'GET' && /\/students\/me\/dashboard(?:$|\?)/.test(url)) return true;
+  if (method === 'GET' && /\/users\/me(?:$|\?)/.test(url)) return true;
+  if (method === 'POST' && /\/auth\/logout(?:$|\?)/.test(url)) return true;
+  if (method === 'POST' && /\/auth\/refresh(?:$|\?)/.test(url)) return true;
+  // Notification list/read stays allowed so students see the suspension-notice.
+  if (/\/notifications\/me/.test(url)) return true;
+  // Finance-category tickets land in M6; the category check ships with that.
+  if (method === 'POST' && /\/tickets\/?(?:$|\?)/.test(url)) {
+    const body = req.body as { category?: string } | undefined;
+    if (body?.category === 'Finance') return true;
+  }
+  // Admin + finance recording a payment for this student must succeed even if
+  // the acting admin impersonates them; payments router enforces role gates.
+  if (method === 'POST' && /\/payments\/?(?:$|\?)/.test(url)) return true;
+  // Receipt download for the student's own receipts stays allowed.
+  if (method === 'GET' && /\/receipts\/[^/]+\/download(?:$|\?)/.test(url)) return true;
+  return false;
+}
+
 export async function requireAuth(
   req: Request,
   _res: Response,
@@ -41,12 +66,19 @@ export async function requireAuth(
       throw new HttpError(401, 'UNAUTHENTICATED', 'Session no longer valid.');
     }
     if (user.status === 'suspended' && user.suspensionKind === 'manual') {
-      // Fees-suspended users keep a valid session; M5 page-level middleware
-      // restricts them to /fees, /profile, and Finance tickets (PRD §9.5).
       throw new HttpError(403, 'SUSPENDED_ACCESS', 'Account suspended.');
     }
     if (user.status === 'pending') {
       throw new HttpError(401, 'UNAUTHENTICATED', 'Invitation not completed.');
+    }
+    if (user.status === 'suspended' && user.suspensionKind === 'fees') {
+      if (!feesSuspensionAllowed(req)) {
+        throw new HttpError(
+          403,
+          'FEES_SUSPENDED',
+          'Access suspended due to unpaid fees. Visit your Fees page or raise a Finance ticket.',
+        );
+      }
     }
     req.auth = {
       userId: user._id,

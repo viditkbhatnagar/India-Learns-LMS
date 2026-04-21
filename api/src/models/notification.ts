@@ -15,6 +15,8 @@ export interface NotificationDoc {
   readAt: Date | null;
   emailSentAt: Date | null;
   emailError: string | null;
+  whatsappSentAt: Date | null;
+  whatsappError: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,14 +29,30 @@ const NotificationSchema = new Schema<NotificationDoc>(
       required: true,
       index: true,
     },
-    type: { type: String, enum: ['timetable.change'], required: true },
+    type: {
+      type: String,
+      enum: [
+        'timetable.change',
+        'fees.upcoming.14d',
+        'fees.upcoming.7d',
+        'fees.due.today',
+        'fees.overdue.3d',
+        'fees.warning.1',
+        'fees.warning.2',
+        'fees.suspended',
+        'fees.paid',
+      ],
+      required: true,
+    },
     title: { type: String, required: true, maxlength: 200 },
     body: { type: String, required: true, maxlength: 2000 },
     data: { type: Schema.Types.Mixed, default: {} },
     channels: {
-      type: [{ type: String, enum: ['inapp', 'email'] }],
+      type: [{ type: String, enum: ['inapp', 'email', 'whatsapp'] }],
       default: ['inapp'],
     },
+    whatsappSentAt: { type: Date, default: null },
+    whatsappError: { type: String, default: null, maxlength: 500 },
     readAt: { type: Date, default: null },
     emailSentAt: { type: Date, default: null },
     emailError: { type: String, default: null, maxlength: 500 },

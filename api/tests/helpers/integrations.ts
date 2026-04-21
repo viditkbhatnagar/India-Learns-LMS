@@ -72,16 +72,29 @@ export class SpyStorageAdapter implements StorageAdapter {
     ttlSec?: number;
   }> = [];
 
+  private bytesByKey = new Map<string, Uint8Array>();
+
   async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
     this.uploads.push(input);
+    // Use the `stub:` prefix so the ConsoleStorageAdapter.getCached fallback
+    // in /v1/receipts/:id/download can also serve bytes from the spy cache.
+    const key = `stub:${input.folder}:spy-${this.uploads.length}`;
+    if (input.bytes) {
+      this.bytesByKey.set(key, input.bytes);
+      const { ConsoleStorageAdapter } = await import(
+        '../../src/integrations/storageAdapter.js'
+      );
+      ConsoleStorageAdapter.setCached(key, input.bytes);
+    }
     return {
       url: `https://spy.test/${input.folder}/${this.uploads.length}`,
-      key: `spy:${input.folder}:${this.uploads.length}`,
+      key,
     };
   }
 
   async delete(key: string): Promise<void> {
     this.deletes.push(key);
+    this.bytesByKey.delete(key);
   }
 
   async signedUrl(key: string): Promise<string> {
@@ -109,6 +122,7 @@ export class SpyStorageAdapter implements StorageAdapter {
     this.deletes = [];
     this.signedUrls = [];
     this.tickets = [];
+    this.bytesByKey.clear();
   }
 }
 

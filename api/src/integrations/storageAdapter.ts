@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid';
+import { v2 as cloudinary, type UploadApiOptions } from 'cloudinary';
 import type {
   StorageAdapter,
   StorageFolder,
@@ -18,11 +19,27 @@ function extFromFilename(filename: string): string {
 }
 
 export class ConsoleStorageAdapter implements StorageAdapter {
+  // Per-process cache of upload bytes so tests (and the stub-mode receipt
+  // download path) can fetch the PDF back by key without a real provider.
+  private static bytesByKey = new Map<string, Uint8Array>();
+
+  static getCached(key: string): Uint8Array | null {
+    return ConsoleStorageAdapter.bytesByKey.get(key) ?? null;
+  }
+
+  /** Test-only: let spy adapters push their bytes into the stub cache. */
+  static setCached(key: string, bytes: Uint8Array): void {
+    ConsoleStorageAdapter.bytesByKey.set(key, bytes);
+  }
+
   async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
     const id = nanoid(16);
     const ext = extFromFilename(input.filename);
     const key = `stub:${input.folder}:${id}`;
     const url = `https://stub.local/${input.folder}/${id}.${ext}`;
+    if (input.bytes) {
+      ConsoleStorageAdapter.bytesByKey.set(key, input.bytes);
+    }
     logger.info(
       {
         folder: input.folder,
@@ -38,6 +55,7 @@ export class ConsoleStorageAdapter implements StorageAdapter {
   }
 
   async delete(key: string): Promise<void> {
+    ConsoleStorageAdapter.bytesByKey.delete(key);
     logger.info({ key }, 'storage.delete');
   }
 
@@ -70,7 +88,10 @@ export class ConsoleStorageAdapter implements StorageAdapter {
 }
 
 export class CloudinaryStorageAdapter implements StorageAdapter {
-  private assertConfigured(): void {
+  private configured = false;
+
+  private configure(): void {
+    if (this.configured) return;
     const env = loadEnv();
     if (
       !env.CLOUDINARY_CLOUD_NAME ||
@@ -78,33 +99,92 @@ export class CloudinaryStorageAdapter implements StorageAdapter {
       !env.CLOUDINARY_API_SECRET
     ) {
       throw new Error(
-        'CloudinaryStorageAdapter not wired — missing CLOUDINARY_* env vars. Scheduled for M5 receipts.',
+        'CloudinaryStorageAdapter not wired — missing CLOUDINARY_* env vars.',
       );
     }
+    cloudinary.config({
+      cloud_name: env.CLOUDINARY_CLOUD_NAME,
+      api_key: env.CLOUDINARY_API_KEY,
+      api_secret: env.CLOUDINARY_API_SECRET,
+      secure: true,
+    });
+    this.configured = true;
   }
 
-  async upload(_input: StorageUploadInput): Promise<StorageUploadResult> {
-    this.assertConfigured();
-    throw new Error('CloudinaryStorageAdapter.upload not yet implemented.');
+  async upload(input: StorageUploadInput): Promise<StorageUploadResult> {
+    this.configure();
+    if (!input.bytes) {
+      throw new Error('CloudinaryStorageAdapter.upload requires input.bytes.');
+    }
+    const options: UploadApiOptions = {
+      folder: `il/${input.folder}`,
+      resource_type: 'auto',
+      public_id: input.filename.replace(/\.[^.]+$/, ''),
+      type: 'authenticated',
+      overwrite: false,
+    };
+    return new Promise<StorageUploadResult>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(options, (err, result) => {
+        if (err || !result) {
+          reject(err ?? new Error('Cloudinary upload returned no result.'));
+          return;
+        }
+        resolve({
+          url: result.secure_url,
+          key: result.public_id,
+        });
+      });
+      stream.end(Buffer.from(input.bytes!));
+    });
   }
 
-  async delete(_key: string): Promise<void> {
-    this.assertConfigured();
-    throw new Error('CloudinaryStorageAdapter.delete not yet implemented.');
+  async delete(key: string): Promise<void> {
+    this.configure();
+    await cloudinary.uploader.destroy(key, { type: 'authenticated' });
   }
 
-  async signedUrl(_key: string, _ttlSec?: number): Promise<string> {
-    this.assertConfigured();
-    throw new Error('CloudinaryStorageAdapter.signedUrl not yet implemented.');
+  async signedUrl(key: string, ttlSec: number = DEFAULT_UPLOAD_TTL_SEC): Promise<string> {
+    this.configure();
+    const expiresAt = Math.floor(Date.now() / 1000) + ttlSec;
+    return cloudinary.utils.private_download_url(key, 'pdf', {
+      resource_type: 'image',
+      type: 'authenticated',
+      expires_at: expiresAt,
+    });
   }
 
-  async signedUploadTicket(_input: {
+  async signedUploadTicket(input: {
     folder: StorageFolder;
     filename: string;
     contentType: string;
     ttlSec?: number;
   }): Promise<StorageSignedUploadTicket> {
-    this.assertConfigured();
-    throw new Error('CloudinaryStorageAdapter.signedUploadTicket not yet implemented.');
+    this.configure();
+    const env = loadEnv();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const publicId = input.filename.replace(/\.[^.]+$/, '');
+    const folder = `il/${input.folder}`;
+    const signature = cloudinary.utils.api_sign_request(
+      {
+        folder,
+        public_id: publicId,
+        timestamp,
+        type: 'authenticated',
+      },
+      env.CLOUDINARY_API_SECRET,
+    );
+    const url = `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/auto/upload`;
+    const key = `${folder}/${publicId}`;
+    const ttl = input.ttlSec ?? DEFAULT_UPLOAD_TTL_SEC;
+    return {
+      url,
+      key,
+      headers: {
+        'x-cld-signature': signature,
+        'x-cld-api-key': env.CLOUDINARY_API_KEY,
+        'x-cld-timestamp': String(timestamp),
+      },
+      expiresAt: new Date((timestamp + ttl) * 1000).toISOString(),
+    };
   }
 }

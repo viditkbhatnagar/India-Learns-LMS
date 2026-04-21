@@ -104,6 +104,22 @@ export default [
     },
   },
   {
+    // Fee + suspension + reminder services intentionally sequence DB writes
+    // (per-installment allocation, idempotent reminder append) so await-in-loop
+    // is required for correctness. Service-wide, continue + lonely-if are
+    // readable control-flow for the state machines here.
+    files: ['api/src/services/**/*.{ts,tsx}'],
+    rules: {
+      'no-await-in-loop': 'off',
+      'no-continue': 'off',
+      'no-lonely-if': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  {
     files: ['web/**/*.{ts,tsx}'],
     plugins: {
       react: reactPlugin,

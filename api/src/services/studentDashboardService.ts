@@ -6,6 +6,7 @@ import {
   listEnrollmentsForStudent,
   toEnrollmentDto,
 } from './enrollmentService.js';
+import { buildOutstandingFees } from './studentFeesService.js';
 import { getNextClassForStudent } from './timetableResolutionService.js';
 import { toUserDto } from './userService.js';
 
@@ -16,16 +17,16 @@ export async function buildStudentDashboard(
     throw new HttpError(403, 'FORBIDDEN', 'Only students have a student dashboard.');
   }
   const studentId = student._id as unknown as Types.ObjectId;
-  const [enrolments, nextClass] = await Promise.all([
+  const [enrolments, nextClass, outstandingFees] = await Promise.all([
     listEnrollmentsForStudent(studentId),
     getNextClassForStudent(studentId),
+    buildOutstandingFees(studentId),
   ]);
   return {
     student: toUserDto(student),
     enrolments: enrolments.map(toEnrollmentDto),
     nextClass: { stub: false, value: nextClass },
-    // M5 fills with outstanding installments.
-    outstandingFees: { stub: true, totalPaise: 0 },
+    outstandingFees,
     // M6 fills with open ticket count.
     openTickets: { stub: true, count: 0 },
     // M7 fills with unread feedback count.

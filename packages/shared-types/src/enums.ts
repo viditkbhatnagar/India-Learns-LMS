@@ -55,10 +55,73 @@ export type OverrideAction = (typeof OVERRIDE_ACTIONS)[number];
 export const HOLIDAY_KINDS = ['public', 'institutional'] as const;
 export type HolidayKind = (typeof HOLIDAY_KINDS)[number];
 
-export const NOTIFICATION_TYPES = ['timetable.change'] as const;
+export const FEE_COMPONENT_KINDS = [
+  'registration',
+  'tuition',
+  'exam',
+  'certification',
+  'misc',
+] as const;
+export type FeeComponentKind = (typeof FEE_COMPONENT_KINDS)[number];
+
+export const FEE_COMPONENT_CADENCES = ['one_time', 'monthly_x'] as const;
+export type FeeComponentCadence = (typeof FEE_COMPONENT_CADENCES)[number];
+
+export const FEE_DUE_RULES = [
+  'on_enrolment',
+  'first_of_month',
+  'exam_scheduled',
+  'month_before_end',
+  'manual',
+] as const;
+export type FeeDueRule = (typeof FEE_DUE_RULES)[number];
+
+export const INVOICE_STATUSES = ['open', 'settled', 'waived', 'cancelled'] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+export const INSTALLMENT_STATUSES = [
+  'pending',
+  'partial',
+  'paid',
+  'overdue',
+  'waived',
+] as const;
+export type InstallmentStatus = (typeof INSTALLMENT_STATUSES)[number];
+
+export const PAYMENT_METHODS = [
+  'cash',
+  'upi',
+  'bank_transfer',
+  'cheque',
+  'other',
+] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export const FEE_REMINDER_TEMPLATES = [
+  'fees.upcoming.14d',
+  'fees.upcoming.7d',
+  'fees.due.today',
+  'fees.overdue.3d',
+  'fees.warning.1',
+  'fees.warning.2',
+  'fees.suspended',
+] as const;
+export type FeeReminderTemplate = (typeof FEE_REMINDER_TEMPLATES)[number];
+
+export const NOTIFICATION_TYPES = [
+  'timetable.change',
+  'fees.upcoming.14d',
+  'fees.upcoming.7d',
+  'fees.due.today',
+  'fees.overdue.3d',
+  'fees.warning.1',
+  'fees.warning.2',
+  'fees.suspended',
+  'fees.paid',
+] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
-export const NOTIFICATION_CHANNELS = ['inapp', 'email'] as const;
+export const NOTIFICATION_CHANNELS = ['inapp', 'email', 'whatsapp'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
 export const AUDIT_ACTIONS = [
@@ -101,5 +164,19 @@ export const AUDIT_ACTIONS = [
   'timetable.override.deleted',
   'holiday.created',
   'holiday.deleted',
+  'fees.structure.created',
+  'fees.structure.updated',
+  'fees.invoice.generated',
+  'fees.payment.recorded',
+  'fees.payment.reversed',
+  'fees.receipt.issued',
+  'fees.credit_note.issued',
+  'fees.reminder.sent',
+  'fees.suspension.auto_suspended',
+  'fees.suspension.lifted',
+  'fees.suspension.override_applied',
+  'fees.suspension.override_revoked',
+  'jobs.fee_reminders.invoked',
+  'jobs.autosuspend.invoked',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
