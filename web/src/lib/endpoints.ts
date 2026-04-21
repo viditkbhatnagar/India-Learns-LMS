@@ -1,0 +1,387 @@
+import type {
+  AnalyticsSummaryDto,
+  CertificateDto,
+  CollectionsReportDto,
+  CourseDto,
+  CreateTicketInput,
+  EnrollmentDto,
+  ExamAttemptDto,
+  ExamDto,
+  FeedbackEntryDto,
+  HolidayDto,
+  InvoiceDto,
+  ModuleDto,
+  NotificationDto,
+  NotificationPrefsDto,
+  OutstandingFeesDto,
+  PaymentDto,
+  ProgramDto,
+  QuizAttemptDto,
+  QuizDto,
+  ReceiptDto,
+  StudentDashboardDto,
+  StudentFeesDto,
+  TicketCommentDto,
+  TicketDto,
+  TicketState,
+  TimetableOccurrenceDto,
+  UserPublicDto,
+} from 'india-learns-shared-types';
+import { api, unwrap } from './api.js';
+
+export const authApi = {
+  async login(email: string, password: string) {
+    const res = await api.post<{
+      data: { user: UserPublicDto; accessToken: string };
+    }>('/auth/login', { email, password });
+    return res.data.data;
+  },
+  async logout() {
+    await api.post('/auth/logout', {});
+  },
+  async me() {
+    const res = await api.get<{ data: { user: UserPublicDto } }>('/users/me');
+    return res.data.data.user;
+  },
+  async requestPasswordReset(email: string) {
+    await api.post('/auth/password/reset/request', { email });
+  },
+  async confirmPasswordReset(token: string, password: string) {
+    await api.post('/auth/password/reset/confirm', { token, password });
+  },
+  async acceptInvite(token: string, password: string) {
+    const res = await api.post<{
+      data: { user: UserPublicDto; accessToken: string };
+    }>('/auth/invite/accept', { token, password });
+    return res.data.data;
+  },
+  async changePassword(current: string, next: string) {
+    await api.post('/auth/password/change', { current, next });
+  },
+};
+
+export const usersApi = {
+  async list(params: { role?: string; status?: string; q?: string } = {}) {
+    const res = await api.get<{ data: { items: UserPublicDto[] } }>('/users', {
+      params,
+    });
+    return unwrap<{ items: UserPublicDto[] }>(res).items;
+  },
+  async get(id: string) {
+    const res = await api.get<{ data: { user: UserPublicDto } }>(`/users/${id}`);
+    return res.data.data.user;
+  },
+  async create(input: {
+    role: string;
+    name: string;
+    email: string;
+    phoneE164?: string;
+    programId?: string;
+    batchId?: string;
+  }) {
+    const res = await api.post<{ data: { user: UserPublicDto } }>('/users', input);
+    return res.data.data.user;
+  },
+  async update(id: string, input: Partial<{ name: string; email: string; phoneE164: string; programId: string; batchId: string }>) {
+    const res = await api.patch<{ data: { user: UserPublicDto } }>(`/users/${id}`, input);
+    return res.data.data.user;
+  },
+  async suspend(id: string, reason: string) {
+    await api.post(`/users/${id}/suspend`, { reason });
+  },
+  async unsuspend(id: string) {
+    await api.post(`/users/${id}/unsuspend`, {});
+  },
+  async resendInvite(id: string) {
+    await api.post(`/users/${id}/resend-invite`, {});
+  },
+};
+
+export const studentsApi = {
+  async dashboard() {
+    const res = await api.get<{ data: StudentDashboardDto }>('/students/me/dashboard');
+    return res.data.data;
+  },
+  async fees() {
+    const res = await api.get<{ data: StudentFeesDto }>('/students/me/fees');
+    return res.data.data;
+  },
+  async feesFor(studentId: string) {
+    const res = await api.get<{ data: StudentFeesDto }>(`/students/${studentId}/fees`);
+    return res.data.data;
+  },
+};
+
+export const programsApi = {
+  async list() {
+    const res = await api.get<{ data: { items: ProgramDto[] } }>('/programs');
+    return res.data.data.items;
+  },
+  async create(input: { name: string; slug: string; description?: string; totalHours?: number }) {
+    const res = await api.post<{ data: { program: ProgramDto } }>('/programs', input);
+    return res.data.data.program;
+  },
+};
+
+export const coursesApi = {
+  async list() {
+    const res = await api.get<{ data: { items: CourseDto[] } }>('/courses');
+    return res.data.data.items;
+  },
+  async get(id: string) {
+    const res = await api.get<{ data: { course: CourseDto; modules: ModuleDto[] } }>(`/courses/${id}`);
+    return res.data.data;
+  },
+  async create(input: { programId: string; name: string; slug: string; summary?: string }) {
+    const res = await api.post<{ data: { course: CourseDto } }>('/courses', input);
+    return res.data.data.course;
+  },
+  async publish(id: string) {
+    await api.post(`/courses/${id}/publish`, {});
+  },
+  async unpublish(id: string) {
+    await api.post(`/courses/${id}/unpublish`, {});
+  },
+};
+
+export const meCoursesApi = {
+  async list() {
+    const res = await api.get<{ data: { items: EnrollmentDto[] } }>('/me/courses');
+    return res.data.data.items;
+  },
+  async get(courseId: string) {
+    const res = await api.get<{ data: { course: CourseDto; modules: ModuleDto[] } }>(`/me/courses/${courseId}`);
+    return res.data.data;
+  },
+};
+
+export const enrollmentsApi = {
+  async listMine() {
+    const res = await api.get<{ data: { items: EnrollmentDto[] } }>('/enrollments/me');
+    return res.data.data.items;
+  },
+  async get(id: string) {
+    const res = await api.get<{ data: { enrollment: EnrollmentDto } }>(`/enrollments/${id}`);
+    return res.data.data.enrollment;
+  },
+  async issueCertificate(id: string) {
+    const res = await api.post<{ data: { certificate: CertificateDto; reissued: boolean } }>(
+      `/enrollments/${id}/issue-certificate`,
+      {},
+    );
+    return res.data.data;
+  },
+};
+
+export const timetableApi = {
+  async mine(params: { week?: string; from?: string; to?: string } = {}) {
+    const res = await api.get<{ data: { items: TimetableOccurrenceDto[] } }>('/me/timetable', { params });
+    return res.data.data.items;
+  },
+  async forBatch(batchId: string, from: string, to: string) {
+    const res = await api.get<{ data: { items: TimetableOccurrenceDto[] } }>('/timetable', {
+      params: { batchId, from, to },
+    });
+    return res.data.data.items;
+  },
+};
+
+export const holidaysApi = {
+  async list() {
+    const res = await api.get<{ data: { items: HolidayDto[] } }>('/holidays');
+    return res.data.data.items;
+  },
+};
+
+export const notificationsApi = {
+  async listMine(opts: { unreadOnly?: boolean; limit?: number } = {}) {
+    const res = await api.get<{ data: { items: NotificationDto[] } }>('/me/notifications', {
+      params: {
+        ...(opts.unreadOnly ? { unreadOnly: 'true' } : {}),
+        ...(opts.limit ? { limit: opts.limit } : {}),
+      },
+    });
+    return res.data.data.items;
+  },
+  async markRead(id: string) {
+    await api.post(`/me/notifications/${id}/read`, {});
+  },
+  async getPrefs() {
+    const res = await api.get<{ data: NotificationPrefsDto }>('/me/notification-prefs');
+    return res.data.data;
+  },
+  async updatePrefs(body: {
+    emailByType?: Record<string, boolean>;
+    whatsappByType?: Record<string, boolean>;
+  }) {
+    const res = await api.patch<{ data: NotificationPrefsDto }>('/me/notification-prefs', body);
+    return res.data.data;
+  },
+};
+
+export const certificatesApi = {
+  async listMine() {
+    const res = await api.get<{ data: { items: CertificateDto[] } }>('/me/certificates');
+    return res.data.data.items;
+  },
+};
+
+export const ticketsApi = {
+  async listMine() {
+    const res = await api.get<{ data: { items: TicketDto[] } }>('/me/tickets');
+    return res.data.data.items;
+  },
+  async listStaff() {
+    const res = await api.get<{ data: { items: TicketDto[] } }>('/staff/tickets');
+    return res.data.data.items;
+  },
+  async listAdmin(params: { category?: string; state?: string; slaBreached?: string } = {}) {
+    const res = await api.get<{ data: { items: TicketDto[] } }>('/tickets', { params });
+    return res.data.data.items;
+  },
+  async get(id: string) {
+    const res = await api.get<{
+      data: { ticket: TicketDto; comments: TicketCommentDto[] };
+    }>(`/tickets/${id}`);
+    return res.data.data;
+  },
+  async create(input: CreateTicketInput) {
+    const res = await api.post<{ data: { ticket: TicketDto } }>('/tickets', input);
+    return res.data.data.ticket;
+  },
+  async addComment(id: string, body: string) {
+    const res = await api.post<{ data: { comment: TicketCommentDto } }>(
+      `/tickets/${id}/comments`,
+      { body },
+    );
+    return res.data.data.comment;
+  },
+  async transition(id: string, input: { to: TicketState; note?: string }) {
+    const res = await api.post<{ data: { ticket: TicketDto } }>(`/tickets/${id}/state`, input);
+    return res.data.data.ticket;
+  },
+  async requestReopen(id: string, note?: string) {
+    const res = await api.post<{ data: { ticket: TicketDto } }>(
+      `/tickets/${id}/reopen-request`,
+      { note },
+    );
+    return res.data.data.ticket;
+  },
+  async reopen(id: string, note?: string) {
+    const res = await api.post<{ data: { ticket: TicketDto } }>(
+      `/tickets/${id}/reopen`,
+      { note },
+    );
+    return res.data.data.ticket;
+  },
+};
+
+export const feesApi = {
+  async feeStructures() {
+    const res = await api.get<{ data: { items: unknown[] } }>('/fee-structures');
+    return res.data.data.items;
+  },
+  async invoices(params: { studentId?: string } = {}) {
+    const res = await api.get<{ data: { items: InvoiceDto[] } }>('/invoices', { params });
+    return res.data.data.items;
+  },
+  async recordPayment(input: {
+    studentId: string;
+    amountPaise: number;
+    method: string;
+    reference?: string;
+    receivedAt?: string;
+    notes?: string;
+  }) {
+    const res = await api.post<{ data: { payment: PaymentDto; receipt?: ReceiptDto } }>(
+      '/payments',
+      input,
+    );
+    return res.data.data;
+  },
+  async reversePayment(id: string) {
+    const res = await api.post<{ data: { payment: PaymentDto } }>(`/payments/${id}/reverse`, {});
+    return res.data.data.payment;
+  },
+};
+
+export const outstandingFeesType = {} as OutstandingFeesDto; // silence unused type export
+
+export const quizzesApi = {
+  async get(id: string) {
+    const res = await api.get<{ data: { quiz: QuizDto } }>(`/quizzes/${id}`);
+    return res.data.data.quiz;
+  },
+  async startAttempt(id: string) {
+    const res = await api.post<{ data: { attempt: QuizAttemptDto } }>(`/quizzes/${id}/attempt`, {});
+    return res.data.data.attempt;
+  },
+  async submitAttempt(attemptId: string, answers: { questionIndex: number; chosenIndices: number[] }[]) {
+    const res = await api.post<{ data: { attempt: QuizAttemptDto } }>(
+      `/quiz-attempts/${attemptId}/submit`,
+      { answers },
+    );
+    return res.data.data.attempt;
+  },
+};
+
+export const examsApi = {
+  async get(id: string) {
+    const res = await api.get<{ data: { exam: ExamDto } }>(`/exams/${id}`);
+    return res.data.data.exam;
+  },
+  async startAttempt(id: string) {
+    const res = await api.post<{ data: { attempt: ExamAttemptDto } }>(`/exams/${id}/attempt`, {});
+    return res.data.data.attempt;
+  },
+  async submitAttempt(
+    attemptId: string,
+    body: {
+      answers?: { questionIndex: number; chosenIndices: number[] }[];
+      essayAnswers?: { questionIndex: number; text: string }[];
+    },
+  ) {
+    const res = await api.post<{ data: { attempt: ExamAttemptDto } }>(
+      `/exam-attempts/${attemptId}/submit`,
+      body,
+    );
+    return res.data.data.attempt;
+  },
+  async grade(attemptId: string, grades: { questionIndex: number; score: number; comment?: string }[]) {
+    const res = await api.post<{ data: { attempt: ExamAttemptDto } }>(
+      `/exam-attempts/${attemptId}/grade`,
+      { grades },
+    );
+    return res.data.data.attempt;
+  },
+};
+
+export const feedbackApi = {
+  async listMine() {
+    const res = await api.get<{ data: { items: FeedbackEntryDto[] } }>('/me/feedback');
+    return res.data.data.items;
+  },
+  async create(input: unknown) {
+    const res = await api.post<{ data: { feedback: FeedbackEntryDto } }>('/feedback', input);
+    return res.data.data.feedback;
+  },
+  async publish(id: string) {
+    const res = await api.patch<{ data: { feedback: FeedbackEntryDto } }>(`/feedback/${id}`, {
+      status: 'published',
+    });
+    return res.data.data.feedback;
+  },
+};
+
+export const analyticsApi = {
+  async summary() {
+    const res = await api.get<{ data: AnalyticsSummaryDto }>('/analytics/summary');
+    return res.data.data;
+  },
+  async collections(from: string, to: string) {
+    const res = await api.get<{ data: CollectionsReportDto }>('/analytics/collections', {
+      params: { from, to },
+    });
+    return res.data.data;
+  },
+};

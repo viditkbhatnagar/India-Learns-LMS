@@ -217,3 +217,39 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Owner:** Vidit.
 **Context:** `tests/integration/payments.record.test.ts` intermittently returns 404 on `POST /v1/payments` when run inside the full suite; passes in isolation and on retry. First observed in M6 coverage run; reproduced (once) during M7 full-suite run. Not a code regression — two consecutive M7 full-suite runs (post-M7 code) show 364/364 green. Likely test-bleed from a neighbouring test that drops the route before payments runs. Deserves a proper investigation before M9 deploy to avoid flakes in CI.
 **Impact:** Medium only because it can cause spurious CI failures. Safe to ignore during M7; schedule for M8 debugging bandwidth.
+
+## Q-M8-01 — API cost rates: confirm against real provider invoices
+**Raised:** 2026-04-22 (M8).
+**Owner:** Logan / LUC ops.
+**Context:** PRD §15 requires a cost tracker but doesn't specify per-event rates. D-070 ships env-configurable defaults: `EMAIL_UNIT_PAISE=50`, `WHATSAPP_UNIT_PAISE=200`, `STORAGE_UNIT_PAISE=5`, `CERTIFIER_UNIT_PAISE=2500`. These are India-typical estimates. Once we have one month of real Resend/WABA/Cloudinary/Certifier invoices, adjust the env vars; historical `ApiCostLedger` rows keep their snapshot `unitPaise` so the past doesn't re-price.
+**Impact:** Low for Phase 1 — admin-dashboard number is directionally correct. Revisit after one month of live usage.
+
+## Q-M8-02 — Cert reissue when a course is updated (publishedVersion bumps)
+**Raised:** 2026-04-22 (M8).
+**Owner:** Logan.
+**Context:** If an admin republishes a course after the student's certificate has been issued, the Certifier.io URL still references the old content snapshot. D-030 (M3) decided `Course.publishedVersion` increments but enrolments don't snapshot it. Similarly, the certificate just points to whatever the student completed. If a future publish changes the curriculum materially, should previously-issued certificates be reissued? Currently no policy: admin must manually trigger `POST /v1/enrollments/:id/issue-certificate` for each affected enrolment, and because that endpoint is idempotent against `certificateUrl`, a forced reissue would require first clearing the URL.
+**Impact:** Low for Phase 1 (no republish-heavy workflow expected). If needed later, add `POST /v1/enrollments/:id/reissue-certificate` that clears + re-calls.
+
+## Q-M8-03 — Notifications-retry cron schedule in render.yaml
+**Raised:** 2026-04-22 (M8).
+**Owner:** Vidit (M9 author).
+**Context:** D-069 adds `POST /v1/jobs/notifications-retry`. Intended schedule: `*/15 * * * *` (every 15 min). Not yet in `render.yaml` (M9 task). Must be added alongside fee-reminders / sla-timers / autosuspend / digest-faculty-weekly before go-live.
+**Impact:** Functional post-deploy only — retry sweep won't run in production until the cron is scheduled. Failed notifications will stay failed until then (their `emailError` is visible; admins can read the audit log).
+
+## Q-M8-04 — Scoped analytics tiles for finance + faculty
+**Raised:** 2026-04-22 (M8).
+**Owner:** Logan (product scope).
+**Context:** PRD §3.1 grants finance `👁 (finance-only)` and faculty `👁 (own courses)` read access on the analytics dashboard. M8 backend is admin/superadmin only — a finance user calling `GET /v1/analytics/summary` gets 403. Scoped subsets (finance dashboard showing only collections + outstanding; faculty showing only quiz-performance-per-own-course) are M9 polish. The underlying aggregates already exist; we just need new endpoints + UI with tight role scoping.
+**Impact:** Medium — finance + faculty UI currently shows placeholder dashboards. Acceptable for internal test in June; blocks full launch.
+
+## Q-M8-05 — PWA icon set + offline fallback polish
+**Raised:** 2026-04-22 (M8).
+**Owner:** Vidit (M9) + Logan (logo SVG blocker Q-PENDING-01).
+**Context:** `web/public/manifest.webmanifest` references `/favicon.svg` as the lone icon. Real PWA needs 192px + 512px rasters + maskable variants. Full workbox runtimeCaching rules (stale-while-revalidate for dashboard/timetable/courses, network-first for auth) and a `/offline` fallback route are deferred to M9.
+**Impact:** Installable on mobile now with a placeholder icon; won't pass Lighthouse PWA gate until M9.
+
+## Q-M8-06 — Deep UI build-out backlog for M9
+**Raised:** 2026-04-22 (M8).
+**Owner:** Vidit (M9).
+**Context:** M8 delivered working auth + student + finance payment flow + admin dashboard + analytics + core CRUD pages, with `Placeholder` stubs on: quiz/exam attempt, admin Batches / Timetable-builder / Enrollments (inc. Issue Certificate button) / Audit-logs / Ticket-detail, finance payments list + reverse + CSV, faculty grading + feedback editor. APIs are all wired and tested; UIs port directly from [webapp/screens-staff.jsx](../../webapp/screens-staff.jsx) + [webapp/screens-extras.jsx](../../webapp/screens-extras.jsx) + [webapp/screens-student2.jsx](../../webapp/screens-student2.jsx).
+**Impact:** High for full launch; mitigated for internal test in June by the admin-can-curl + existing CLI tools.

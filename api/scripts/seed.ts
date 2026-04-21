@@ -510,14 +510,14 @@ async function seedNotificationPrefs(): Promise<{ inserted: number; skipped: num
     const existing = await NotificationPrefs.findOne({ userId: u._id });
     if (existing) {
       skipped += 1;
-      continue;
+    } else {
+      await NotificationPrefs.create({
+        userId: u._id,
+        emailByType: {},
+        whatsappByType: {},
+      });
+      inserted += 1;
     }
-    await NotificationPrefs.create({
-      userId: u._id,
-      emailByType: {},
-      whatsappByType: {},
-    });
-    inserted += 1;
   }
   return { inserted, skipped };
 }
