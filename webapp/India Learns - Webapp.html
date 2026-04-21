@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>India Learns · Webapp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+<link rel="stylesheet" href="responsive.css"/>
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 140">
+<rect width="200" height="140" fill="#FBF5E8"/>
+<text x="60" y="66" font-family="Poppins, sans-serif" font-size="22" font-weight="800" fill="#F58220">India</text>
+<text x="60" y="94" font-family="Poppins, sans-serif" font-size="22" font-weight="800" fill="#1A3A8F">Learns</text>
+<rect x="60" y="104" width="8" height="4" fill="#1A3A8F"/>
+<rect x="72" y="104" width="8" height="4" fill="#1A3A8F"/>
+<rect x="84" y="104" width="8" height="4" fill="#F58220"/>
+<rect x="96" y="104" width="8" height="4" fill="#1A3A8F"/>
+</svg>
+</template>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="components.jsx"></script>
+<script type="text/babel" src="screens-student.jsx"></script>
+<script type="text/babel" src="screens-student2.jsx"></script>
+<script type="text/babel" src="screens-staff.jsx"></script>
+<script type="text/babel" src="screens-extras.jsx"></script>
+
+<script type="text/babel">
+const WebRoleBar = ({ screen, setScreen }) => {
+  const groups = [
+    { label: 'Public', items: [['onboarding','Onboarding'],['login','Login']] },
+    { label: 'Student', items: [['student','Dashboard'], ['course','Course'], ['timetable','Timetable'], ['fees','Fees'], ['tickets','Tickets'], ['feedback','Feedback'], ['certificate','Certificate']] },
+    { label: 'Faculty', items: [['faculty','Faculty Dashboard']] },
+    { label: 'Admin', items: [['admin','Admin Dashboard'], ['admin-students','Students'], ['admin-tickets','Tickets Board']] },
+    { label: 'Finance', items: [['finance','Finance']] },
+  ];
+  return (
+    <div className="rolebar">
+      <div className="brand"><BrandGlyph size={30}/><span>India Learns · Webapp</span></div>
+      <div style={{marginLeft:'auto'}}/>
+      <div className="scrn">
+        {groups.map((g, gi) => (
+          <React.Fragment key={g.label}>
+            {gi > 0 && <div className="sep"/>}
+            <span className="label">{g.label}</span>
+            {g.items.map(([k, n]) => (
+              <button key={k} className={screen === k ? 'active' : ''} onClick={() => setScreen(k)}>{n}</button>
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const App = () => {
+  const [screen, setScreenRaw] = React.useState(() => {
+    try { return localStorage.getItem('il-web-screen') || 'login'; } catch { return 'login'; }
+  });
+  const setScreen = (s) => {
+    setScreenRaw(s);
+    try { localStorage.setItem('il-web-screen', s); } catch {}
+    window.scrollTo({ top: 0 });
+  };
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const order = ['onboarding','login','student','course','timetable','fees','tickets','feedback','certificate','faculty','admin','admin-students','admin-tickets','finance'];
+        const i = order.indexOf(screen);
+        if (i<0) return;
+        if (e.key === 'ArrowRight') setScreen(order[(i+1)%order.length]);
+        else setScreen(order[(i-1+order.length)%order.length]);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [screen]);
+
+  return (
+    <div data-screen-label={screen}>
+      <WebRoleBar screen={screen} setScreen={setScreen}/>
+      {screen === 'onboarding' && <OnboardingScreen setScreen={setScreen}/>}
+      {screen === 'login' && <LoginScreen/>}
+      {screen === 'student' && <StudentDashboard setScreen={setScreen}/>}
+      {screen === 'course' && <CourseScreen setScreen={setScreen}/>}
+      {screen === 'timetable' && <TimetableScreen setScreen={setScreen}/>}
+      {screen === 'fees' && <FeesScreen setScreen={setScreen}/>}
+      {screen === 'tickets' && <TicketsScreen setScreen={setScreen}/>}
+      {screen === 'feedback' && <FeedbackScreen setScreen={setScreen}/>}
+      {screen === 'certificate' && <CertificateScreen setScreen={setScreen}/>}
+      {screen === 'faculty' && <FacultyDashboard setScreen={setScreen}/>}
+      {screen === 'admin' && <AdminDashboard setScreen={setScreen}/>}
+      {screen === 'admin-students' && <AdminStudents setScreen={setScreen}/>}
+      {screen === 'admin-tickets' && <AdminTickets setScreen={setScreen}/>}
+      {screen === 'finance' && <FinanceDashboard setScreen={setScreen}/>}
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

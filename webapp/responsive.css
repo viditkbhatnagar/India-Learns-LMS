@@ -1,0 +1,58 @@
+/* Responsive rules — web + mobile */
+@media (max-width: 1200px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .grid-2 { grid-template-columns: 1fr; }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  .kanban { grid-template-columns: repeat(3, 1fr); }
+  .kanban .col:nth-child(n+4) { display: none; }
+}
+
+@media (max-width: 900px) {
+  .login-shell { grid-template-columns: 1fr; }
+  .login-panel { padding: 32px 28px; min-height: 340px; }
+  .login-form { padding: 36px 28px; }
+  .app { grid-template-columns: 1fr; }
+  .side {
+    position: sticky; top: 49px; z-index: 30;
+    padding: 12px 14px;
+    flex-direction: row; align-items: center; gap: 12px;
+    overflow-x: auto;
+  }
+  .side .logo { padding: 0 8px 0 0; border-right: 1px solid rgba(255,255,255,0.1); margin-right: 4px; }
+  .side .nav-section, .side .user { display: none; }
+  .side .nav { display: flex; gap: 4px; }
+  .side .nav a { padding: 7px 12px; font-size: 12px; white-space: nowrap; }
+  .side .nav a .badge { display: none; }
+  .main { padding: 18px 18px 40px; }
+  .page-title { font-size: 22px; }
+  .page-head { flex-direction: column; align-items: stretch; }
+  .timetable { grid-template-columns: 46px repeat(5, 1fr); font-size: 11px; }
+  .timetable > div { padding: 6px; min-height: 48px; }
+  .class-block .c-ttl { font-size: 10px; }
+  .class-block .c-meta { font-size: 9px; }
+  .kanban { grid-template-columns: 1fr 1fr; }
+  .kanban .col:nth-child(n+3) { display: none; }
+  .stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { padding: 14px; }
+  .stat .val { font-size: 28px; }
+  .rolebar { padding: 8px 12px; flex-wrap: wrap; gap: 8px; }
+  .rolebar .scrn { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
+  .rolebar .label { display: none; }
+  .tbl { font-size: 12px; }
+  .tbl thead th, .tbl tbody td { padding: 8px; }
+  .topbar .search { max-width: none; }
+  .iconbtn { width: 36px; height: 36px; }
+  .login-panel .big-num, .login-panel div[style*="fontSize:56"] { font-size: 34px !important; }
+}
+
+@media (max-width: 560px) {
+  .stats { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .kanban { grid-template-columns: 1fr; }
+  .kanban .col:nth-child(n+2) { display: none; }
+  .topbar .actions .iconbtn:nth-child(n+2) { display: none; }
+  .main { padding: 14px 14px 30px; }
+  .card { padding: 16px; border-radius: 16px; }
+  .timetable { overflow-x: auto; display: block; white-space: nowrap; }
+  .timetable { min-width: 560px; display: grid; }
+}

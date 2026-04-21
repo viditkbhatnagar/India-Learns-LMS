@@ -1,0 +1,39 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "India Learns API — Express 4 + Mongoose 8.",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "eslint src tests",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "india-learns-shared-types": "*",
+    "mongoose": "^8.5.1",
+    "nanoid": "^5.0.7",
+    "pino": "^9.3.2",
+    "pino-http": "^10.2.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.11",
+    "@types/supertest": "^6.0.2",
+    "mongodb-memory-server": "^9.4.1",
+    "supertest": "^7.0.0",
+    "tsx": "^4.16.2",
+    "typescript": "5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
