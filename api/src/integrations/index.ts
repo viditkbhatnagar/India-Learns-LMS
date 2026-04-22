@@ -6,6 +6,7 @@ import type {
 } from 'india-learns-shared-types';
 import { loadEnv } from '../config/env.js';
 import {
+  BrevoEmailAdapter,
   ConsoleEmailAdapter,
   ResendEmailAdapter,
   SendGridEmailAdapter,
@@ -51,13 +52,18 @@ function build(): Integrations {
       ? new SendGridEmailAdapter()
       : env.EMAIL_PROVIDER === 'resend'
         ? new ResendEmailAdapter()
-        : new ConsoleEmailAdapter();
-  // M8 — Resend primary + SendGrid fallback (TRD §9.2). Wrapper lives in
-  // notificationService; we expose both adapters here so the service can
-  // try the primary, catch, retry via fallback, and write two cost-ledger
-  // rows accordingly.
+        : env.EMAIL_PROVIDER === 'brevo'
+          ? new BrevoEmailAdapter()
+          : new ConsoleEmailAdapter();
+  // M9 — primary email provider can be Resend, SendGrid, or Brevo. SendGrid
+  // is the configured fallback for any non-SendGrid primary when the key is
+  // present. notificationService.sendEmailWithFallback writes two cost-ledger
+  // rows when the fallback wins.
   const emailFallback: EmailAdapter | null =
-    !stub && env.EMAIL_PROVIDER === 'resend' && env.SENDGRID_API_KEY
+    !stub &&
+    env.EMAIL_PROVIDER !== 'sendgrid' &&
+    env.EMAIL_PROVIDER !== 'stub' &&
+    env.SENDGRID_API_KEY
       ? new SendGridEmailAdapter()
       : null;
   const whatsapp: WhatsAppAdapter =

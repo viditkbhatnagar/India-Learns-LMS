@@ -1,11 +1,14 @@
-import { useState, type PropsWithChildren } from 'react';
+import { useEffect, useState, type PropsWithChildren } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
+import FocusTrap from 'focus-trap-react';
 import type { Role } from 'india-learns-shared-types';
 import { useAuthStore } from '../store/auth.js';
 import { authApi } from '../lib/endpoints.js';
 import { NotificationBell } from './NotificationBell.js';
 import { Badge } from './ui/Badge.js';
+import { InstallPrompt, ServiceWorkerUpdateBanner } from './InstallPrompt.js';
+import { MobileBottomTabs } from './mobile/BottomTabs.js';
 
 interface NavEntry {
   label: string;
@@ -61,6 +64,17 @@ export function AppShell({ children }: PropsWithChildren) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Lock body scroll while the mobile drawer is open so the underlying page
+  // doesn't move under the trapped overlay.
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [menuOpen]);
+
   if (!user) return null;
 
   const nav = NAV_BY_ROLE[user.role as Role] ?? [];
@@ -78,6 +92,13 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div className="min-h-screen bg-brand-cream text-ink">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:bg-brand-navy focus:text-white focus:px-3 focus:py-2 focus:rounded"
+      >
+        Skip to main content
+      </a>
+      <ServiceWorkerUpdateBanner />
       {/* Top bar */}
       <header className="sticky top-0 z-30 bg-brand-navy text-white border-b border-white/10">
         <div className="flex items-center justify-between px-4 sm:px-6 h-14 gap-4">
@@ -134,20 +155,38 @@ export function AppShell({ children }: PropsWithChildren) {
               onClick={() => setMenuOpen(false)}
               aria-hidden
             />
-            <aside className="fixed left-0 top-14 bottom-0 w-64 bg-white z-50 lg:hidden border-r border-black/10 py-4 overflow-y-auto">
-              <SidebarNav
-                nav={nav}
-                onNavigate={() => setMenuOpen(false)}
-              />
-            </aside>
+            <FocusTrap
+              active
+              focusTrapOptions={{
+                escapeDeactivates: () => {
+                  setMenuOpen(false);
+                  return true;
+                },
+                clickOutsideDeactivates: true,
+              }}
+            >
+              <aside
+                className="fixed left-0 top-14 bottom-0 w-64 bg-white z-50 lg:hidden border-r border-black/10 py-4 overflow-y-auto"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Navigation"
+              >
+                <SidebarNav
+                  nav={nav}
+                  onNavigate={() => setMenuOpen(false)}
+                />
+              </aside>
+            </FocusTrap>
           </>
         )}
 
         {/* Content */}
-        <main className="px-4 sm:px-6 py-6">
+        <main id="main-content" className="px-4 sm:px-6 py-6 pb-24 md:pb-6">
           {children}
         </main>
       </div>
+      <MobileBottomTabs />
+      <InstallPrompt />
     </div>
   );
 }

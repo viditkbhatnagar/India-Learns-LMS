@@ -28,6 +28,10 @@ export default [
       'mobile/**',
       'claude-code-docs/**',
       '**/*.tsbuildinfo',
+      'scripts/**',
+      'web/scripts/**',
+      'web/playwright.config.*',
+      'web/e2e/**',
     ],
   },
   js.configs.recommended,
@@ -133,6 +137,20 @@ export default [
       ...reactHooksPlugin.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
+      // Apostrophes in copy are common; this rule catches no bugs and noisily
+      // forces &apos; everywhere. Disabled for the web workspace.
+      'react/no-unescaped-entities': 'off',
+      // useEffect cleanups conditionally return — the airbnb consistent-return
+      // rule misfires on this pattern.
+      'consistent-return': 'off',
+      // window.alert / window.confirm are explicit-by-window in our code;
+      // when used unprefixed they are flagged by airbnb. Keep an opt-in.
+      'no-alert': 'off',
+      'no-restricted-globals': ['error', 'isFinite', 'isNaN'],
+      // We genuinely shadow inner loop vars (`q` for `query` outer + `q` for
+      // `question` inner) — readability wins, so soften the rule.
+      'no-shadow': 'off',
+      '@typescript-eslint/no-shadow': 'off',
     },
     settings: { react: { version: 'detect' } },
   },

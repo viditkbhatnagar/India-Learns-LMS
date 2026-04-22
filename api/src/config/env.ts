@@ -15,9 +15,10 @@ const EnvSchema = z.object({
   API_ORIGIN: z.string().url().default('http://localhost:4000'),
   COOKIE_DOMAIN: z.string().default('localhost'),
 
-  EMAIL_PROVIDER: z.enum(['resend', 'sendgrid', 'stub']).default('stub'),
+  EMAIL_PROVIDER: z.enum(['resend', 'sendgrid', 'brevo', 'stub']).default('stub'),
   RESEND_API_KEY: z.string().optional().default(''),
   SENDGRID_API_KEY: z.string().optional().default(''),
+  BREVO_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().default('India Learns <notifications@app.indialearns.com>'),
 
   WHATSAPP_ENABLED: z
@@ -86,6 +87,13 @@ const EnvSchema = z.object({
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
+
+  // M9 — Sentry DSN (Runbook §7). When absent, Sentry init is a no-op so
+  // dev/test require no extra configuration. SENTRY_TRACES_SAMPLE_RATE bounds
+  // the perf-trace volume; default 0.1 (10%) is sane for early production.
+  SENTRY_DSN: z.string().optional().default(''),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
+  SENTRY_ENVIRONMENT: z.string().default('development'),
 
   GIT_SHA: z.string().default('dev'),
 });

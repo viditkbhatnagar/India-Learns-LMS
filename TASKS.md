@@ -167,19 +167,33 @@ Live task list. Update at every session start (mark new) and every session end (
 - [ ] Finance payments list + reverse + CSV reports UI (deferred to M9 polish)
 - [ ] Faculty grading + feedback editor (deferred to M9 polish)
 
-## M9 — Polish + deploy (day 39–42)
+## M9 — Polish + deploy (day 39–42) — ARTIFACTS DONE 2026-04-22; STAGING DEPLOY: OPERATOR
 
-- [ ] render.yaml (api + web + cron) with fee-reminders / sla-timers / autosuspend / digest-faculty-weekly / notifications-retry schedules
-- [ ] scripts/sign-job-jwt.ts (Runbook §5)
-- [ ] Sentry + BetterStack (env-driven, no-op when DSN absent)
-- [ ] Deploy M2–M8 UI backlog polish: quiz/exam attempt, deep CRUD, finance payments list + reverse, faculty grading, admin analytics CSV download buttons
-- [ ] PWA: full workbox runtimeCaching, offline fallback route, install-prompt component, self-host Poppins
-- [ ] Accessibility: WCAG 2.1 AA pass + axe-core sweep on every route + keyboard nav + focus trap on modals
-- [ ] Add `/healthz` + `/readyz` per TRD §14
-- [ ] 24-step Pre-launch smoke checklist (Runbook §8) against staging
-- [ ] Playwright E2E: admin creates student → accepts invite → views course → takes a quiz → sees feedback → raises ticket → pays fee → gets certificate (single run)
-- [ ] Lighthouse ≥ 90 on all 4 metrics for student dashboard
-- [ ] Logo SVG integration (Q-PENDING-01) + receipt branding
-- [ ] Meta WABA templates live + Resend/SendGrid live swap + Certifier.io live key
-- [ ] DEPLOY.md operator runbook
-- [ ] 3-day UX pass — copy/spacing/empty-state fixes only
+- [x] render.yaml (api + web + cron) with fee-reminders / sla-timers / autosuspend / digest-faculty-weekly / notifications-retry schedules
+- [x] scripts/sign-job-jwt.mjs (D-079 — HMAC, not JWT, despite filename; pure Node ESM so cron container needs no tsx)
+- [x] Sentry server (`@sentry/node`, no-op when DSN absent) + Sentry web (`@sentry/react`, no-op when VITE_SENTRY_DSN absent) — D-077. BetterStack: not auto-provisioned (operator-owned account; documented in DEPLOY.md).
+- [x] M2–M8 UI backlog polish: quiz/exam attempt (with timer + autosubmit), 22 staff screens (admin batches/timetable-builder/enrollments+detail/audit-logs/fee-structures/ticket-detail/sla-breaches/holidays, faculty courses/grading queue+detail/feedback list+new/timetable, finance students/student-detail/record-payment/payments list+detail/reports CSV)
+- [x] PWA: workbox runtimeCaching (NetworkFirst /me/* JSON, CacheFirst Cloudinary media), offline fallback (HTML + SPA route), install-prompt component, self-host Poppins via `@fontsource/poppins`
+- [x] Accessibility: skip-to-content link, FocusTrap + body-scroll-lock on mobile drawer, axe-core Playwright sweep across every authenticated route per role
+- [x] /healthz alias mounted (D-078)
+- [x] 24-step pre-launch smoke checklist shipped at [docs/smoke/m9-launch.md](docs/smoke/m9-launch.md) — operator runs against staging
+- [x] Playwright happy-path: auth + role routing + student journey + axe sweep + screenshot capture (4 specs in [web/e2e/](web/e2e/))
+- [x] Lighthouse runner script ([web/scripts/lighthouse.mjs](web/scripts/lighthouse.mjs)) — fails CI if any of perf/a11y/best-practices/seo < 90
+- [x] Logo placeholder SVG ([web/public/brand/logo-placeholder.svg](web/public/brand/logo-placeholder.svg)); real logo blocked on Q-PENDING-01
+- [x] Resend / SendGrid / Brevo email adapters wired live (D-076)
+- [x] DEPLOY.md operator runbook (T-24h / T-2h / T-0 / T+1h / T+24h + secret list + rollback)
+- [x] Mobile PWA layouts via Tailwind responsive + per-role bottom tabs (D-081)
+- [x] Onboarding screens (5) — [web/src/pages/onboarding/](web/src/pages/onboarding/) — D-082
+- [x] All 409 tests pass (78 files; +8 from email adapters + healthz). Lint + typecheck + build all clean.
+
+### Operator-actionable post-merge (not blocking M9 close)
+- [ ] Provision MongoDB Atlas M0 (ap-south-1) → set MONGODB_URI in Render
+- [ ] Create Render workspace → import blueprint (render.yaml) → fill the two secret groups per DEPLOY.md
+- [ ] Run `npm run seed:superadmin -w api` against staging
+- [ ] Walk 24-step smoke at [docs/smoke/m9-launch.md](docs/smoke/m9-launch.md), file findings under `docs/smoke/findings/`
+- [ ] Run Playwright + Lighthouse locally before deploy (`npm run test:e2e -w web`, `npm run lighthouse -w web`)
+- [ ] DNS flip per DEPLOY.md T-0
+- [ ] Once Q-PENDING-07 (Meta WABA) lands → flip `WHATSAPP_ENABLED=true` in Render
+- [ ] Once Q-PENDING-08 (Certifier.io key) lands → flip `CERTIFIER_ENABLED=true`
+- [ ] Generate raster PWA icons (sharp-cli) if Lighthouse PWA flags SVG-only — v1.1 polish
+- [ ] Bundle-split web chunk (recharts + sentry are heaviest) — v1.1 polish

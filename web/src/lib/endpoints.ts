@@ -281,9 +281,21 @@ export const feesApi = {
     const res = await api.get<{ data: { items: unknown[] } }>('/fee-structures');
     return res.data.data.items;
   },
+  async createFeeStructure(input: { name: string; programId: string; totalPaise: number; components: unknown[] }) {
+    const res = await api.post<{ data: { feeStructure: unknown } }>('/fee-structures', input);
+    return res.data.data.feeStructure;
+  },
   async invoices(params: { studentId?: string } = {}) {
     const res = await api.get<{ data: { items: InvoiceDto[] } }>('/invoices', { params });
     return res.data.data.items;
+  },
+  async listPayments(params: { from?: string; to?: string } = {}) {
+    const res = await api.get<{ data: { items: PaymentDto[] } }>('/payments', { params });
+    return res.data.data.items;
+  },
+  async getPayment(id: string) {
+    const res = await api.get<{ data: { payment: PaymentDto; receipt?: ReceiptDto } }>(`/payments/${id}`);
+    return res.data.data;
   },
   async recordPayment(input: {
     studentId: string;
@@ -302,6 +314,108 @@ export const feesApi = {
   async reversePayment(id: string) {
     const res = await api.post<{ data: { payment: PaymentDto } }>(`/payments/${id}/reverse`, {});
     return res.data.data.payment;
+  },
+};
+
+// Admin-only resources used by the M9 deep-CRUD screens. Endpoints exist on
+// the API since M3–M6; the wrappers were missing from the M8 web port.
+export const batchesApi = {
+  async list() {
+    const res = await api.get<{ data: { items: unknown[] } }>('/batches');
+    return res.data.data.items;
+  },
+  async get(id: string) {
+    const res = await api.get<{ data: { batch: unknown } }>(`/batches/${id}`);
+    return res.data.data.batch;
+  },
+  async create(input: { name: string; programId: string; capacity: number; startDate: string; endDate?: string }) {
+    const res = await api.post<{ data: { batch: unknown } }>('/batches', input);
+    return res.data.data.batch;
+  },
+  async update(id: string, input: Partial<{ name: string; capacity: number; startDate: string; endDate: string; status: string }>) {
+    const res = await api.patch<{ data: { batch: unknown } }>(`/batches/${id}`, input);
+    return res.data.data.batch;
+  },
+  async timetable(id: string) {
+    const res = await api.get<{ data: { items: unknown[] } }>(`/batches/${id}/timetable`);
+    return res.data.data.items;
+  },
+};
+
+export const timetableEntriesApi = {
+  async createEntry(batchId: string, input: { courseId: string; facultyId: string; weekday: number; startMinute: number; endMinute: number; room: string }) {
+    const res = await api.post<{ data: { entry: unknown } }>(`/batches/${batchId}/timetable`, input);
+    return res.data.data.entry;
+  },
+  async updateEntry(entryId: string, input: Partial<{ courseId: string; facultyId: string; weekday: number; startMinute: number; endMinute: number; room: string }>) {
+    const res = await api.patch<{ data: { entry: unknown } }>(`/timetable/${entryId}`, input);
+    return res.data.data.entry;
+  },
+  async deleteEntry(entryId: string) {
+    await api.delete(`/timetable/${entryId}`);
+  },
+  async createOverride(input: { entryId: string | null; date: string; action: 'cancel' | 'reschedule' | 'add'; newStartAt?: string; newEndAt?: string; newCourseId?: string; newFacultyId?: string; newRoom?: string }) {
+    const res = await api.post<{ data: { override: unknown } }>('/timetable/overrides', input);
+    return res.data.data.override;
+  },
+};
+
+export const holidaysApiAdmin = {
+  async create(input: { date: string; name: string }) {
+    const res = await api.post<{ data: { holiday: HolidayDto } }>('/holidays', input);
+    return res.data.data.holiday;
+  },
+  async delete(id: string) {
+    await api.delete(`/holidays/${id}`);
+  },
+};
+
+export const auditLogApi = {
+  async list(params: { actorId?: string; action?: string; from?: string; to?: string; limit?: number } = {}) {
+    const res = await api.get<{ data: { items: unknown[] } }>('/audit-logs', { params });
+    return res.data.data.items;
+  },
+};
+
+export const adminEnrollmentsApi = {
+  async list(params: { batchId?: string; studentId?: string; status?: string } = {}) {
+    const res = await api.get<{ data: { items: EnrollmentDto[] } }>('/enrollments', { params });
+    return res.data.data.items;
+  },
+  async create(input: { studentId: string; batchId: string }) {
+    const res = await api.post<{ data: { items: EnrollmentDto[] } }>('/enrollments', input);
+    return res.data.data.items;
+  },
+  async generateFees(id: string) {
+    const res = await api.post<{ data: { invoices: InvoiceDto[] } }>(`/enrollments/${id}/generate-fees`, {});
+    return res.data.data.invoices;
+  },
+};
+
+export const facultyApi = {
+  async myCourses() {
+    const res = await api.get<{ data: { items: CourseDto[] } }>('/courses', { params: { mine: 'true' } });
+    return res.data.data.items;
+  },
+  async myTimetable(params: { week?: string } = {}) {
+    const res = await api.get<{ data: { items: TimetableOccurrenceDto[] } }>('/me/timetable', { params });
+    return res.data.data.items;
+  },
+  async gradingQueue() {
+    const res = await api.get<{ data: { items: ExamAttemptDto[] } }>('/staff/grading-queue');
+    return res.data.data.items;
+  },
+  async examAttempt(attemptId: string) {
+    const res = await api.get<{ data: { attempt: ExamAttemptDto } }>(`/exam-attempts/${attemptId}`);
+    return res.data.data.attempt;
+  },
+  async listFeedback() {
+    const res = await api.get<{ data: { items: FeedbackEntryDto[] } }>('/feedback', { params: { mine: 'true' } });
+    return res.data.data.items;
+  },
+  async listRubrics() {
+    const res = await api.get<{ data: { items: unknown[] } }>('/rubrics');
+    return res.data.data.items;
   },
 };
 

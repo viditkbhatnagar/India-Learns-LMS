@@ -1,0 +1,202 @@
+# India Learns — Render Blueprint (Runbook §3)
+#
+# Three services + five cron jobs. Secrets live in two `envVarGroups` so they
+# can be edited centrally and shared across services. Domain (`indialearns.com`)
+# is parameterised — change the four `value:` lines below + the custom-domain
+# config in the Render dashboard if a different host is used.
+#
+# Region: singapore (closest to ap-south-1 / Mumbai for MongoDB Atlas).
+#
+# After importing this blueprint:
+#   1. Fill the secret groups (`il-api-secrets`, `il-web-secrets`) — see
+#      `DEPLOY.md` T-24h section for the full list.
+#   2. First deploy will fail health check until MONGODB_URI is set.
+#   3. Run `npm run seed:superadmin -w api` from the API shell to create the
+#      first super-admin (interactive prompts via SUPERADMIN_* env vars).
+
+services:
+  # -------- API --------
+  - type: web
+    name: il-api
+    runtime: node
+    plan: standard
+    region: singapore
+    rootDir: api
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: node dist/index.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: WEB_ORIGIN
+        value: https://app.indialearns.com
+      - key: API_ORIGIN
+        value: https://api.indialearns.com
+      - key: COOKIE_DOMAIN
+        value: .indialearns.com
+      - key: COOKIE_SECURE
+        value: true
+      - key: EMAIL_FROM
+        value: India Learns <notifications@app.indialearns.com>
+      - key: RECEIPT_ORG_NAME
+        value: India Learns (LUC)
+      - key: RECEIPT_LOGO_URL
+        value: https://app.indialearns.com/brand/logo-placeholder.svg
+      - key: WHATSAPP_ENABLED
+        value: false
+      - key: CERTIFIER_ENABLED
+        value: false
+      - key: STORAGE_PROVIDER
+        value: cloudinary
+      - key: EMAIL_PROVIDER
+        value: brevo
+      - key: INTEGRATIONS_MODE
+        value: live
+      - key: LOG_LEVEL
+        value: info
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: 0.1
+      - fromGroup: il-api-secrets
+
+  # -------- Web (static) --------
+  - type: web
+    name: il-web
+    runtime: static
+    plan: starter
+    region: singapore
+    rootDir: web
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE
+        value: https://api.indialearns.com
+      - key: VITE_APP_ORIGIN
+        value: https://app.indialearns.com
+      - key: VITE_ENABLE_PWA
+        value: true
+      - fromGroup: il-web-secrets
+
+  # -------- Cron jobs (5) --------
+  # All cron jobs share the API's secret group (JOB_SECRET + API_ORIGIN).
+  # Schedules are UTC.
+
+  - type: cron
+    name: il-cron-fee-reminders
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "0 3 * * *" # 03:00 UTC = 08:30 IST daily
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs fee-reminders
+    envVars:
+      - fromGroup: il-api-secrets
+
+  - type: cron
+    name: il-cron-autosuspend
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "0 22 * * *" # 22:00 UTC = 03:30 IST daily (TRD §10.1)
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs autosuspend
+    envVars:
+      - fromGroup: il-api-secrets
+
+  - type: cron
+    name: il-cron-sla-timers
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "*/15 * * * *" # every 15 min
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs sla-timers
+    envVars:
+      - fromGroup: il-api-secrets
+
+  - type: cron
+    name: il-cron-faculty-digest
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "30 3 * * 1" # Mon 03:30 UTC = 09:00 IST (D-063)
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs digest-faculty-weekly
+    envVars:
+      - fromGroup: il-api-secrets
+
+  - type: cron
+    name: il-cron-notifications-retry
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "*/15 * * * *" # every 15 min (Q-M8-03)
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs notifications-retry
+    envVars:
+      - fromGroup: il-api-secrets
+
+# ---- Secret groups ----
+envVarGroups:
+  - name: il-api-secrets
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JOB_SECRET
+        sync: false
+      - key: API_ORIGIN
+        value: https://api.indialearns.com
+      # Email (set whichever provider you use; SendGrid is implicit fallback)
+      - key: BREVO_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      # Cloudinary
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # Optional integrations (feature-flagged off at launch)
+      - key: META_WABA_PHONE_ID
+        sync: false
+      - key: META_WABA_ACCESS_TOKEN
+        sync: false
+      - key: CERTIFIER_API_KEY
+        sync: false
+      - key: CERTIFIER_DEFAULT_TEMPLATE_ID
+        sync: false
+      # Receipts (Q-PENDING-02)
+      - key: RECEIPT_ORG_ADDRESS
+        sync: false
+      - key: RECEIPT_ORG_GSTIN
+        sync: false
+      # Sentry
+      - key: SENTRY_DSN
+        sync: false
+
+  - name: il-web-secrets
+    envVars:
+      - key: VITE_SENTRY_DSN
+        sync: false

@@ -6,12 +6,14 @@ import { pinoHttp } from 'pino-http';
 import type { HealthResponse } from 'india-learns-shared-types';
 import { loadEnv } from './config/env.js';
 import { logger } from './config/logger.js';
+import { initSentry } from './config/sentry.js';
 import { requestId } from './middleware/requestId.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { v1Router } from './routes/index.js';
 
 export function createApp(): Express {
   const env = loadEnv();
+  initSentry();
   const app = express();
 
   app.set('trust proxy', 1);
@@ -42,14 +44,18 @@ export function createApp(): Express {
   );
   app.use(cookieParser());
 
-  app.get('/health', (_req: Request, res: Response<HealthResponse>) => {
+  const healthHandler = (_req: Request, res: Response<HealthResponse>): void => {
     res.json({
       ok: true,
       commit: env.GIT_SHA,
       uptimeSec: Math.round(process.uptime()),
       ts: new Date().toISOString(),
     });
-  });
+  };
+  app.get('/health', healthHandler);
+  // M9 — Render's default health probe path; also serves as the public liveness
+  // endpoint for BetterStack / UptimeRobot per Runbook §7.
+  app.get('/healthz', healthHandler);
 
   app.use('/v1', v1Router());
 

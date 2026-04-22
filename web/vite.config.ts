@@ -6,23 +6,67 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // M9 — workbox-window registers the SW from main.tsx so we can surface
+      // an update banner; vite-plugin-pwa just generates the SW + manifest.
       registerType: 'prompt',
       injectRegister: false,
+      filename: 'sw.js',
       devOptions: { enabled: false },
       manifest: {
         name: 'India Learns',
         short_name: 'India Learns',
         description: 'India Learns — LMS for LUC Diploma Programs.',
-        theme_color: '#F58220',
+        theme_color: '#1A3A8F',
         background_color: '#FBF5E8',
         display: 'standalone',
         start_url: '/',
+        scope: '/',
+        orientation: 'portrait-primary',
         icons: [
           {
-            src: '/favicon.svg',
-            sizes: 'any',
+            src: '/icons/icon-192.svg',
+            sizes: '192x192',
             type: 'image/svg+xml',
             purpose: 'any',
+          },
+          {
+            src: '/icons/icon-512.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'any',
+          },
+          {
+            src: '/icons/icon-maskable.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'maskable',
+          },
+        ],
+      },
+      workbox: {
+        navigateFallback: '/offline.html',
+        navigateFallbackDenylist: [/^\/api\//, /^\/v1\//],
+        runtimeCaching: [
+          {
+            // Stable APIs — fast first paint, refresh in background.
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/v1/me/') ||
+              url.pathname === '/v1/students/me/dashboard',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'il-api-me',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
+            },
+          },
+          {
+            // Cloudinary media — cache aggressively.
+            urlPattern: /^https:\/\/res\.cloudinary\.com\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'il-media',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
           },
         ],
       },

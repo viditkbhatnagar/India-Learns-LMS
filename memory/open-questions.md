@@ -230,11 +230,9 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** If an admin republishes a course after the student's certificate has been issued, the Certifier.io URL still references the old content snapshot. D-030 (M3) decided `Course.publishedVersion` increments but enrolments don't snapshot it. Similarly, the certificate just points to whatever the student completed. If a future publish changes the curriculum materially, should previously-issued certificates be reissued? Currently no policy: admin must manually trigger `POST /v1/enrollments/:id/issue-certificate` for each affected enrolment, and because that endpoint is idempotent against `certificateUrl`, a forced reissue would require first clearing the URL.
 **Impact:** Low for Phase 1 (no republish-heavy workflow expected). If needed later, add `POST /v1/enrollments/:id/reissue-certificate` that clears + re-calls.
 
-## Q-M8-03 — Notifications-retry cron schedule in render.yaml
+## Q-M8-03 — Notifications-retry cron schedule in render.yaml — **CLOSED 2026-04-22 (M9)**
 **Raised:** 2026-04-22 (M8).
-**Owner:** Vidit (M9 author).
-**Context:** D-069 adds `POST /v1/jobs/notifications-retry`. Intended schedule: `*/15 * * * *` (every 15 min). Not yet in `render.yaml` (M9 task). Must be added alongside fee-reminders / sla-timers / autosuspend / digest-faculty-weekly before go-live.
-**Impact:** Functional post-deploy only — retry sweep won't run in production until the cron is scheduled. Failed notifications will stay failed until then (their `emailError` is visible; admins can read the audit log).
+**Closed:** 2026-04-22 (M9). `il-cron-notifications-retry` ships in [render.yaml](../render.yaml) at `*/15 * * * *`. The cron command is `node scripts/sign-job-jwt.mjs notifications-retry`.
 
 ## Q-M8-04 — Scoped analytics tiles for finance + faculty
 **Raised:** 2026-04-22 (M8).

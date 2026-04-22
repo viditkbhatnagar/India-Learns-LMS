@@ -11,6 +11,15 @@ import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage.js';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage.js';
 import { AcceptInvitePage } from './pages/auth/AcceptInvitePage.js';
 
+// Onboarding (M9)
+import {
+  OnbArrivalPage,
+  OnbEmailInvitePage,
+  OnbLandingPage,
+  OnbSetPasswordPage,
+  OnbTourPage,
+} from './pages/onboarding/Onboarding.js';
+
 // Student
 import { StudentDashboard } from './pages/student/StudentDashboard.js';
 import {
@@ -27,6 +36,8 @@ import {
 } from './pages/student/StudentTickets.js';
 import { StudentFeedback } from './pages/student/StudentFeedback.js';
 import { StudentCertificates } from './pages/student/StudentCertificates.js';
+import { QuizAttemptPage } from './pages/student/QuizAttempt.js';
+import { ExamAttemptPage } from './pages/student/ExamAttempt.js';
 
 // Admin
 import { AdminDashboard } from './pages/admin/AdminDashboard.js';
@@ -37,20 +48,45 @@ import {
 } from './pages/admin/AdminUsers.js';
 import { AdminTickets } from './pages/admin/AdminTickets.js';
 import { AdminPrograms, AdminCourses } from './pages/admin/AdminPrograms.js';
+import {
+  AdminAuditLogsPage,
+  AdminBatchDetailPage,
+  AdminBatchesPage,
+  AdminEnrollmentDetailPage,
+  AdminEnrollmentsPage,
+  AdminFeeStructuresPage,
+  AdminHolidaysPage,
+  AdminSlaBreachesPage,
+  AdminTicketDetailPage,
+  AdminTimetableBuilderPage,
+} from './pages/admin/AdminScreens.js';
 
 // Finance
 import { FinanceDashboard } from './pages/finance/FinanceDashboard.js';
+import { FinancePaymentNew } from './pages/finance/FinancePayment.js';
 import {
-  FinancePaymentNew,
-  FinancePayments,
-} from './pages/finance/FinancePayment.js';
+  FinancePaymentDetailPage,
+  FinancePaymentsListPage,
+  FinanceReportsPage,
+  FinanceStudentDetailPage,
+  FinanceStudentsPage,
+} from './pages/finance/FinanceScreens.js';
 
 // Faculty
 import { FacultyDashboard } from './pages/faculty/FacultyDashboard.js';
+import {
+  FacultyCourseDetailPage,
+  FacultyCoursesPage,
+  FacultyFeedbackNewPage,
+  FacultyFeedbackPage,
+  FacultyGradingDetailPage,
+  FacultyGradingQueuePage,
+  FacultyTimetablePage,
+} from './pages/faculty/FacultyScreens.js';
 
 // Shared
 import { ProfilePage, NotificationPrefsPage } from './pages/ProfilePage.js';
-import { Placeholder } from './pages/Placeholder.js';
+import { OfflinePage } from './pages/Offline.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +114,14 @@ export function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
+          <Route path="/offline" element={<OfflinePage />} />
+
+          {/* Onboarding flow — public, no AppShell */}
+          <Route path="/onboarding/email-invite" element={<OnbEmailInvitePage />} />
+          <Route path="/onboarding/landing" element={<OnbLandingPage />} />
+          <Route path="/onboarding/set-password" element={<OnbSetPasswordPage />} />
+          <Route path="/onboarding/tour" element={<OnbTourPage />} />
+          <Route path="/onboarding/arrival" element={<OnbArrivalPage />} />
 
           {/* Shared protected */}
           <Route
@@ -118,8 +162,8 @@ export function App() {
                     <Route path="tickets/:ticketId" element={<StudentTicketDetail />} />
                     <Route path="feedback" element={<StudentFeedback />} />
                     <Route path="certificates" element={<StudentCertificates />} />
-                    <Route path="quizzes/:quizId" element={<Placeholder title="Quiz attempt" message="Quiz attempt UI ships in M9 alongside the exam flow. Use the mobile app for launch." />} />
-                    <Route path="exams/:examId" element={<Placeholder title="Exam attempt" />} />
+                    <Route path="quizzes/:quizId" element={<QuizAttemptPage />} />
+                    <Route path="exams/:examId" element={<ExamAttemptPage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </RequireRole>
@@ -140,13 +184,17 @@ export function App() {
                     <Route path="users/:id" element={<AdminUserDetail />} />
                     <Route path="programs" element={<AdminPrograms />} />
                     <Route path="courses" element={<AdminCourses />} />
-                    <Route path="batches" element={<Placeholder title="Batches" />} />
-                    <Route path="timetable" element={<Placeholder title="Timetable builder" />} />
+                    <Route path="batches" element={<AdminBatchesPage />} />
+                    <Route path="batches/:id" element={<AdminBatchDetailPage />} />
+                    <Route path="timetable" element={<AdminTimetableBuilderPage />} />
                     <Route path="tickets" element={<AdminTickets />} />
-                    <Route path="tickets/:ticketId" element={<Placeholder title="Ticket detail" />} />
-                    <Route path="enrollments" element={<Placeholder title="Enrollments" />} />
-                    <Route path="enrollments/:id" element={<Placeholder title="Enrolment detail (Issue Certificate button)" message="The POST /v1/enrollments/:id/issue-certificate endpoint is wired — use the student certificates screen or curl for now." />} />
-                    <Route path="audit-logs" element={<Placeholder title="Audit logs" />} />
+                    <Route path="tickets/sla-breaches" element={<AdminSlaBreachesPage />} />
+                    <Route path="tickets/:ticketId" element={<AdminTicketDetailPage />} />
+                    <Route path="enrollments" element={<AdminEnrollmentsPage />} />
+                    <Route path="enrollments/:id" element={<AdminEnrollmentDetailPage />} />
+                    <Route path="audit-logs" element={<AdminAuditLogsPage />} />
+                    <Route path="fee-structures" element={<AdminFeeStructuresPage />} />
+                    <Route path="holidays" element={<AdminHolidaysPage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </RequireRole>
@@ -162,9 +210,13 @@ export function App() {
                 <RequireRole roles={['finance']}>
                   <Routes>
                     <Route path="dashboard" element={<FinanceDashboard />} />
+                    <Route path="students" element={<FinanceStudentsPage />} />
+                    <Route path="students/:id" element={<FinanceStudentDetailPage />} />
+                    <Route path="students/:id/record-payment" element={<FinancePaymentNew />} />
                     <Route path="payments/new" element={<FinancePaymentNew />} />
-                    <Route path="payments" element={<FinancePayments />} />
-                    <Route path="fee-structures" element={<Placeholder title="Fee structures" />} />
+                    <Route path="payments" element={<FinancePaymentsListPage />} />
+                    <Route path="payments/:id" element={<FinancePaymentDetailPage />} />
+                    <Route path="reports" element={<FinanceReportsPage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </RequireRole>
@@ -180,11 +232,13 @@ export function App() {
                 <RequireRole roles={['faculty']}>
                   <Routes>
                     <Route path="dashboard" element={<FacultyDashboard />} />
-                    <Route path="courses" element={<Placeholder title="My courses" />} />
-                    <Route path="courses/:id" element={<Placeholder title="Course detail" />} />
-                    <Route path="grading" element={<Placeholder title="Grading queue" />} />
-                    <Route path="feedback" element={<Placeholder title="Feedback editor" />} />
-                    <Route path="timetable" element={<Placeholder title="My timetable" />} />
+                    <Route path="courses" element={<FacultyCoursesPage />} />
+                    <Route path="courses/:id" element={<FacultyCourseDetailPage />} />
+                    <Route path="grading" element={<FacultyGradingQueuePage />} />
+                    <Route path="grading/:attemptId" element={<FacultyGradingDetailPage />} />
+                    <Route path="feedback" element={<FacultyFeedbackPage />} />
+                    <Route path="feedback/new" element={<FacultyFeedbackNewPage />} />
+                    <Route path="timetable" element={<FacultyTimetablePage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </RequireRole>

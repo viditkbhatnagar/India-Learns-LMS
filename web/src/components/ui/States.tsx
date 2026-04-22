@@ -1,5 +1,6 @@
 import { Component, type PropsWithChildren, type ReactNode } from 'react';
 import { Button } from './Button.js';
+import { captureException } from '../../lib/sentry.js';
 
 export function Skeleton({ className, lines = 3 }: { className?: string; lines?: number }) {
   return (
@@ -61,6 +62,11 @@ export class ErrorBoundary extends Component<PropsWithChildren, ErrorBoundarySta
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { error };
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  override componentDidCatch(error: Error): void {
+    captureException(error);
   }
 
   reset = () => {

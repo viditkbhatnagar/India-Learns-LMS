@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { logger } from '../config/logger.js';
+import { captureException } from '../config/sentry.js';
 
 export interface ErrorEnvelope {
   error: {
@@ -95,6 +96,10 @@ export function errorHandler(
 
   const message = err instanceof Error ? err.message : 'Unexpected error';
   logger.error({ err, requestId: req.requestId }, 'unhandled error');
+  captureException(err, {
+    requestId: req.requestId,
+    route: `${req.method} ${req.route?.path ?? req.path}`,
+  });
   res.status(500).json({
     error: { code: 'INTERNAL', message: 'Internal server error', details: { hint: message } },
   } satisfies ErrorEnvelope);
