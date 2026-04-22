@@ -1,4 +1,6 @@
-import express, { type Express, type Request, type Response } from 'express';
+import path from 'node:path';
+import { existsSync } from 'node:fs';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -58,6 +60,45 @@ export function createApp(): Express {
   app.get('/healthz', healthHandler);
 
   app.use('/v1', v1Router());
+
+  // Optional single-service mode: same Node process also serves the built web
+  // app from `web/dist`. Enabled when SERVE_WEB_FROM is set OR the default
+  // `./web/dist` path exists relative to the process cwd. Render single-
+  // service deploys run from the repo root, so the default resolves correctly
+  // without extra configuration.
+  const webDistPath = env.SERVE_WEB_FROM
+    ? path.resolve(env.SERVE_WEB_FROM)
+    : path.resolve(process.cwd(), 'web', 'dist');
+  if (existsSync(path.join(webDistPath, 'index.html'))) {
+    logger.info({ webDistPath }, 'serving web app from same origin');
+    app.use(
+      express.static(webDistPath, {
+        // index.html is served via the SPA fallback below (never cached); every
+        // other asset is content-hashed by Vite so cache aggressively.
+        index: false,
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('index.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          } else if (/\/assets\//.test(filePath)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        },
+      }),
+    );
+    // SPA fallback: any non-API GET that didn't hit a static file returns
+    // index.html so React Router can handle the route client-side.
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.method !== 'GET') {
+        next();
+        return;
+      }
+      if (req.path.startsWith('/v1') || req.path.startsWith('/health')) {
+        next();
+        return;
+      }
+      res.sendFile(path.join(webDistPath, 'index.html'));
+    });
+  }
 
   app.use(notFound);
   app.use(errorHandler);

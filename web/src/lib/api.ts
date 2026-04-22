@@ -2,7 +2,13 @@ import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestCo
 import { useAuthStore } from '../store/auth.js';
 import { getDeviceId } from './deviceId.js';
 
-const API_ORIGIN = import.meta.env.VITE_API_ORIGIN ?? 'http://localhost:4000';
+// Empty / unset in production = same-origin (the API is served from the same
+// Node process as the SPA; axios will resolve `/v1/...` against window.origin).
+// Dev falls back to the local api server.
+const RAW_ORIGIN = import.meta.env.VITE_API_ORIGIN;
+const API_ORIGIN = RAW_ORIGIN && RAW_ORIGIN.length > 0
+  ? RAW_ORIGIN
+  : (import.meta.env.DEV ? 'http://localhost:4000' : '');
 
 interface ApiError {
   error?: { code?: string; message?: string; details?: unknown };

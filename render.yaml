@@ -1,29 +1,34 @@
-# India Learns — Render Blueprint (Runbook §3)
+# India Learns — Render Blueprint (single-service topology)
 #
-# Three services + five cron jobs. Secrets live in two `envVarGroups` so they
-# can be edited centrally and shared across services. Domain (`indialearns.com`)
-# is parameterised — change the four `value:` lines below + the custom-domain
-# config in the Render dashboard if a different host is used.
+# One web service (Node) that builds both the API and the React app in the
+# same repo and serves both from the same origin. Routes starting with /v1 or
+# /health* hit the Express API; everything else is served from web/dist via
+# express.static with an SPA fallback to index.html. This means:
+#   - One URL for everything (frontend + API)
+#   - No CORS, no cross-site cookie plumbing
+#   - Auth cookies are same-origin → work everywhere
+#
+# Plus five cron jobs that hit HMAC-signed /v1/jobs endpoints on the web
+# service. Schedules are UTC.
 #
 # Region: singapore (closest to ap-south-1 / Mumbai for MongoDB Atlas).
 #
 # After importing this blueprint:
-#   1. Fill the secret groups (`il-api-secrets`, `il-web-secrets`) — see
-#      `DEPLOY.md` T-24h section for the full list.
+#   1. Fill the secret group `il-app-secrets` — see DEPLOY.md.
 #   2. First deploy will fail health check until MONGODB_URI is set.
-#   3. Run `npm run seed:superadmin -w api` from the API shell to create the
-#      first super-admin (interactive prompts via SUPERADMIN_* env vars).
+#   3. Run `npm run seed:superadmin` from your laptop (or the Render Shell on
+#      paid plans) to create the first super-admin.
 
 services:
-  # -------- API --------
+  # -------- Single web service (API + React SPA from same Node process) ----
   - type: web
-    name: il-api
+    name: il-app
     runtime: node
     plan: standard
     region: singapore
-    rootDir: api
+    rootDir: .
     buildCommand: npm ci --include=dev && npm run build
-    startCommand: node dist/index.js
+    startCommand: node api/dist/index.js
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
@@ -31,70 +36,44 @@ services:
         value: production
       - key: PORT
         value: 4000
+      # Same-origin: API and SPA share the Render URL. WEB_ORIGIN is used for
+      # CORS, but same-origin requests never hit CORS anyway — this value is a
+      # harmless placeholder and gets overridden on the Render dashboard with
+      # the actual Render-assigned URL once the service is created.
       - key: WEB_ORIGIN
-        value: https://app.indialearns.com
+        value: https://il-app.onrender.com
       - key: API_ORIGIN
-        value: https://api.indialearns.com
-      - key: COOKIE_DOMAIN
-        value: .indialearns.com
+        value: https://il-app.onrender.com
+      # Cookies are same-origin (both frontend and API on il-app.onrender.com)
+      # so COOKIE_DOMAIN is left unset (cookie defaults to the request host).
       - key: COOKIE_SECURE
         value: true
       - key: EMAIL_FROM
-        value: India Learns <notifications@app.indialearns.com>
+        value: India Learns <notifications@indialearns.app>
       - key: RECEIPT_ORG_NAME
         value: India Learns
-      - key: RECEIPT_LOGO_URL
-        value: https://app.indialearns.com/brand/logo.jpg
       - key: WHATSAPP_ENABLED
         value: false
       - key: CERTIFIER_ENABLED
         value: false
+      # Stub adapters for initial staging. Flip to cloudinary / brevo / live
+      # once those credentials are available.
       - key: STORAGE_PROVIDER
-        value: cloudinary
+        value: stub
       - key: EMAIL_PROVIDER
-        value: brevo
+        value: stub
       - key: INTEGRATIONS_MODE
-        value: live
+        value: stub
       - key: LOG_LEVEL
         value: info
       - key: SENTRY_ENVIRONMENT
-        value: production
+        value: staging
       - key: SENTRY_TRACES_SAMPLE_RATE
         value: 0.1
-      - fromGroup: il-api-secrets
-
-  # -------- Web (static) --------
-  - type: web
-    name: il-web
-    runtime: static
-    plan: starter
-    region: singapore
-    rootDir: web
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    pullRequestPreviewsEnabled: true
-    headers:
-      - path: /assets/*
-        name: Cache-Control
-        value: public, max-age=31536000, immutable
-      - path: /*
-        name: Cache-Control
-        value: public, max-age=0, must-revalidate
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_BASE
-        value: https://api.indialearns.com
-      - key: VITE_APP_ORIGIN
-        value: https://app.indialearns.com
-      - key: VITE_ENABLE_PWA
-        value: true
-      - fromGroup: il-web-secrets
+      - fromGroup: il-app-secrets
 
   # -------- Cron jobs (5) --------
-  # All cron jobs share the API's secret group (JOB_SECRET + API_ORIGIN).
+  # All cron jobs share the app's secret group (JOB_SECRET + API_ORIGIN).
   # Schedules are UTC.
 
   - type: cron
@@ -106,7 +85,7 @@ services:
     buildCommand: ":"
     startCommand: node scripts/sign-job-jwt.mjs fee-reminders
     envVars:
-      - fromGroup: il-api-secrets
+      - fromGroup: il-app-secrets
 
   - type: cron
     name: il-cron-autosuspend
@@ -117,7 +96,7 @@ services:
     buildCommand: ":"
     startCommand: node scripts/sign-job-jwt.mjs autosuspend
     envVars:
-      - fromGroup: il-api-secrets
+      - fromGroup: il-app-secrets
 
   - type: cron
     name: il-cron-sla-timers
@@ -128,7 +107,7 @@ services:
     buildCommand: ":"
     startCommand: node scripts/sign-job-jwt.mjs sla-timers
     envVars:
-      - fromGroup: il-api-secrets
+      - fromGroup: il-app-secrets
 
   - type: cron
     name: il-cron-faculty-digest
@@ -139,7 +118,7 @@ services:
     buildCommand: ":"
     startCommand: node scripts/sign-job-jwt.mjs digest-faculty-weekly
     envVars:
-      - fromGroup: il-api-secrets
+      - fromGroup: il-app-secrets
 
   - type: cron
     name: il-cron-notifications-retry
@@ -150,11 +129,11 @@ services:
     buildCommand: ":"
     startCommand: node scripts/sign-job-jwt.mjs notifications-retry
     envVars:
-      - fromGroup: il-api-secrets
+      - fromGroup: il-app-secrets
 
-# ---- Secret groups ----
+# ---- Secret group (single) ----
 envVarGroups:
-  - name: il-api-secrets
+  - name: il-app-secrets
     envVars:
       - key: MONGODB_URI
         sync: false
@@ -163,7 +142,7 @@ envVarGroups:
       - key: JOB_SECRET
         sync: false
       - key: API_ORIGIN
-        value: https://api.indialearns.com
+        value: https://il-app.onrender.com
       # Email (set whichever provider you use; SendGrid is implicit fallback)
       - key: BREVO_API_KEY
         sync: false
@@ -171,7 +150,7 @@ envVarGroups:
         sync: false
       - key: SENDGRID_API_KEY
         sync: false
-      # Cloudinary
+      # Cloudinary (for live mode — leave unset while STORAGE_PROVIDER=stub)
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
@@ -192,11 +171,8 @@ envVarGroups:
         sync: false
       - key: RECEIPT_ORG_GSTIN
         sync: false
-      # Sentry
+      # Sentry (server + web share the same DSN in single-service mode)
       - key: SENTRY_DSN
         sync: false
-
-  - name: il-web-secrets
-    envVars:
       - key: VITE_SENTRY_DSN
         sync: false

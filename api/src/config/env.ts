@@ -96,6 +96,11 @@ const EnvSchema = z.object({
   SENTRY_ENVIRONMENT: z.string().default('development'),
 
   GIT_SHA: z.string().default('dev'),
+
+  // Single-service deploys: override path to the built web app. Leave empty
+  // to use the default `./web/dist` relative to cwd (works for Render single-
+  // service deploys where rootDir is the repo root).
+  SERVE_WEB_FROM: z.string().optional().default(''),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
