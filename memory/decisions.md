@@ -513,3 +513,36 @@ Append-only log. Every entry: ID, date, decision, why, source.
 - **Verified red — launch blocker Q-VERIFY-01:** Playwright 3/32. Web `authApi.login` in `web/src/lib/endpoints.ts` posts `{email, password}` only; server requires `deviceId: min(1).max(128)` per `api/src/routes/auth.ts:20`. Same gap on `/auth/invite/accept` + `/auth/refresh`. Fixing Q-M2-01 (UUIDv4 in localStorage) unblocks the entire authenticated test surface. Until then, the M9 memory claim "Playwright auth + role routing passes" is aspirational — the test suite was never exercised end-to-end against a real browser before this session.
 - **Verified amber — Lighthouse:** `/student/dashboard` redirects to `/login` anonymously, so scores reflect login page: perf 55 / a11y 94 / bp 100 / seo 82. v1.1 bundle-split (recharts + sentry) + login-page SEO meta tags will push perf + seo over 90.
 - **Verified amber — rate-limit in-memory store (Q-M2-03):** `LOGIN_RATE_MAX=5` tripped within the first Playwright run. For verification sessions we set `RATE_LIMITS_DISABLED=true` in `api/.env`; prod Render must re-enable and add `rate-limit-redis` if scaling beyond 1 instance.
+
+## D-085 — deviceId on web is UUIDv4 persisted in `localStorage['il:deviceId']` (closes Q-M2-01 + Q-VERIFY-01)
+**Date:** 2026-04-22 (pre-launch verification, same session as D-084)
+**Why:** Q-VERIFY-01 exposed that no browser has ever successfully logged into the live app — the web client never included `deviceId`, which the API requires on `/auth/login`, `/auth/invite/accept`, and optionally on `/auth/refresh`. The Q-M2-01 plan ("UUIDv4 in localStorage") was always the right answer; this session finally ships it. `localStorage` is the right home because the deviceId is a stable per-browser identifier that outlives the access token — perfect for the server's RefreshToken audit trail (which is the only thing that actually reads it).
+**Source:** Q-M2-01 + Q-VERIFY-01; TRD §7 auth model.
+**How to apply:**
+- [web/src/lib/deviceId.ts](../web/src/lib/deviceId.ts) — `getDeviceId()` lazy-generates once via `crypto.randomUUID()` and persists; falls back to `dev-<timestamp>-<rand>` if `crypto.randomUUID` or `localStorage` is unavailable (old browsers, incognito lockdowns).
+- [web/src/lib/endpoints.ts](../web/src/lib/endpoints.ts) — `authApi.login` and `authApi.acceptInvite` now include `deviceId: getDeviceId()` in the POST body.
+- [web/src/lib/api.ts](../web/src/lib/api.ts) — the 401-refresh interceptor also sends `{ deviceId }` in the body (optional on server-side, but preserves audit continuity across refreshes).
+- Playwright now 12/32 green (was 3/32); remaining 20 are Q-VERIFY-03 color-contrast (17) + Q-VERIFY-04 UI-label drift (3). Proves the fix and proves auth, role routing, and screenshot capture are real-browser-functional.
+- The server never validates the format (stays opaque `min(1).max(128)`), so UUIDv4 is policy, not enforcement. If we ever want to tighten, the validator is a 1-line change in `api/src/routes/auth.ts`.
+
+## D-086 — Product-call sweep on 2026-04-22 pre-launch session (13 open questions closed)
+**Date:** 2026-04-22 (pre-launch verification, same session as D-084/D-085)
+**Why:** User delegated product-call decision-making for this session. Closed 13 open questions where the decision was low-risk and well-supported by the spec pack. Each decision is recorded inline in [open-questions.md](open-questions.md) with a `**CLOSED 2026-04-22 (pre-launch)**` header + rationale. Summary:
+- **Q-M2-01** (deviceId) — UUIDv4 in localStorage (shipped, D-085).
+- **Q-M2-03** (rate-limit store) — in-memory stays for Phase 1 (1 Render instance).
+- **Q-M2-04** (`__Host-il_rt` cookie Path) — keep `Path=/` (security-positive).
+- **Q-M3-02** (batch status transitions) — admin-driven, no state machine in Phase 1.
+- **Q-M3-03** (module deletion with audit rows) — allow soft-delete; preserve audit rows.
+- **Q-M4-02** (faculty timetable filter) — keep literal `facultyId === self`.
+- **Q-M4-04** (room overlap scope) — keep cross-batch (stricter reading).
+- **Q-M5-01** (weights[] 40/30/30) — default for new structures via seed-demo; equal split remains the model default.
+- **Q-M5-03** (suspension override cap) — no hard cap; UI defaults picker to now+30d.
+- **Q-M5-04** (reversal window) — 24h confirmed.
+- **Q-M5-05** (autosuspend cron weekend carve-out) — no carve-out; fires daily including weekends.
+- **Q-M6-02** (manager CC) — "any active admin" for Phase 1.
+- **Q-M6-04** (SLA re-arm on reopen) — sticky breach; student-initiated reopens already spawn a child ticket with fresh SLA.
+- **Q-M7-01** (course completion) — simplified predicate (quizzes + exam) final; no mark-opened endpoint.
+- **Q-M7-03** (faculty digest scope) — keep both ungraded essays + stale drafts in one digest.
+- **Q-M7-04** (exam "Graded" state) — keep 4 states; grading completeness is per-attempt.
+**Source:** Open questions in memory/open-questions.md; spec pack deltas.
+**How to apply:** No code changes required for any of these (each was already the de-facto behaviour — the closure just promotes it from "maybe change" to "this is the policy"). Documentation cleanup in TRD/PRD is queued for the next doc-pack revision pass.

@@ -50,7 +50,8 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Owner:** Logan / Vidit.
 **Workaround:** Stub adapter issues a fake URL in dev (`CERTIFIER_ENABLED=false`).
 
-## Q-M2-01 — `deviceId` convention for login/refresh/invite-accept
+## Q-M2-01 — `deviceId` convention for login/refresh/invite-accept — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — implemented UUIDv4 in `localStorage['il:deviceId']` via [web/src/lib/deviceId.ts](../web/src/lib/deviceId.ts). Wired into `authApi.login` + `authApi.acceptInvite` + the refresh interceptor. Server continues to treat the value as opaque (just min(1) / max(128)) — no UUID format validation; it only exists for the RefreshToken audit trail. See D-085.
 **Raised:** 2026-04-21 (M2)
 **Owner:** Vidit (lock when M3 web client starts).
 **Context:** Server accepts `deviceId` as a free-form non-empty string in the login/refresh/invite-accept bodies. Plan is UUIDv4 persisted in localStorage. Decision isn't yet enforced.
@@ -62,13 +63,15 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** `auth.password_reset_requested` audit log stores the submitted email in plain text in `details.email` so debugging "who tried to reset" is easy. Audit log is admin-gated (M6 UI). If DPDP interpretation requires hashed emails in audit, swap to sha256.
 **Impact:** Low; one-line change in `authService.requestPasswordReset`.
 
-## Q-M2-04 — `__Host-il_rt` cookie Path spec drift
+## Q-M2-04 — `__Host-il_rt` cookie Path spec drift — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — code keeps `Path=/` (security-positive: preserves the `__Host-` prefix's guarantees; all major browsers enforce this). TRD §7 wording drift remains — flagged for the next doc-pack revision pass. No code change needed; the decision is to keep current behaviour.
 **Raised:** 2026-04-21 (M2 review).
 **Owner:** Vidit (spec note) + Logan (if TRD amendment needed).
 **Context:** TRD §7 specifies the refresh cookie as `__Host-il_rt` with `Path=/v1/auth/refresh`. RFC 6265bis (and Chrome/Firefox/Safari enforcement) requires `__Host-`-prefixed cookies to have `Path=/` and no `Domain` attribute — otherwise browsers silently drop the cookie. M2 keeps the prefix and widens Path to `/` (security-positive choice). Route-level auth middleware gates where the cookie is actually consumed. TRD wording should be amended in a future doc update.
 **Impact:** None functionally — current implementation works in real browsers and preserves the `__Host-` guarantees. The TRD should be reconciled before M9 to avoid confusion.
 
-## Q-M2-03 — Rate-limit store swap for multi-instance deploy
+## Q-M2-03 — Rate-limit store swap for multi-instance deploy — **DEFERRED 2026-04-22 → Phase 2**
+**Decided:** 2026-04-22 — Phase 1 runs on Render with a single `il-api` instance (see render.yaml), so the in-memory store is correct. Revisit when scaling horizontally; `rate-limit-redis` swap is documented as a one-file change. No action needed for launch.
 **Raised:** 2026-04-21 (M2).
 **Owner:** Vidit (M9 deploy prep).
 **Context:** `express-rate-limit` uses in-memory store. OK for single-instance dev; Render free-tier has one instance per service. Once we scale to 2+ instances (not Phase 1), need `rate-limit-redis` so counters aren't per-replica. Runbook note required.
@@ -80,13 +83,15 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** PRD §6.3 says "Publish creates a new immutable `courseVersion` pointer on affected enrolments — unpublishing rolls back." TRD §4.4 Enrollment schema does not include a courseVersion field; no rollback user story exists yet. D-030 defers this: `Course.publishedVersion` increments on publish, but enrolments don't snapshot it. If Logan wants rollback in Phase 1, we'll add a `coursePublishedVersion: number` field on Enrollment + a rollback endpoint that pushes subsequent publishes' previous assets back.
 **Impact:** Medium. No current feature depends on it, but admin-triggered unpublish currently loses the "which version did each student see" history.
 
-## Q-M3-02 — Batch status state-machine transitions
+## Q-M3-02 — Batch status state-machine transitions — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — Phase 1 keeps admin-driven transitions with no state-machine validation. Rationale: batches are small (30 students max), admin pool is small (≤5 in Phase 1), and recovery from an accidental `archived` is trivial. Revisit in Phase 2 if the admin pool grows or scope adds automation.
 **Raised:** 2026-04-21 (M3).
 **Owner:** Logan / Vidit (spec).
 **Context:** TRD §4.3 defines `status: 'planned' | 'active' | 'completed' | 'archived'`, but neither PRD nor TRD specifies the transition rules (who flips, when, what's allowed). M3 admin PATCH accepts any status transition with no validation. Fine for Phase 1 (admins drive manually), but worth codifying before M8 analytics start grouping by batch status.
 **Impact:** Low; admins could accidentally "archive" an active batch. Soft constraint; recoverable.
 
-## Q-M3-03 — Module deletion policy when module.viewed events exist
+## Q-M3-03 — Module deletion policy when module.viewed events exist — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — decision: allow soft-delete even when `module.viewed` audit rows exist. Audit rows are preserved; the M6 audit UI handles the "target deleted" case by rendering the stale id. No data loss, full audit trail intact. No code change needed.
 **Raised:** 2026-04-21 (M3).
 **Owner:** Logan.
 **Context:** Current implementation soft-deletes Module on `DELETE /v1/modules/:id`. AuditLog rows for `module.viewed` reference `targetId = module._id`, which now points at a tombstoned doc. M6 audit UI will need to handle "module deleted but audit rows remain". Also open: should we prevent deletion when there are view events, or allow and just mark? Plan's integration test for `9 delete with viewed audit rows` wasn't added because the behaviour isn't spec'd — we silently allow.
@@ -98,7 +103,8 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** TRD §4.5 enumerates `action: 'cancel' | 'reschedule'`. The M4 prompt §3 explicitly requires **cancel, reschedule, add**. Shipped as an additive extension: `'add'` with `entryId: null` represents a one-off extra class (newCourseId + newFacultyId + new time required). Need Logan's sign-off on the spec amendment.
 **Impact:** Medium. The behaviour is merged and tested; the TRD text just needs to catch up.
 
-## Q-M4-02 — Faculty `/v1/me/timetable` filter rule
+## Q-M4-02 — Faculty `/v1/me/timetable` filter rule — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — keep literal `facultyId === self` filter. Matches PRD US-TT-04 as written. Coordinator / multi-role visibility is Phase 2 and would need a new role model (`coordinator`) anyway. No code change.
 **Raised:** 2026-04-21 (M4)
 **Owner:** Logan (spec clarity).
 **Context:** PRD §8.2 US-TT-04 says "As Faculty, I see only my own classes." M4 implements this by filtering resolved occurrences to `facultyId === self`. Works today — but a coordinator or multi-role user (future-proof) might want all-faculty-on-their-batches visibility.
@@ -110,7 +116,8 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** `Notification` docs accumulate per user per event with no TTL. In-app inbox UI (M8) will likely want pagination + archive; for now, `/v1/notifications/me?limit=50` is the only read path.
 **Impact:** Low for Phase 1 scale (≤ 126 admissions Y1); revisit before scale-out. Likely: add a `retainUntil` Date + TTL index OR a cron that archives `readAt`-set docs older than 90 days.
 
-## Q-M4-04 — Room-overlap detection scope
+## Q-M4-04 — Room-overlap detection scope — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — keep cross-batch room-overlap enforcement (the stricter reading). Physical rooms are a shared resource; cross-batch conflicts are a real scheduling failure, not a data-model artefact. Empty `room: ''` continues to never conflict. No code change.
 **Raised:** 2026-04-21 (M4)
 **Owner:** Logan.
 **Context:** `assertNoOverlap` rejects same-room overlaps across **all batches** (room = physical resource). Empty `room: ''` never conflicts. PRD §8.3 AC says "No two timetable entries overlap for the same Batch, same Faculty, or same Room" — ambiguous whether "same Room" scoping is cross-batch. Current implementation is the stricter reading (cross-batch).
@@ -122,7 +129,8 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** `notifyTimetableChange` renders its own title/body strings (e.g. "Timetable update: Airport Ground Ops rescheduled"). Copy should move into the M8 template registry so Logan/Rejin can edit without a code change. Currently English-only; i18n TBD.
 **Impact:** Low. Copy works for Phase 1; templates harden in M8.
 
-## Q-M5-01 — FeeStructure component `weights[]` field (uneven monthly split)
+## Q-M5-01 — FeeStructure component `weights[]` field (uneven monthly split) — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — `weights=[40,30,30]` is the pre-launch default, shipped via [api/scripts/seed-demo.ts](../api/scripts/seed-demo.ts) on the Aviation FeeStructure (`monthly_x` / `monthlyCount=3`). Existing seed.ts leaves `weights: null` (= equal split) so the old fixture is unaffected. No schema change — the field was already in the model.
 **Raised:** 2026-04-21 (M5)
 **Owner:** Logan (product call).
 **Context:** M5 prompt proposed 40/30/30 installment default; TRD §4.6 pins the component model (`cadence: 'monthly_x'`, `monthlyCount`) with an implicit equal split. D-043: shipped spec model + optional `weights: number[]` on each component (largest-remainder allocation when provided) so 40/30/30 is a one-PATCH away if Logan confirms the need. Currently `weights: null` everywhere.
@@ -134,19 +142,22 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** Spec (TRD §5.6) has `POST /v1/payments/:id/reverse` → CreditNote + `POST /v1/payments` over-payment → CreditNote. It does NOT have an endpoint to re-apply a CreditNote to a later installment. M5 currently leaves credit notes with `consumed=false` and does not automatically burn them on next payment. If Logan wants explicit "apply-credit" UX, we'll add `POST /v1/credit-notes/:id/apply { amountPaise?, installmentId? }` in M6 or M9.
 **Impact:** Low for Phase 1 — finance can manually record a new payment referencing the credit note in `notes`.
 
-## Q-M5-03 — Admin override default duration
+## Q-M5-03 — Admin override default duration — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — no hard cap on override duration. Admin picks any future date. UI defaults the picker to `now + 30d` (matches PRD US-FEE-04 wording) but allows any value. Audit trail captures actor + reason. Service stays unchanged. Rationale: LUC ops needs flexibility for edge cases (payment-plan renegotiation, hardship grants); a hard cap would force awkward "re-override every 30d" workflows.
 **Raised:** 2026-04-21 (M5)
 **Owner:** Logan.
 **Context:** PRD §9.5 US-FEE-04 says "override for 30 days". M5 endpoint `POST /v1/users/:id/suspension/override { until, reason }` accepts any future date — admin-driven. If product wants the 30-day duration as a hard cap (not just a UI default), the service needs an extra guard.
 **Impact:** Low. Currently admins can set any future date; UI can default to now+30d when it ships.
 
-## Q-M5-04 — Reversal window (24h) is implied, not spec-pinned
+## Q-M5-04 — Reversal window (24h) is implied, not spec-pinned — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — 24h reversal window confirmed. Matches Indian card-refund norms and keeps the finance workflow predictable. Beyond 24h, finance issues a credit note + records a new offsetting payment (the existing CreditNote pathway handles this). No code change.
 **Raised:** 2026-04-21 (M5)
 **Owner:** Logan.
 **Context:** PRD §9.6 implies a 24-hour reversal window but doesn't pin it. M5 hard-codes 24h (`REVERSAL_WINDOW_MS` in paymentService). If Logan wants 48h (or "any time, audited"), single-constant change.
 **Impact:** Low.
 
-## Q-M5-05 — Auto-suspend cron respects weekends/holidays?
+## Q-M5-05 — Auto-suspend cron respects weekends/holidays? — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — no weekend/holiday carve-out. Autosuspend cron fires daily at 03:30 IST including Saturdays/Sundays. Rationale: a student already had 2 warnings + 28 days notice; suspending on a Sunday is not hardship (they contact admin Monday if there's a dispute, and override is a single API call). Simpler cron = fewer bugs. No code change.
 **Raised:** 2026-04-21 (M5)
 **Owner:** Logan.
 **Context:** TRD §10.1 schedules `autosuspend` daily at 03:30 IST with no weekend/holiday carve-out. M5 honours that — suspensions fire on a Sunday if a Saturday was T+28. Policy may prefer to hold suspension until next business day.
@@ -170,7 +181,8 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** PRD §10.1 routes administration tickets to `role:admin` with `deptTag='operations'` and technical tickets to `deptTag='it'`. The `User.deptTag` field exists (D-056) but seed ships a single admin with no deptTag. Routing falls back to "any admin" when the preferred bucket is empty — works, but loses the split. Before go-live, production should tag at least one ops admin and one IT admin.
 **Impact:** Low. Fallback behaviour is benign; just loses routing specificity.
 
-## Q-M6-02 — SLA breach manager CC semantics
+## Q-M6-02 — SLA breach manager CC semantics — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — "manager" = any active `role:admin` for Phase 1. With ≤5 admins, the noise is tolerable. Per-assignee mentor mapping is Phase 2 if the admin pool grows. No code change.
 **Raised:** 2026-04-22 (M6).
 **Owner:** Logan.
 **Context:** PRD §10.4 says breach alerts cc "the assignee + their manager". No `managerId` field on User in Phase 1. M6 treats "manager" = any active `role:admin`. Works for ≤ 5 admins; at scale, admins would get a noisy inbox. Revisit if the admin pool grows or if Logan wants per-assignee mentor mapping.
@@ -182,13 +194,15 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** D-007 / TRD §9.3 specifies `il_ticket_update` template body as `"Hi {{1}}, your ticket {{2}} has a new update. Status: {{3}}. View: {{4}}"` — 4 variables in order `[name, ticketCode, status, url]`. M6 wires the dispatch path but `WHATSAPP_ENABLED=false` keeps it dormant in dev/test. Meta approval of the exact template text + variable order should be reconfirmed before enabling.
 **Impact:** Medium. If the approved template differs, one `waTemplateVars` branch to update before launch.
 
-## Q-M6-04 — SLA re-arm behaviour on reopened tickets
+## Q-M6-04 — SLA re-arm behaviour on reopened tickets — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — SLA breach stays sticky once flipped. Reopens don't reset `slaResolveDeadline` or clear `slaResolveBreached`. Rationale: SLA dashboards are reporting tools, not operational controls — historical accuracy > re-arming optics. Student-initiated reopens already go through a NEW child ticket (`parentTicketId` path, D-058) so that flow naturally gets a fresh SLA. No code change.
 **Raised:** 2026-04-22 (M6).
 **Owner:** Logan.
 **Context:** PRD §10 is silent on whether reopening a ticket (staff direct or student request) resets the resolution SLA. Current M6 behaviour: `slaResolveBreached` stays true once flipped, even if the ticket is reopened; the existing `slaResolveDeadline` is not adjusted. Practical effect: admins see the breach "sticky" in dashboards past reopen. If product wants a fresh 5d/15bd window on reopen, `reopenTicket` would need to reset the deadline + breach flags.
 **Impact:** Low for Phase 1 (SLA dashboard is reporting, not blocking). Easy fix if product decides.
 
-## Q-M7-01 — Course completion predicate drops the "all modules opened" clause
+## Q-M7-01 — Course completion predicate drops the "all modules opened" clause — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — simplified predicate is final: `all quizzes passed + final exam passed`. No `POST /modules/:id/mark-opened` endpoint. Rationale: Logan's Q3 ruling dropped watch-time/page-open telemetry entirely (CLAUDE.md §4 item 11). "Content opened" is unobservable without that telemetry; building it just to gate certificates is over-engineering for Phase 1. Students can't game the quizzes (MCQs are graded objectively). Revisit in Phase 2 only if LUC adds content-completion telemetry for separate reasons.
 **Raised:** 2026-04-22 (M7).
 **Owner:** Logan.
 **Context:** PRD §13.1 says "all Modules' content opened + all Quizzes passed + Final Exam passed". But M3 (Logan's Q3 ruling, CLAUDE.md §4 item 11) shipped NO watch-time / page-open telemetry. Without a `ModuleAccess` collection, "content opened" is unobservable. D-061 simplifies the predicate to "all quizzes passed + final exam passed" and pushes this for Logan's ratification. If Logan wants the original rule enforced, M7 needs a minimal `POST /v1/modules/:id/mark-opened` endpoint that the student UI hits on content tab open; service would AND that set into the completion check.
@@ -200,13 +214,15 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** PRD §11.3 says feedback notifications are email + in-app only at launch; §14.3 registry does not include assessment-graded WhatsApp. M7 ships `assessment.graded` and `feedback.published` with `channels: ['inapp', 'email']` — no WhatsApp. Meta has three pre-approved templates (fee_due, payment_received, ticket_update); assessment-related templates are not in that set. If product wants WhatsApp on these events, new templates need Meta approval first.
 **Impact:** Low for Phase 1. Extending the channel map + adding a WABA template mapping is a single-commit change if/when templates land.
 
-## Q-M7-03 — Faculty weekly digest scope (ungraded essays + draft feedback?)
+## Q-M7-03 — Faculty weekly digest scope (ungraded essays + draft feedback?) — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — keep both categories (ungraded essays >7d + stale feedback drafts >7d) in the same Monday 09:00 IST digest. Rationale: both represent the same faculty-workflow problem (student waiting on feedback) and separating them would create two emails to read instead of one. Cron logic stays as-is (D-063).
 **Raised:** 2026-04-22 (M7).
 **Owner:** Logan.
 **Context:** TRD §10.1 calls the cron "faculty weekly feedback-coverage email" and PRD US-FB-04 frames coverage as "% of assignments with feedback within 7 days". D-063 implements "awaiting feedback" as the union of (a) ExamAttempts submitted >7d ago with no total score (ungraded essays) AND (b) FeedbackEntry drafts untouched >7d. Logan should confirm both categories belong in the same digest or whether stale drafts should be excluded.
 **Impact:** Low. One filter toggle in `buildFacultyDigestBuckets`.
 
-## Q-M7-04 — Quiz/exam state machine final terminal transitions
+## Q-M7-04 — Quiz/exam state machine final terminal transitions — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — keep 4 states (`Draft → Scheduled → Live → Closed`). Grading is a per-attempt property; a per-exam "Graded" state adds machinery with no UX win. Faculty can see "X of Y attempts graded" in the grading queue without a state flip. No code change.
 **Raised:** 2026-04-22 (M7).
 **Owner:** Logan.
 **Context:** PRD §12.2 lists `Draft → Scheduled → Live → Closed → Graded`. M7 implements four states (no separate "Graded") — once all attempts are graded, the exam remains "closed" and grading completeness is a per-attempt property, not a per-exam one. If product wants a fifth "graded" state flipped when 100% of attempts are graded, we'd add a terminal transition + a reconciliation cron or a hook on `gradeExamAttempt`. Currently no UI surface depends on this.
@@ -252,12 +268,31 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** M8 delivered working auth + student + finance payment flow + admin dashboard + analytics + core CRUD pages, with `Placeholder` stubs on: quiz/exam attempt, admin Batches / Timetable-builder / Enrollments (inc. Issue Certificate button) / Audit-logs / Ticket-detail, finance payments list + reverse + CSV, faculty grading + feedback editor. APIs are all wired and tested; UIs port directly from [webapp/screens-staff.jsx](../../webapp/screens-staff.jsx) + [webapp/screens-extras.jsx](../../webapp/screens-extras.jsx) + [webapp/screens-student2.jsx](../../webapp/screens-student2.jsx).
 **Impact:** High for full launch; mitigated for internal test in June by the admin-can-curl + existing CLI tools.
 
-## Q-VERIFY-01 — Web login (and refresh + accept-invite) never sends `deviceId` — LAUNCH BLOCKER
+## Q-VERIFY-01 — Web login (and refresh + accept-invite) never sends `deviceId` — **CLOSED 2026-04-22 (pre-launch)**
+**Closed:** 2026-04-22 — fixed in same session. Added [web/src/lib/deviceId.ts](../web/src/lib/deviceId.ts) (lazy `crypto.randomUUID()` → `localStorage['il:deviceId']`, falls back to `Date.now+Math.random` when localStorage is inaccessible). Wired into `authApi.login`, `authApi.acceptInvite` (endpoints.ts) and the 401-refresh interceptor (api.ts). Playwright now 12/32 green (was 3/32). Remaining 20 failures are split between 17 axe color-contrast violations (Q-VERIFY-03) and 3 UI-label drift assertions (Q-VERIFY-04). See D-085.
 **Raised:** 2026-04-22 (pre-launch verification).
 **Owner:** Vidit (code fix).
 **Context:** Found during Part B4 Playwright — 29/32 tests fail. Root cause: [web/src/lib/endpoints.ts:33-38](../web/src/lib/endpoints.ts#L33-L38) `authApi.login` POSTs only `{ email, password }`. Server requires `deviceId: z.string().min(1).max(128)` per [api/src/routes/auth.ts:20-24](../api/src/routes/auth.ts#L20-L24). Same gap on `POST /auth/invite/accept` and `POST /auth/refresh`. This is Q-M2-01 ("plan is UUIDv4 in localStorage, not yet enforced") finally biting — no browser has ever actually logged in without a curl-constructed deviceId.
 **Impact:** Hard blocker for any real user — not a test-only issue. The M9 memory checkpoint's claim that "Playwright auth + role routing passes" was aspirational; nothing in the CI or local dev flow exercised a real browser login until this session.
-**Fix (when unblocked):** 1) add `web/src/lib/deviceId.ts` that lazy-generates `crypto.randomUUID()` into `localStorage['il:deviceId']`; 2) pass the value into `api.post('/auth/login', ...)`, `/auth/invite/accept`, and `/auth/refresh`; 3) re-run Playwright — expected to go green or surface the next real issue.
+
+## Q-VERIFY-03 — Brand color contrast fails WCAG 2 AA (17 axe "serious" violations)
+**Raised:** 2026-04-22 (pre-launch verification, post-deviceId-fix Playwright run).
+**Owner:** Rejin / Logan (brand decision).
+**Context:** axe reports 17 `color-contrast` serious violations across login + every authenticated page. Root cause: the India Learns brand palette uses orange `#f58220` on navy `#1a3a8f` for emphasis text/headings; the ratio is **3.95:1** vs the WCAG AA requirement of **4.5:1** for normal text. Bold/large text (≥14pt bold or ≥18pt) only needs 3:1 and is fine. Fix options (one brand decision fixes all 17 pages): (a) darken navy to ~`#15307A` (→ 4.52:1, within the original palette family), (b) darken orange to ~`#D9691A` (→ 4.54:1), (c) restrict the orange-on-navy combo to bold 14pt+ headings only and switch body text back to a neutral gray. (c) preserves the brand palette exactly; (a) is least visually disruptive; (b) shifts the primary action color noticeably.
+**Impact:** WCAG 2.1 AA is called out in UI/UX §10 and root CLAUDE.md §11 (`design:accessibility-review`) as a Phase 1 target. Failing AA is a compliance gap for LUC.
+**Recommendation:** Ask Rejin for (a) or (c). (c) is my default if no response.
+
+## Q-VERIFY-04 — Student-journey Playwright: label mismatches on courses/fees/tickets nav + new-ticket description field
+**Raised:** 2026-04-22 (pre-launch, post-deviceId-fix Playwright run).
+**Owner:** Vidit (operator / test fixup).
+**Context:** 3 `student-journey.spec.ts` assertions failed after login now works: (1) `dashboard tiles render with seeded data` — the expected tile text didn't match the current dashboard copy; (2) `navigates to courses, fees, tickets` — sidebar link label regex didn't match (app renders "My Courses" vs test expects "Courses", or similar drift); (3) `opens the new-ticket form` — `getByLabel(/description/i)` doesn't find the textarea (might be rendered as an aria-label or placeholder, not a `<label>`). Each is ~5 minutes of either aligning the test regex to the current copy or adding a matching `<label>` on the form. Not a launch blocker — the app itself works in the browser; this is test brittleness.
+**Impact:** Low. Playwright coverage is reduced until fixed; real users are unaffected.
+
+## Q-VERIFY-02 — Atlas cluster region not yet verified for BRD BR-11 (DPDP Act)
+**Raised:** 2026-04-22 (pre-launch verification).
+**Owner:** Vidit.
+**Context:** B1 used a pre-existing `dev.gdddmth.mongodb.net` cluster (user `agi_admin`, db `india_learns`) rather than provisioning a fresh `india-learns-verify` in AWS ap-south-1. BRD BR-11 (DPDP Act 2023) requires Indian data residency for student PII. Before pointing prod at this cluster, confirm region = ap-south-1 (Mumbai) in Atlas UI → Database → Cluster info, OR provision a new cluster in the right region for prod.
+**Impact:** Medium. Dev/verification safe; cannot be the prod cluster without region confirmation.
 
 ## Q-VERIFY-02 — Atlas cluster region not yet verified for BRD BR-11 (DPDP Act)
 **Raised:** 2026-04-22 (pre-launch verification).

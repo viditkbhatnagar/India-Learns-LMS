@@ -28,12 +28,13 @@ import type {
   UserPublicDto,
 } from 'india-learns-shared-types';
 import { api, unwrap } from './api.js';
+import { getDeviceId } from './deviceId.js';
 
 export const authApi = {
   async login(email: string, password: string) {
     const res = await api.post<{
       data: { user: UserPublicDto; accessToken: string };
-    }>('/auth/login', { email, password });
+    }>('/auth/login', { email, password, deviceId: getDeviceId() });
     return res.data.data;
   },
   async logout() {
@@ -52,7 +53,7 @@ export const authApi = {
   async acceptInvite(token: string, password: string) {
     const res = await api.post<{
       data: { user: UserPublicDto; accessToken: string };
-    }>('/auth/invite/accept', { token, password });
+    }>('/auth/invite/accept', { token, password, deviceId: getDeviceId() });
     return res.data.data;
   },
   async changePassword(current: string, next: string) {

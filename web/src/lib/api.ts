@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/auth.js';
+import { getDeviceId } from './deviceId.js';
 
 const API_ORIGIN = import.meta.env.VITE_API_ORIGIN ?? 'http://localhost:4000';
 
@@ -62,7 +63,7 @@ function makeClient(): AxiosInstance {
                 data: { accessToken: string };
               }>(
                 `${API_ORIGIN}/v1/auth/refresh`,
-                {},
+                { deviceId: getDeviceId() },
                 { withCredentials: true },
               );
               const next = res.data?.data?.accessToken ?? null;
