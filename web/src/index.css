@@ -14,4 +14,38 @@ body {
   color: #0f1a2e;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Subtle cream→white wash so the page has depth without distracting noise. */
+  background-image:
+    radial-gradient(1100px 600px at 10% -5%, rgba(245, 130, 32, 0.06), transparent 55%),
+    radial-gradient(900px 500px at 100% 110%, rgba(26, 58, 143, 0.08), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Honor reduced-motion users — disable all our entrance animations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Skeleton shimmer fill. */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 26, 46, 0.04) 0%,
+    rgba(15, 26, 46, 0.08) 50%,
+    rgba(15, 26, 46, 0.04) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* Count-up target used by dashboard hero numbers (sets a CSS variable the
+   component reads to drive a CSS-driven animation). */
+.count-up {
+  font-variant-numeric: tabular-nums;
 }

@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, PropsWithChildren } from 'react';
 import clsx from 'clsx';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
 type Size = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -11,15 +11,38 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-brand-orange text-brand-navy hover:bg-orange-600 focus-visible:ring-brand-orange',
-  secondary: 'bg-white text-brand-navy border border-brand-navy/20 hover:bg-brand-cream focus-visible:ring-brand-navy/30',
-  ghost: 'bg-transparent text-brand-navy hover:bg-brand-navy/5 focus-visible:ring-brand-navy/20',
-  danger: 'bg-danger text-white hover:bg-red-700 focus-visible:ring-danger/40',
+  primary: [
+    'bg-accent-gradient text-white shadow-elev-2 hover:shadow-glow-orange',
+    'hover:-translate-y-0.5 active:translate-y-0 active:shadow-elev-1',
+    'focus-visible:ring-brand-orange/50',
+  ].join(' '),
+  secondary: [
+    'bg-white text-brand-navy border border-navy-200 shadow-elev-1',
+    'hover:border-navy-300 hover:shadow-elev-2 hover:-translate-y-0.5',
+    'active:translate-y-0 active:shadow-elev-1',
+    'focus-visible:ring-brand-navy/30',
+  ].join(' '),
+  ghost: [
+    'bg-transparent text-brand-navy',
+    'hover:bg-navy-50 active:bg-navy-100',
+    'focus-visible:ring-brand-navy/20',
+  ].join(' '),
+  outline: [
+    'bg-transparent text-brand-navy border-2 border-brand-navy',
+    'hover:bg-brand-navy hover:text-white',
+    'focus-visible:ring-brand-navy/30',
+  ].join(' '),
+  danger: [
+    'bg-danger text-white shadow-elev-2',
+    'hover:bg-red-700 hover:-translate-y-0.5',
+    'active:translate-y-0 active:shadow-elev-1',
+    'focus-visible:ring-danger/40',
+  ].join(' '),
 };
 
 const sizes: Record<Size, string> = {
-  sm: 'h-8 px-3 text-sm',
-  md: 'h-10 px-4 text-sm',
+  sm: 'h-9 px-3.5 text-sm',
+  md: 'h-11 px-5 text-sm',
   lg: 'h-12 px-6 text-base',
 };
 
@@ -37,9 +60,10 @@ export function Button({
       type={rest.type ?? 'button'}
       disabled={disabled || loading}
       className={clsx(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+        'inline-flex items-center justify-center gap-2 rounded-xl font-semibold',
+        'transition-all duration-200 ease-bounce',
+        'disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-elev-1',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
         variants[variant],
         sizes[size],
         className,
