@@ -99,37 +99,62 @@ export function QuizAttemptPage() {
 
   if (submitted) {
     return (
-              <Card className="max-w-2xl mx-auto p-8 text-center">
-          <p className="text-xs uppercase tracking-widest text-brand-orange font-semibold">
-            Quiz complete
-          </p>
-          <h1 className="text-3xl font-bold text-brand-navy mt-2">{quiz.title}</h1>
-          <p className="text-5xl font-extrabold mt-4 text-brand-navy">
-            {submitted.scorePercent ?? 0}%
-          </p>
-          <p
-            className={`mt-2 font-semibold ${submitted.passed ? 'text-success' : 'text-warning'}`}
-          >
-            {submitted.passed ? 'You passed.' : `Below ${quiz.passingPercent}% — try again later.`}
-          </p>
-          <Button className="mt-6" onClick={() => navigate('/student/courses')}>
-            Back to courses
-          </Button>
-        </Card>
+      <div className="max-w-2xl mx-auto animate-fade-in-up">
+        <div className="relative overflow-hidden rounded-3xl p-8 sm:p-10 bg-brand-gradient text-white shadow-elev-4 text-center">
+          <div className="absolute inset-0 bg-hero-radial opacity-60 pointer-events-none" />
+          <div className="relative">
+            <p className="text-xs uppercase tracking-widest text-brand-orange font-bold">
+              Quiz complete
+            </p>
+            <h1 className="text-display-sm text-white mt-2">{quiz.title}</h1>
+            <div
+              aria-hidden
+              className="mx-auto mt-6 h-28 w-28 rounded-full bg-white/10 border border-white/30 backdrop-blur-sm grid place-items-center shadow-elev-3"
+            >
+              <p className="text-display-md text-brand-orange count-up">
+                {submitted.scorePercent ?? 0}%
+              </p>
+            </div>
+            <p className={`mt-5 font-bold text-lg ${submitted.passed ? 'text-emerald-300' : 'text-amber-300'}`}>
+              {submitted.passed ? 'You passed 🎉' : `Below ${quiz.passingPercent}% — try again later.`}
+            </p>
+            <Button className="mt-7" size="lg" onClick={() => navigate('/student/courses')}>
+              Back to courses
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (!attemptId) {
     return (
-              <Card className="max-w-2xl mx-auto p-8">
-          <h1 className="text-2xl font-bold text-brand-navy">{quiz.title}</h1>
-          <ul className="mt-4 text-sm text-muted space-y-1">
-            <li>{quiz.questions.length} questions · pass at {quiz.passingPercent}%</li>
-            {quiz.durationMinutes && <li>Duration: {quiz.durationMinutes} minutes (auto-submit)</li>}
-            <li>Up to {quiz.maxAttempts} attempts allowed</li>
+      <div className="max-w-2xl mx-auto animate-fade-in-up">
+        <Card accent="orange">
+          <p className="text-xs uppercase tracking-widest text-brand-orange font-bold mb-2">
+            Assessment
+          </p>
+          <h1 className="text-display-sm text-brand-navy">{quiz.title}</h1>
+          <ul className="mt-5 space-y-2 text-sm">
+            <li className="flex items-center gap-2 text-ink/80">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-orange" aria-hidden />
+              {quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'} · pass at{' '}
+              {quiz.passingPercent}%
+            </li>
+            {quiz.durationMinutes && (
+              <li className="flex items-center gap-2 text-ink/80">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-orange" aria-hidden />
+                Duration: {quiz.durationMinutes} minutes (auto-submit on timeout)
+              </li>
+            )}
+            <li className="flex items-center gap-2 text-ink/80">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-orange" aria-hidden />
+              Up to {quiz.maxAttempts} attempt{quiz.maxAttempts === 1 ? '' : 's'} allowed
+            </li>
           </ul>
           <Button
-            className="mt-6"
+            className="mt-7"
+            size="lg"
             loading={startMutation.isPending}
             onClick={() => startMutation.mutate()}
           >
@@ -141,93 +166,107 @@ export function QuizAttemptPage() {
             </p>
           )}
         </Card>
+      </div>
     );
   }
 
   return (
-          <div className="max-w-3xl mx-auto space-y-4">
-        <Card className="p-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-brand-navy">{quiz.title}</h1>
-            <p className="text-xs text-muted">
-              {Object.keys(answers).length}/{quiz.questions.length} answered
-            </p>
-          </div>
-          {countdown && (
-            <div
-              role="timer"
-              aria-live="polite"
-              className={`font-mono text-xl font-bold ${countdown.ms < 60_000 ? 'text-danger' : 'text-brand-navy'}`}
-            >
-              {countdown.label}
-            </div>
-          )}
-        </Card>
-
-        {quiz.questions.length === 0 && (
-          <Card>
-            <EmptyState title="No questions" message="Contact your faculty." />
-          </Card>
-        )}
-
-        {quiz.questions.map((q, qi) => {
-          const multi = q.kind === 'mcq_multi';
-          return (
-            <Card key={qi} className="p-5">
-              <p className="text-xs text-muted">Question {qi + 1} of {quiz.questions.length}</p>
-              <p className="font-medium text-brand-navy mt-1">{q.text}</p>
-              <ul className="mt-4 space-y-2">
-                {q.options.map((opt, oi) => {
-                  const checked = (answers[qi] ?? []).includes(oi);
-                  const id = `q${qi}-o${oi}`;
-                  return (
-                    <li key={oi}>
-                      <label
-                        htmlFor={id}
-                        className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition ${checked ? 'border-brand-orange bg-brand-orange/5' : 'border-black/10 hover:border-brand-orange/40'}`}
-                      >
-                        <input
-                          id={id}
-                          type={multi ? 'checkbox' : 'radio'}
-                          name={`q${qi}`}
-                          checked={checked}
-                          onChange={() => {
-                            setAnswers((a) => {
-                              const cur = a[qi] ?? [];
-                              const next = multi
-                                ? checked
-                                  ? cur.filter((v) => v !== oi)
-                                  : [...cur, oi]
-                                : [oi];
-                              return { ...a, [qi]: next };
-                            });
-                          }}
-                          className="accent-brand-orange"
-                        />
-                        <span className="text-sm">{opt}</span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Card>
-          );
-        })}
-
-        <Card className="p-4 flex items-center justify-between">
-          <p className="text-sm text-muted">
-            Submitting locks your answers — make sure you've reviewed everything.
+    <div className="max-w-3xl mx-auto space-y-4 animate-fade-in-up">
+      <Card
+        className={`sticky top-20 z-10 flex items-center justify-between p-4 ${
+          countdown && countdown.ms < 60_000 ? 'shadow-elev-3 border-danger/30' : ''
+        }`}
+      >
+        <div>
+          <h1 className="text-lg font-semibold text-brand-navy tracking-tight">{quiz.title}</h1>
+          <p className="text-xs text-muted">
+            {Object.keys(answers).length}/{quiz.questions.length} answered
           </p>
-          <Button
-            loading={submitMutation.isPending}
-            onClick={() => submitMutation.mutate()}
+        </div>
+        {countdown && (
+          <div
+            role="timer"
+            aria-live="polite"
+            className={`font-mono text-2xl font-bold tabular-nums ${
+              countdown.ms < 60_000 ? 'text-danger animate-pulse-soft' : 'text-brand-navy'
+            }`}
           >
-            Submit attempt
-          </Button>
-        </Card>
-        {submitMutation.isError && (
-          <ErrorAlert message={(submitMutation.error as Error).message} />
+            {countdown.label}
+          </div>
         )}
-      </div>
+      </Card>
+
+      {quiz.questions.length === 0 && (
+        <Card>
+          <EmptyState title="No questions" message="Contact your faculty." />
+        </Card>
+      )}
+
+      {quiz.questions.map((q, qi) => {
+        const multi = q.kind === 'mcq_multi';
+        return (
+          <Card key={qi}>
+            <p className="text-xs uppercase tracking-widest text-muted font-bold">
+              Question {qi + 1} of {quiz.questions.length}
+            </p>
+            <p className="font-semibold text-brand-navy mt-2 text-lg leading-snug">{q.text}</p>
+            <ul className="mt-4 space-y-2.5">
+              {q.options.map((opt, oi) => {
+                const checked = (answers[qi] ?? []).includes(oi);
+                const id = `q${qi}-o${oi}`;
+                return (
+                  <li key={oi}>
+                    <label
+                      htmlFor={id}
+                      className={`flex items-center gap-3 rounded-xl border-2 p-3.5 cursor-pointer transition-all ${
+                        checked
+                          ? 'border-brand-orange bg-orange-50 shadow-elev-1'
+                          : 'border-black/10 hover:border-brand-orange/40 hover:bg-surface-muted'
+                      }`}
+                    >
+                      <input
+                        id={id}
+                        type={multi ? 'checkbox' : 'radio'}
+                        name={`q${qi}`}
+                        checked={checked}
+                        onChange={() => {
+                          setAnswers((a) => {
+                            const cur = a[qi] ?? [];
+                            const next = multi
+                              ? checked
+                                ? cur.filter((v) => v !== oi)
+                                : [...cur, oi]
+                              : [oi];
+                            return { ...a, [qi]: next };
+                          });
+                        }}
+                        className="accent-brand-orange h-4 w-4"
+                      />
+                      <span className="text-sm text-ink">{opt}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        );
+      })}
+
+      <Card className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4">
+        <p className="text-sm text-muted flex-1">
+          Submitting locks your answers — make sure you've reviewed everything.
+        </p>
+        <Button
+          size="lg"
+          loading={submitMutation.isPending}
+          onClick={() => submitMutation.mutate()}
+        >
+          Submit attempt
+        </Button>
+      </Card>
+      {submitMutation.isError && (
+        <ErrorAlert message={(submitMutation.error as Error).message} />
+      )}
+    </div>
   );
 }

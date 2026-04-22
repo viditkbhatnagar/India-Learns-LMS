@@ -103,41 +103,71 @@ export function ExamAttemptPage() {
 
   if (submitted) {
     return (
-              <Card className="max-w-2xl mx-auto p-8 text-center">
-          <p className="text-xs uppercase tracking-widest text-brand-orange font-semibold">
-            Exam submitted
-          </p>
-          <h1 className="text-3xl font-bold text-brand-navy mt-2">{exam.title}</h1>
-          <p className="text-sm text-muted mt-3">
-            MCQ score: {submitted.mcqScorePercent ?? 'pending'}%
-            {submitted.essayScorePercent !== null
-              ? ` · Essay score: ${submitted.essayScorePercent}%`
-              : ' · Essay scoring is in your faculty\'s queue.'}
-          </p>
-          {submitted.totalScorePercent !== null && (
-            <p className="text-5xl font-extrabold mt-4 text-brand-navy">
-              {submitted.totalScorePercent}%
+      <div className="max-w-2xl mx-auto animate-fade-in-up">
+        <div className="relative overflow-hidden rounded-3xl p-8 sm:p-10 bg-brand-gradient text-white shadow-elev-4 text-center">
+          <div className="absolute inset-0 bg-hero-radial opacity-60 pointer-events-none" />
+          <div className="relative">
+            <p className="text-xs uppercase tracking-widest text-brand-orange font-bold">
+              Exam submitted
             </p>
-          )}
-          <Button className="mt-6" onClick={() => navigate('/student/dashboard')}>
-            Back to dashboard
-          </Button>
-        </Card>
+            <h1 className="text-display-sm text-white mt-2">{exam.title}</h1>
+            {submitted.totalScorePercent !== null && (
+              <div
+                aria-hidden
+                className="mx-auto mt-6 h-28 w-28 rounded-full bg-white/10 border border-white/30 backdrop-blur-sm grid place-items-center shadow-elev-3"
+              >
+                <p className="text-display-md text-brand-orange count-up">
+                  {submitted.totalScorePercent}%
+                </p>
+              </div>
+            )}
+            <p className="text-sm text-white/80 mt-5">
+              MCQ: {submitted.mcqScorePercent ?? 'pending'}%
+              {submitted.essayScorePercent !== null
+                ? ` · Essay: ${submitted.essayScorePercent}%`
+                : ' · Essay scoring is in your faculty\'s queue.'}
+            </p>
+            <Button className="mt-7" size="lg" onClick={() => navigate('/student/dashboard')}>
+              Back to dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (!attemptId) {
     return (
-              <Card className="max-w-2xl mx-auto p-8">
-          <h1 className="text-2xl font-bold text-brand-navy">{exam.title}</h1>
-          <ul className="mt-4 text-sm text-muted space-y-1">
-            <li>{exam.questions.length} questions · pass at {exam.passingPercent}%</li>
-            {exam.durationMinutes && <li>Duration: {exam.durationMinutes} minutes (auto-submit)</li>}
-            <li>Up to {exam.maxAttempts} attempts allowed</li>
-            <li>Essay answers are graded by your faculty after submission.</li>
+      <div className="max-w-2xl mx-auto animate-fade-in-up">
+        <Card accent="orange">
+          <p className="text-xs uppercase tracking-widest text-brand-orange font-bold mb-2">
+            Final exam
+          </p>
+          <h1 className="text-display-sm text-brand-navy">{exam.title}</h1>
+          <ul className="mt-5 space-y-2 text-sm">
+            <li className="flex items-center gap-2 text-ink/80">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-orange" aria-hidden />
+              {exam.questions.length} question{exam.questions.length === 1 ? '' : 's'} · pass at{' '}
+              {exam.passingPercent}%
+            </li>
+            {exam.durationMinutes && (
+              <li className="flex items-center gap-2 text-ink/80">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-orange" aria-hidden />
+                Duration: {exam.durationMinutes} minutes (auto-submit on timeout)
+              </li>
+            )}
+            <li className="flex items-center gap-2 text-ink/80">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-orange" aria-hidden />
+              Up to {exam.maxAttempts} attempt{exam.maxAttempts === 1 ? '' : 's'} allowed
+            </li>
+            <li className="flex items-center gap-2 text-ink/80">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-orange" aria-hidden />
+              Essay answers are graded by your faculty after submission
+            </li>
           </ul>
           <Button
-            className="mt-6"
+            className="mt-7"
+            size="lg"
             loading={startMutation.isPending}
             onClick={() => startMutation.mutate()}
           >
@@ -149,114 +179,133 @@ export function ExamAttemptPage() {
             </p>
           )}
         </Card>
+      </div>
     );
   }
 
   return (
-          <div className="max-w-3xl mx-auto space-y-4">
-        <Card className="p-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-brand-navy">{exam.title}</h1>
-            <p className="text-xs text-muted">Final exam · auto-saves on blur</p>
+    <div className="max-w-3xl mx-auto space-y-4 animate-fade-in-up">
+      <Card
+        className={`sticky top-20 z-10 flex items-center justify-between p-4 ${
+          countdown && countdown.ms < 60_000 ? 'shadow-elev-3 border-danger/30' : ''
+        }`}
+      >
+        <div>
+          <h1 className="text-lg font-semibold text-brand-navy tracking-tight">{exam.title}</h1>
+          <p className="text-xs text-muted">Final exam · auto-saves on blur</p>
+        </div>
+        {countdown && (
+          <div
+            role="timer"
+            aria-live="polite"
+            className={`font-mono text-2xl font-bold tabular-nums ${
+              countdown.ms < 60_000 ? 'text-danger animate-pulse-soft' : 'text-brand-navy'
+            }`}
+          >
+            {countdown.label}
           </div>
-          {countdown && (
-            <div
-              role="timer"
-              aria-live="polite"
-              className={`font-mono text-xl font-bold ${countdown.ms < 60_000 ? 'text-danger' : 'text-brand-navy'}`}
-            >
-              {countdown.label}
-            </div>
-          )}
-        </Card>
+        )}
+      </Card>
 
-        {exam.questions.map((q, qi) => {
-          const isMcq = q.kind !== 'essay';
-          if (isMcq) {
-            const multi = q.kind === 'mcq_multi';
-            return (
-              <Card key={qi} className="p-5">
-                <p className="text-xs text-muted">Question {qi + 1} of {exam.questions.length}</p>
-                <p className="font-medium text-brand-navy mt-1">{q.text}</p>
-                <ul className="mt-4 space-y-2">
-                  {q.options.map((opt, oi) => {
-                    const checked = (mcq[qi] ?? []).includes(oi);
-                    const id = `q${qi}-o${oi}`;
-                    return (
-                      <li key={oi}>
-                        <label
-                          htmlFor={id}
-                          className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition ${checked ? 'border-brand-orange bg-brand-orange/5' : 'border-black/10 hover:border-brand-orange/40'}`}
-                        >
-                          <input
-                            id={id}
-                            type={multi ? 'checkbox' : 'radio'}
-                            name={`mcq-${qi}`}
-                            checked={checked}
-                            onChange={() => {
-                              setMcq((a) => {
-                                const cur = a[qi] ?? [];
-                                const next = multi
-                                  ? checked
-                                    ? cur.filter((v) => v !== oi)
-                                    : [...cur, oi]
-                                  : [oi];
-                                return { ...a, [qi]: next };
-                              });
-                            }}
-                            className="accent-brand-orange"
-                          />
-                          <span className="text-sm">{opt}</span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </Card>
-            );
-          }
-          // Essay
-          const essayId = `essay-${qi}`;
-          const text = essays[qi] ?? '';
-          const wc = text.trim() ? text.trim().split(/\s+/).length : 0;
-          const limit = q.wordLimit ?? 0;
+      {exam.questions.map((q, qi) => {
+        const isMcq = q.kind !== 'essay';
+        if (isMcq) {
+          const multi = q.kind === 'mcq_multi';
           return (
-            <Card key={qi} className="p-5">
-              <p className="text-xs text-muted">Question {qi + 1} of {exam.questions.length}</p>
-              <label htmlFor={essayId} className="block font-medium text-brand-navy mt-1">
-                {q.text}
-              </label>
-              <textarea
-                id={essayId}
-                value={text}
-                onChange={(e) => setEssays((a) => ({ ...a, [qi]: e.target.value }))}
-                rows={8}
-                className="mt-3 w-full rounded-lg border border-black/10 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange/40"
-                placeholder="Write your answer…"
-              />
-              <p className={`text-xs mt-2 ${limit && wc > limit ? 'text-danger' : 'text-muted'}`}>
-                {wc} word{wc === 1 ? '' : 's'}
-                {limit ? ` of ${limit}` : ''}
+            <Card key={qi}>
+              <p className="text-xs uppercase tracking-widest text-muted font-bold">
+                Question {qi + 1} of {exam.questions.length}
               </p>
+              <p className="font-semibold text-brand-navy mt-2 text-lg leading-snug">{q.text}</p>
+              <ul className="mt-4 space-y-2.5">
+                {q.options.map((opt, oi) => {
+                  const checked = (mcq[qi] ?? []).includes(oi);
+                  const id = `q${qi}-o${oi}`;
+                  return (
+                    <li key={oi}>
+                      <label
+                        htmlFor={id}
+                        className={`flex items-center gap-3 rounded-xl border-2 p-3.5 cursor-pointer transition-all ${
+                          checked
+                            ? 'border-brand-orange bg-orange-50 shadow-elev-1'
+                            : 'border-black/10 hover:border-brand-orange/40 hover:bg-surface-muted'
+                        }`}
+                      >
+                        <input
+                          id={id}
+                          type={multi ? 'checkbox' : 'radio'}
+                          name={`mcq-${qi}`}
+                          checked={checked}
+                          onChange={() => {
+                            setMcq((a) => {
+                              const cur = a[qi] ?? [];
+                              const next = multi
+                                ? checked
+                                  ? cur.filter((v) => v !== oi)
+                                  : [...cur, oi]
+                                : [oi];
+                              return { ...a, [qi]: next };
+                            });
+                          }}
+                          className="accent-brand-orange h-4 w-4"
+                        />
+                        <span className="text-sm text-ink">{opt}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
             </Card>
           );
-        })}
+        }
+        // Essay
+        const essayId = `essay-${qi}`;
+        const text = essays[qi] ?? '';
+        const wc = text.trim() ? text.trim().split(/\s+/).length : 0;
+        const limit = q.wordLimit ?? 0;
+        return (
+          <Card key={qi}>
+            <p className="text-xs uppercase tracking-widest text-muted font-bold">
+              Question {qi + 1} of {exam.questions.length}
+            </p>
+            <label htmlFor={essayId} className="block font-semibold text-brand-navy mt-2 text-lg leading-snug">
+              {q.text}
+            </label>
+            <textarea
+              id={essayId}
+              value={text}
+              onChange={(e) => setEssays((a) => ({ ...a, [qi]: e.target.value }))}
+              rows={8}
+              className="mt-3 w-full rounded-xl border border-black/10 bg-white p-3.5 text-sm hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
+              placeholder="Write your answer…"
+            />
+            <p
+              className={`text-xs mt-2 font-medium ${
+                limit && wc > limit ? 'text-danger' : 'text-muted'
+              }`}
+            >
+              {wc} word{wc === 1 ? '' : 's'}
+              {limit ? ` of ${limit}` : ''}
+            </p>
+          </Card>
+        );
+      })}
 
-        <Card className="p-4 flex items-center justify-between">
-          <p className="text-sm text-muted">
-            Once submitted, you'll see MCQ results immediately. Essay answers
-            are graded by your faculty.
-          </p>
-          <Button
-            loading={submitMutation.isPending}
-            onClick={() => submitMutation.mutate()}
-          >
-            Submit exam
-          </Button>
-        </Card>
-        {submitMutation.isError && (
-          <ErrorAlert message={(submitMutation.error as Error).message} />
-        )}
-      </div>
+      <Card className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4">
+        <p className="text-sm text-muted flex-1">
+          Once submitted, you'll see MCQ results immediately. Essay answers are graded by your faculty.
+        </p>
+        <Button
+          size="lg"
+          loading={submitMutation.isPending}
+          onClick={() => submitMutation.mutate()}
+        >
+          Submit exam
+        </Button>
+      </Card>
+      {submitMutation.isError && (
+        <ErrorAlert message={(submitMutation.error as Error).message} />
+      )}
+    </div>
   );
 }

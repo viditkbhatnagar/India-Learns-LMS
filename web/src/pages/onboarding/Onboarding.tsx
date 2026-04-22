@@ -26,7 +26,7 @@ function BrandHeader() {
 export function OnbEmailInvitePage() {
   return (
     <main className="min-h-screen bg-brand-cream grid place-items-center p-6">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-elev-4 overflow-hidden animate-fade-in-up">
         <div className="bg-brand-cream/60 border-b border-black/5 px-5 py-3 flex items-center gap-3 text-xs text-muted">
           <span className="h-3 w-3 rounded-full bg-red-500" aria-hidden />
           <span className="h-3 w-3 rounded-full bg-yellow-400" aria-hidden />
@@ -36,7 +36,7 @@ export function OnbEmailInvitePage() {
         </div>
         <div className="p-8 sm:p-10">
           <BrandHeader />
-          <h1 className="text-2xl font-bold text-brand-navy">Your seat is reserved.</h1>
+          <h1 className="text-display-sm text-brand-navy tracking-tight">Your seat is reserved.</h1>
           <p className="text-muted mt-3 leading-relaxed text-sm">
             You've been enrolled in a diploma program at India Learns. Use the
             link below to activate your account. The link expires in 7 days.
@@ -58,10 +58,10 @@ export function OnbEmailInvitePage() {
 export function OnbLandingPage() {
   return (
     <main className="min-h-screen bg-brand-cream grid place-items-center p-6">
-      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
+      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-elev-4 overflow-hidden animate-fade-in-up grid grid-cols-1 md:grid-cols-2">
         <div className="bg-brand-navy text-white p-10 relative overflow-hidden">
           <BrandHeader />
-          <h1 className="text-3xl font-bold leading-tight">
+          <h1 className="text-display-md leading-tight tracking-tight">
             Welcome to <span className="text-brand-orange">India Learns</span>.
           </h1>
           <p className="text-white/70 mt-3 text-sm leading-relaxed">
@@ -75,7 +75,7 @@ export function OnbLandingPage() {
         </div>
         <div className="p-10 flex flex-col justify-center">
           <p className="text-xs uppercase tracking-widest text-brand-orange font-semibold">Step 01 of 03</p>
-          <h2 className="text-2xl font-bold text-brand-navy mt-2">Let's set up your account.</h2>
+          <h2 className="text-display-sm text-brand-navy tracking-tight mt-2">Let's set up your account.</h2>
           <p className="text-muted text-sm mt-2 leading-relaxed">
             Your admin has pre-enrolled you. You'll choose a password and we'll get you started in under 3 minutes.
           </p>
@@ -137,7 +137,7 @@ export function OnbSetPasswordPage() {
       <Card className="max-w-md w-full p-8">
         <BrandHeader />
         <p className="text-xs uppercase tracking-widest text-brand-orange font-semibold">Step 02 of 03</p>
-        <h1 className="text-2xl font-bold text-brand-navy mt-2">Choose a strong password.</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight mt-2">Choose a strong password.</h1>
         <p className="text-muted text-sm mt-2">You'll use this to sign in from now on.</p>
         <p className="text-xs text-muted mt-6">
           When your invite email arrives, click "Activate" — you'll land on the secure password screen.
@@ -182,7 +182,7 @@ export function OnbTourPage() {
   }
   return (
     <main className="min-h-screen bg-brand-cream grid place-items-center p-6">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-elev-4 overflow-hidden animate-fade-in-up">
         <div
           className="aspect-[2.2/1] grid place-items-center relative"
           style={{
@@ -203,7 +203,7 @@ export function OnbTourPage() {
           </div>
         </div>
         <div className="p-8 text-center">
-          <h2 className="text-2xl font-bold text-brand-navy">{s.title}</h2>
+          <h2 className="text-display-sm text-brand-navy tracking-tight">{s.title}</h2>
           <p className="text-muted text-sm mt-2 max-w-md mx-auto">{s.body}</p>
           <div className="flex gap-2 justify-center mt-6">
             {TOUR_SLIDES.map((_, i) => (
@@ -239,7 +239,7 @@ export function OnbArrivalPage() {
         <div className="h-24 w-24 rounded-full bg-brand-orange text-brand-navy grid place-items-center text-5xl font-bold mx-auto shadow-2xl">
           ✓
         </div>
-        <h1 className="text-3xl font-bold mt-7 leading-tight">
+        <h1 className="text-display-md mt-7 leading-tight tracking-tight">
           You're all set.
         </h1>
         <p className="text-white/70 mt-3">
