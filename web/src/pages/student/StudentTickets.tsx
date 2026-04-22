@@ -18,23 +18,40 @@ function stateTone(state: string): 'success' | 'warning' | 'info' | 'neutral' | 
   if (state === 'resolved' || state === 'closed') return 'success';
   if (state === 'in_progress') return 'warning';
   if (state === 'open') return 'info';
+  if (state === 'assigned') return 'info';
   return 'neutral';
 }
 
 export function StudentTickets() {
   const query = useQuery({ queryKey: ['me', 'tickets'], queryFn: ticketsApi.listMine });
-  if (query.isLoading) return <Skeleton lines={6} />;
-  if (query.isError) return <ErrorAlert message={(query.error as Error).message} onRetry={() => query.refetch()} />;
+  if (query.isLoading) return <Skeleton variant="card" />;
+  if (query.isError) {
+    return <ErrorAlert message={(query.error as Error).message} onRetry={() => query.refetch()} />;
+  }
   const items = query.data ?? [];
+  const open = items.filter((t) => t.state !== 'closed' && t.state !== 'resolved').length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-brand-navy">My tickets</h1>
+    <div className="space-y-6">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 animate-fade-in-up">
+        <div>
+          <p className="text-xs uppercase tracking-[0.15em] text-brand-orange font-bold mb-2">
+            Support
+          </p>
+          <h1 className="text-display-sm text-brand-navy">Tickets</h1>
+          <p className="mt-2 text-muted">
+            {items.length} total · {open} open
+          </p>
+        </div>
         <Link to="/student/tickets/new">
-          <Button>New ticket</Button>
+          <Button size="lg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            New ticket
+          </Button>
         </Link>
-      </div>
+      </header>
 
       {items.length === 0 ? (
         <Card>
@@ -49,23 +66,46 @@ export function StudentTickets() {
           />
         </Card>
       ) : (
-        <Card>
+        <Card className="p-0 overflow-hidden">
           <ul className="divide-y divide-black/5">
             {items.map((t) => (
-              <li key={t.id} className="py-3 flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Link to={`/student/tickets/${t.id}`} className="font-medium text-brand-navy hover:underline truncate">
-                      {t.subject}
-                    </Link>
-                    <span className="text-xs text-muted mono">{t.code}</span>
+              <li key={t.id}>
+                <Link
+                  to={`/student/tickets/${t.id}`}
+                  className="flex items-center gap-4 p-4 sm:p-5 hover:bg-surface-muted/70 transition-colors group"
+                >
+                  <span
+                    aria-hidden
+                    className={`shrink-0 h-10 w-10 rounded-xl grid place-items-center ${
+                      t.state === 'resolved' || t.state === 'closed'
+                        ? 'bg-emerald-50 text-success border border-emerald-200'
+                        : t.slaResolveBreached
+                          ? 'bg-red-50 text-danger border border-red-200'
+                          : 'bg-navy-50 text-brand-navy border border-navy-100'
+                    }`}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                      <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4Z" />
+                    </svg>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-brand-navy group-hover:text-brand-orange transition-colors truncate">
+                        {t.subject}
+                      </p>
+                      <span className="text-xs text-muted font-mono shrink-0">{t.code}</span>
+                    </div>
+                    <p className="text-xs text-muted mt-0.5 capitalize">
+                      {t.category} · {formatRelative(t.updatedAt)}
+                      {t.slaResolveBreached && (
+                        <span className="text-danger font-semibold"> · SLA breached</span>
+                      )}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted mt-0.5">
-                    {t.category} · {formatRelative(t.updatedAt)}
-                    {t.slaResolveBreached && <span className="text-danger font-medium"> · SLA breached</span>}
-                  </p>
-                </div>
-                <Badge tone={stateTone(t.state)}>{t.state}</Badge>
+                  <Badge tone={stateTone(t.state)} dot>
+                    {t.state}
+                  </Badge>
+                </Link>
               </li>
             ))}
           </ul>
@@ -99,49 +139,101 @@ export function NewTicketPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-2xl">
-      <Link to="/student/tickets" className="text-sm text-brand-orange hover:underline">← Back to tickets</Link>
-      <h1 className="text-2xl font-bold text-brand-navy">Raise a ticket</h1>
-      <Card>
-        <form onSubmit={onSubmit} className="space-y-4">
+    <div className="space-y-6 max-w-2xl animate-fade-in-up">
+      <div>
+        <Link
+          to="/student/tickets"
+          className="text-sm font-medium text-brand-navy hover:text-brand-orange transition-colors"
+        >
+          ← Back to tickets
+        </Link>
+        <h1 className="text-display-sm text-brand-navy mt-3">Raise a ticket</h1>
+        <p className="mt-2 text-muted">
+          Staff aim to acknowledge within 24 hours and resolve within 5 business days.
+        </p>
+      </div>
+      <Card accent="orange">
+        <form onSubmit={onSubmit} className="space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="block">
-              <span className="block text-sm font-medium text-brand-navy mb-1.5">Category</span>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as TicketCategory)}
-                className="w-full h-10 px-3 rounded-lg border border-black/10 bg-white"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="block text-sm font-medium text-brand-navy mb-1.5">Priority</span>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as TicketPriority)}
-                className="w-full h-10 px-3 rounded-lg border border-black/10 bg-white"
-              >
-                {PRIORITIES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label="Category"
+              value={category}
+              onChange={(v) => setCategory(v as TicketCategory)}
+              options={CATEGORIES}
+            />
+            <SelectField
+              label="Priority"
+              value={priority}
+              onChange={(v) => setPriority(v as TicketPriority)}
+              options={PRIORITIES}
+            />
           </div>
-          <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} required maxLength={200} />
-          <TextArea label="Describe the issue" value={description} onChange={(e) => setDescription(e.target.value)} required rows={6} />
+          <Input
+            label="Subject"
+            placeholder="Short summary of the issue"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            required
+            maxLength={200}
+          />
+          <TextArea
+            label="Describe the issue"
+            placeholder="Add any details that will help us help you faster…"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+            rows={6}
+          />
           {category === 'complaints' && (
-            <p className="text-xs text-muted">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 text-warning p-3 text-sm">
               Complaints require a prior resolved or closed ticket. If this is your first issue, try another category first.
-            </p>
+            </div>
           )}
-          {error && <div className="rounded-lg border border-danger/30 bg-red-50 text-danger p-3 text-sm">{error}</div>}
-          <Button type="submit" loading={create.isPending}>Submit ticket</Button>
+          {error && (
+            <div
+              role="alert"
+              className="rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm"
+            >
+              {error}
+            </div>
+          )}
+          <Button type="submit" size="lg" loading={create.isPending}>
+            Submit ticket
+          </Button>
         </form>
       </Card>
     </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: readonly string[];
+}) {
+  return (
+    <label className="block">
+      <span className="block text-sm font-semibold text-brand-navy mb-1.5 tracking-tight">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all capitalize"
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -166,8 +258,10 @@ export function StudentTicketDetail() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets', ticketId] }),
   });
 
-  if (query.isLoading) return <Skeleton lines={8} />;
-  if (query.isError) return <ErrorAlert message={(query.error as Error).message} onRetry={() => query.refetch()} />;
+  if (query.isLoading) return <Skeleton variant="card" />;
+  if (query.isError) {
+    return <ErrorAlert message={(query.error as Error).message} onRetry={() => query.refetch()} />;
+  }
   const { ticket, comments } = query.data!;
   const canReopen =
     (ticket.state === 'resolved' || ticket.state === 'closed')
@@ -175,47 +269,77 @@ export function StudentTicketDetail() {
     && Date.now() - new Date(ticket.closedAt).getTime() < 7 * 86_400_000;
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      <Link to="/student/tickets" className="text-sm text-brand-orange hover:underline">← Back to tickets</Link>
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-brand-navy">{ticket.subject}</h1>
-        <Badge tone={stateTone(ticket.state)}>{ticket.state}</Badge>
+    <div className="space-y-6 max-w-3xl animate-fade-in-up">
+      <div>
+        <Link
+          to="/student/tickets"
+          className="text-sm font-medium text-brand-navy hover:text-brand-orange transition-colors"
+        >
+          ← Back to tickets
+        </Link>
+        <div className="mt-3 flex items-start gap-3 flex-wrap">
+          <h1 className="text-display-sm text-brand-navy">{ticket.subject}</h1>
+          <Badge tone={stateTone(ticket.state)} dot size="md">
+            {ticket.state}
+          </Badge>
+        </div>
+        <p className="mt-2 text-sm text-muted">
+          <span className="font-mono">{ticket.code}</span> · {ticket.category} · raised{' '}
+          {formatIstDateTime(ticket.createdAt)}
+        </p>
       </div>
-      <p className="text-sm text-muted">
-        <span className="mono">{ticket.code}</span> · {ticket.category} · raised {formatIstDateTime(ticket.createdAt)}
-      </p>
-      <Card>
-        <p className="whitespace-pre-wrap text-ink">{ticket.description}</p>
+
+      <Card accent="navy">
+        <CardHeader title="Original message" />
+        <p className="whitespace-pre-wrap text-ink leading-relaxed">{ticket.description}</p>
       </Card>
+
       <Card>
-        <CardHeader title="Conversation" />
+        <CardHeader title="Conversation" subtitle="Staff replies + your follow-ups" />
         {comments.length === 0 ? (
-          <EmptyState title="No replies yet" message="You'll see staff responses here." />
+          <EmptyState title="No replies yet" message="You'll see staff responses here as they come in." />
         ) : (
           <ul className="space-y-3">
             {comments.map((c) => (
-              <li key={c.id} className="rounded-lg border border-black/5 p-3 bg-brand-cream/40">
-                <p className="text-xs text-muted mb-1">{formatIstDateTime(c.createdAt)}</p>
-                <p className="whitespace-pre-wrap">{c.body}</p>
+              <li key={c.id} className="rounded-xl border border-black/5 p-4 bg-surface-muted">
+                <p className="text-xs text-muted mb-1.5 font-medium">
+                  {formatIstDateTime(c.createdAt)}
+                </p>
+                <p className="whitespace-pre-wrap text-ink leading-relaxed">{c.body}</p>
               </li>
             ))}
           </ul>
         )}
-        {(ticket.state !== 'closed') && (
+        {ticket.state !== 'closed' && (
           <form
             onSubmit={(e) => {
               e.preventDefault();
               if (comment.trim()) addComment.mutate();
             }}
-            className="mt-4 space-y-2"
+            className="mt-5 space-y-3"
           >
-            <TextArea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add a reply…" rows={3} />
-            <Button type="submit" size="sm" loading={addComment.isPending}>Post reply</Button>
+            <TextArea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Add a reply…"
+              rows={3}
+            />
+            <Button type="submit" size="md" loading={addComment.isPending}>
+              Post reply
+            </Button>
           </form>
         )}
         {canReopen && (
-          <div className="mt-4">
-            <Button variant="secondary" size="sm" onClick={() => reopen.mutate()} loading={reopen.isPending}>
+          <div className="mt-5 rounded-xl bg-surface-muted p-4">
+            <p className="text-sm text-muted mb-3">
+              If this issue came back, you can ask staff to reopen the ticket within 7 days of closure.
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => reopen.mutate()}
+              loading={reopen.isPending}
+            >
               Request reopen
             </Button>
           </div>
