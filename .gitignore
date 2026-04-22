@@ -35,3 +35,10 @@ coverage/
 # misc
 .cache/
 .tsbuildinfo
+
+# Playwright + Lighthouse artefacts (generated per-run; not committed)
+web/test-results/
+web/playwright-report/
+docs/screenshots/
+lighthouse-student.json
+lighthouse*.report.*

@@ -1,6 +1,7 @@
 import { test, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Screenshot capture for the M9 deliverable. Tagged @screenshots so it can be
@@ -11,7 +12,8 @@ import fs from 'node:fs';
  * is captured.
  */
 
-const OUT_DIR = path.resolve(__dirname, '../../docs/screenshots');
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const OUT_DIR = path.resolve(HERE, '../../docs/screenshots');
 
 test.beforeAll(() => {
   fs.mkdirSync(OUT_DIR, { recursive: true });

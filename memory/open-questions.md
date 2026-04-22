@@ -251,3 +251,16 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Owner:** Vidit (M9).
 **Context:** M8 delivered working auth + student + finance payment flow + admin dashboard + analytics + core CRUD pages, with `Placeholder` stubs on: quiz/exam attempt, admin Batches / Timetable-builder / Enrollments (inc. Issue Certificate button) / Audit-logs / Ticket-detail, finance payments list + reverse + CSV, faculty grading + feedback editor. APIs are all wired and tested; UIs port directly from [webapp/screens-staff.jsx](../../webapp/screens-staff.jsx) + [webapp/screens-extras.jsx](../../webapp/screens-extras.jsx) + [webapp/screens-student2.jsx](../../webapp/screens-student2.jsx).
 **Impact:** High for full launch; mitigated for internal test in June by the admin-can-curl + existing CLI tools.
+
+## Q-VERIFY-01 — Web login (and refresh + accept-invite) never sends `deviceId` — LAUNCH BLOCKER
+**Raised:** 2026-04-22 (pre-launch verification).
+**Owner:** Vidit (code fix).
+**Context:** Found during Part B4 Playwright — 29/32 tests fail. Root cause: [web/src/lib/endpoints.ts:33-38](../web/src/lib/endpoints.ts#L33-L38) `authApi.login` POSTs only `{ email, password }`. Server requires `deviceId: z.string().min(1).max(128)` per [api/src/routes/auth.ts:20-24](../api/src/routes/auth.ts#L20-L24). Same gap on `POST /auth/invite/accept` and `POST /auth/refresh`. This is Q-M2-01 ("plan is UUIDv4 in localStorage, not yet enforced") finally biting — no browser has ever actually logged in without a curl-constructed deviceId.
+**Impact:** Hard blocker for any real user — not a test-only issue. The M9 memory checkpoint's claim that "Playwright auth + role routing passes" was aspirational; nothing in the CI or local dev flow exercised a real browser login until this session.
+**Fix (when unblocked):** 1) add `web/src/lib/deviceId.ts` that lazy-generates `crypto.randomUUID()` into `localStorage['il:deviceId']`; 2) pass the value into `api.post('/auth/login', ...)`, `/auth/invite/accept`, and `/auth/refresh`; 3) re-run Playwright — expected to go green or surface the next real issue.
+
+## Q-VERIFY-02 — Atlas cluster region not yet verified for BRD BR-11 (DPDP Act)
+**Raised:** 2026-04-22 (pre-launch verification).
+**Owner:** Vidit.
+**Context:** B1 used a pre-existing `dev.gdddmth.mongodb.net` cluster (user `agi_admin`, db `india_learns`) rather than provisioning a fresh `india-learns-verify` in AWS ap-south-1. BRD BR-11 (DPDP Act 2023) requires Indian data residency for student PII. Before pointing prod at this cluster, confirm region = ap-south-1 (Mumbai) in Atlas UI → Database → Cluster info, OR provision a new cluster in the right region for prod.
+**Impact:** Medium. Dev/verification safe; cannot be the prod cluster without region confirmation.
