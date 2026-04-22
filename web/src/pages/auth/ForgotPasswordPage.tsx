@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { authApi } from '../../lib/endpoints.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
-import { Card } from '../../components/ui/Card.js';
+import { AuthLayout, AuthCard } from '../../components/AuthHero.js';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -24,47 +24,61 @@ export function ForgotPasswordPage() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-brand-cream flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <Card>
-          {sent ? (
-            <div className="text-center">
-              <h1 className="text-xl font-bold text-brand-navy">Check your inbox</h1>
-              <p className="text-muted mt-2">
-                If an account exists for <strong>{email}</strong> you will receive an
-                email with reset instructions within a few minutes.
-              </p>
-              <Link to="/login" className="inline-block mt-6 text-brand-orange hover:underline">
-                Back to sign in
-              </Link>
+  if (sent) {
+    return (
+      <AuthLayout title="Check your inbox" subtitle="Reset link on its way.">
+        <AuthCard>
+          <div className="text-center">
+            <div className="mx-auto grid place-items-center h-14 w-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-success mb-4">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden>
+                <path d="m4 8 8 6 8-6" />
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+              </svg>
             </div>
-          ) : (
-            <form onSubmit={onSubmit} className="space-y-4">
-              <h1 className="text-xl font-bold text-brand-navy">Reset your password</h1>
-              <p className="text-muted text-sm">
-                Enter the email you use for India Learns and we&apos;ll send a reset link.
-              </p>
-              <Input
-                type="email"
-                label="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-              />
-              <Button type="submit" loading={loading} className="w-full">
-                Send reset link
-              </Button>
-              <div className="text-center text-sm">
-                <Link to="/login" className="text-brand-orange hover:underline">
-                  Back to sign in
-                </Link>
-              </div>
-            </form>
-          )}
-        </Card>
-      </div>
-    </main>
+            <p className="text-ink">
+              If an account exists for <strong className="text-brand-navy">{email}</strong>, you'll receive an email with reset instructions within a few minutes.
+            </p>
+            <Link
+              to="/login"
+              className="inline-block mt-6 text-brand-navy hover:text-brand-orange font-medium transition-colors"
+            >
+              ← Back to sign in
+            </Link>
+          </div>
+        </AuthCard>
+      </AuthLayout>
+    );
+  }
+
+  return (
+    <AuthLayout
+      title="Reset your password"
+      subtitle="Enter the email you use for India Learns and we'll send a reset link."
+    >
+      <AuthCard>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <Input
+            type="email"
+            label="Email address"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoFocus
+          />
+          <Button type="submit" loading={loading} className="w-full" size="lg">
+            Send reset link
+          </Button>
+        </form>
+        <div className="mt-5 text-center text-sm">
+          <Link
+            to="/login"
+            className="text-brand-navy hover:text-brand-orange font-medium transition-colors"
+          >
+            ← Back to sign in
+          </Link>
+        </div>
+      </AuthCard>
+    </AuthLayout>
   );
 }
