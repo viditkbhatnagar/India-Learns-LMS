@@ -104,12 +104,12 @@ export const studentsApi = {
     return res.data.data;
   },
   async fees() {
-    const res = await api.get<{ data: StudentFeesDto }>('/students/me/fees');
-    return res.data.data;
+    const res = await api.get<{ data: { fees: StudentFeesDto } }>('/students/me/fees');
+    return res.data.data.fees;
   },
   async feesFor(studentId: string) {
-    const res = await api.get<{ data: StudentFeesDto }>(`/students/${studentId}/fees`);
-    return res.data.data;
+    const res = await api.get<{ data: { fees: StudentFeesDto } }>(`/students/${studentId}/fees`);
+    return res.data.data.fees;
   },
 };
 
@@ -147,8 +147,8 @@ export const coursesApi = {
 
 export const meCoursesApi = {
   async list() {
-    const res = await api.get<{ data: { items: EnrollmentDto[] } }>('/me/courses');
-    return res.data.data.items;
+    const res = await api.get<{ data: { enrolments: EnrollmentDto[] } }>('/me/courses');
+    return res.data.data.enrolments;
   },
   async get(courseId: string) {
     const res = await api.get<{ data: { course: CourseDto; modules: ModuleDto[] } }>(`/me/courses/${courseId}`);
@@ -176,8 +176,10 @@ export const enrollmentsApi = {
 
 export const timetableApi = {
   async mine(params: { week?: string; from?: string; to?: string } = {}) {
-    const res = await api.get<{ data: { items: TimetableOccurrenceDto[] } }>('/me/timetable', { params });
-    return res.data.data.items;
+    const res = await api.get<{
+      data: { window: { from: string; to: string }; occurrences: TimetableOccurrenceDto[] };
+    }>('/me/timetable', { params });
+    return res.data.data.occurrences;
   },
   async forBatch(batchId: string, from: string, to: string) {
     const res = await api.get<{ data: { items: TimetableOccurrenceDto[] } }>('/timetable', {
@@ -229,16 +231,16 @@ export const certificatesApi = {
 
 export const ticketsApi = {
   async listMine() {
-    const res = await api.get<{ data: { items: TicketDto[] } }>('/me/tickets');
-    return res.data.data.items;
+    const res = await api.get<{ data: { tickets: TicketDto[] } }>('/me/tickets');
+    return res.data.data.tickets;
   },
   async listStaff() {
-    const res = await api.get<{ data: { items: TicketDto[] } }>('/staff/tickets');
-    return res.data.data.items;
+    const res = await api.get<{ data: { tickets: TicketDto[] } }>('/staff/tickets');
+    return res.data.data.tickets;
   },
   async listAdmin(params: { category?: string; state?: string; slaBreached?: string } = {}) {
-    const res = await api.get<{ data: { items: TicketDto[] } }>('/tickets', { params });
-    return res.data.data.items;
+    const res = await api.get<{ data: { tickets: TicketDto[] } }>('/tickets', { params });
+    return res.data.data.tickets;
   },
   async get(id: string) {
     const res = await api.get<{
@@ -380,12 +382,12 @@ export const auditLogApi = {
 
 export const adminEnrollmentsApi = {
   async list(params: { batchId?: string; studentId?: string; status?: string } = {}) {
-    const res = await api.get<{ data: { items: EnrollmentDto[] } }>('/enrollments', { params });
-    return res.data.data.items;
+    const res = await api.get<{ data: { enrolments: EnrollmentDto[] } }>('/enrollments', { params });
+    return res.data.data.enrolments;
   },
   async create(input: { studentId: string; batchId: string }) {
-    const res = await api.post<{ data: { items: EnrollmentDto[] } }>('/enrollments', input);
-    return res.data.data.items;
+    const res = await api.post<{ data: { enrolments: EnrollmentDto[] } }>('/enrollments', input);
+    return res.data.data.enrolments;
   },
   async generateFees(id: string) {
     const res = await api.post<{ data: { invoices: InvoiceDto[] } }>(`/enrollments/${id}/generate-fees`, {});
@@ -399,8 +401,10 @@ export const facultyApi = {
     return res.data.data.items;
   },
   async myTimetable(params: { week?: string } = {}) {
-    const res = await api.get<{ data: { items: TimetableOccurrenceDto[] } }>('/me/timetable', { params });
-    return res.data.data.items;
+    const res = await api.get<{
+      data: { window: { from: string; to: string }; occurrences: TimetableOccurrenceDto[] };
+    }>('/me/timetable', { params });
+    return res.data.data.occurrences;
   },
   async gradingQueue() {
     const res = await api.get<{ data: { items: ExamAttemptDto[] } }>('/staff/grading-queue');
@@ -411,12 +415,12 @@ export const facultyApi = {
     return res.data.data.attempt;
   },
   async listFeedback() {
-    const res = await api.get<{ data: { items: FeedbackEntryDto[] } }>('/feedback', { params: { mine: 'true' } });
-    return res.data.data.items;
+    const res = await api.get<{ data: { feedback: FeedbackEntryDto[] } }>('/feedback', { params: { mine: 'true' } });
+    return res.data.data.feedback;
   },
   async listRubrics() {
-    const res = await api.get<{ data: { items: unknown[] } }>('/rubrics');
-    return res.data.data.items;
+    const res = await api.get<{ data: { rubrics: unknown[] } }>('/rubrics');
+    return res.data.data.rubrics;
   },
 };
 
@@ -473,8 +477,8 @@ export const examsApi = {
 
 export const feedbackApi = {
   async listMine() {
-    const res = await api.get<{ data: { items: FeedbackEntryDto[] } }>('/me/feedback');
-    return res.data.data.items;
+    const res = await api.get<{ data: { feedback: FeedbackEntryDto[] } }>('/me/feedback');
+    return res.data.data.feedback;
   },
   async create(input: unknown) {
     const res = await api.post<{ data: { feedback: FeedbackEntryDto } }>('/feedback', input);
