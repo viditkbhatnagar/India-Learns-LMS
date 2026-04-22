@@ -3,56 +3,118 @@ import { Link } from 'react-router-dom';
 import { analyticsApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
-import { Skeleton, ErrorAlert } from '../../components/ui/States.js';
+import { Skeleton } from '../../components/ui/States.js';
+import { PageHeader } from '../../components/ui/PageHeader.js';
+import { useAuthStore } from '../../store/auth.js';
 import { formatMoney } from '../../lib/format.js';
 
 export function FinanceDashboard() {
   // Finance is not authorised for /v1/analytics/summary in M8 (admin/superadmin
-  // only). Placeholder finance-scoped aggregates land in M9 polish.
+  // only). Scoped finance widgets land in M9 polish.
+  const me = useAuthStore((s) => s.user);
   const query = useQuery({
     queryKey: ['analytics', 'summary'],
     queryFn: analyticsApi.summary,
     retry: false,
   });
 
+  const hourIst = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false });
+  const greeting =
+    Number(hourIst) < 12 ? 'Good morning' : Number(hourIst) < 17 ? 'Good afternoon' : 'Good evening';
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-brand-navy">Finance dashboard</h1>
-        <Link to="/finance/payments/new">
-          <Button>Record a payment</Button>
-        </Link>
-      </div>
-      <p className="text-muted text-sm">
-        Scoped finance widgets (collections, outstanding balances, overdue queue) ship with M9.
-        Record a payment or open a student&apos;s fees page to get started.
-      </p>
-      {query.isLoading && <Skeleton lines={5} />}
+    <div className="space-y-6 animate-fade-in-up">
+      <section className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-brand-gradient text-white shadow-elev-3">
+        <div className="absolute inset-0 bg-hero-radial opacity-60 pointer-events-none" />
+        <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <p className="text-white/70 text-sm tracking-wide uppercase">
+              {greeting} · Finance
+            </p>
+            <h1 className="text-display-md mt-1 text-white">
+              {me?.name.split(' ')[0] ?? 'Finance'}
+              <span className="text-brand-orange">.</span>
+            </h1>
+            <p className="mt-3 text-white/80 max-w-xl">
+              Record payments, issue receipts, and keep collections on schedule.
+            </p>
+          </div>
+          <Link to="/finance/payments/new">
+            <Button size="lg" className="shadow-elev-3">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Record payment
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      <PageHeader
+        title="Quick view"
+        subtitle="Scoped finance widgets ship with M9. Admin view below (if you have access)."
+      />
+
+      {query.isLoading && <Skeleton variant="card" />}
       {query.isError && (
         <Card>
-          <CardHeader title="Collections (admin view)" subtitle="Requires admin access. Ask admin for the scoped finance dashboard coming in M9." />
-          <ErrorAlert message={(query.error as Error).message} />
+          <CardHeader
+            title="Collections snapshot"
+            subtitle="Admin-only endpoint. Finance-scoped aggregates are coming in M9."
+          />
+          <div className="rounded-xl border border-navy-100 bg-navy-50/60 p-6 text-center">
+            <p className="text-sm text-brand-navy font-medium">
+              Use{' '}
+              <Link to="/finance/payments/new" className="underline hover:text-brand-orange">
+                Record payment
+              </Link>{' '}
+              or{' '}
+              <Link to="/finance/payments" className="underline hover:text-brand-orange">
+                Payments
+              </Link>{' '}
+              to get started.
+            </p>
+          </div>
         </Card>
       )}
       {query.data && (
-        <Card>
-          <CardHeader title="Collections snapshot" />
-          <dl className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <dt className="text-muted">This month</dt>
-              <dd className="text-xl font-semibold text-brand-navy">{formatMoney(query.data.fees.collectedThisMonthPaise)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">Year to date</dt>
-              <dd className="text-xl font-semibold text-brand-navy">{formatMoney(query.data.fees.collectedYtdPaise)}</dd>
-            </div>
-            <div className="col-span-2">
-              <dt className="text-muted">Outstanding balance</dt>
-              <dd className="text-xl font-semibold text-danger">{formatMoney(query.data.fees.outstandingPaise)}</dd>
-            </div>
-          </dl>
-        </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <MetricTile
+            label="Collected this month"
+            value={formatMoney(query.data.fees.collectedThisMonthPaise)}
+            tone="navy"
+          />
+          <MetricTile
+            label="Collected YTD"
+            value={formatMoney(query.data.fees.collectedYtdPaise)}
+            tone="navy"
+          />
+          <MetricTile
+            label="Outstanding balance"
+            value={formatMoney(query.data.fees.outstandingPaise)}
+            tone="orange"
+          />
+        </div>
       )}
+    </div>
+  );
+}
+
+function MetricTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'navy' | 'orange';
+}) {
+  const bar = tone === 'orange' ? 'bg-brand-orange' : 'bg-brand-navy';
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-white border border-black/5 shadow-elev-1 p-5">
+      <span className={`absolute left-0 top-0 bottom-0 w-1 ${bar}`} aria-hidden />
+      <p className="text-xs uppercase tracking-wider text-muted font-semibold">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-brand-navy count-up">{value}</p>
     </div>
   );
 }

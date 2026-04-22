@@ -22,7 +22,7 @@ export function FinanceStudentsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Students</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Students</h1>
         <p className="text-muted text-sm mt-1">Look up a student's fee position before recording a payment.</p>
       </div>
       <Card>
@@ -81,7 +81,7 @@ export function FinanceStudentDetailPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-brand-navy">{user.name}</h1>
+          <h1 className="text-display-sm text-brand-navy tracking-tight">{user.name}</h1>
           <p className="text-muted text-sm mt-1">
             {user.email} · {user.code && <span className="font-mono">{user.code}</span>}
           </p>
@@ -184,7 +184,7 @@ export function FinancePaymentsListPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Payments</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Payments</h1>
         <p className="text-muted text-sm mt-1">Recent payments. Within 24h, a payment can be reversed (creates a credit note).</p>
       </div>
       <Card className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -271,7 +271,7 @@ export function FinancePaymentDetailPage() {
       <Link to="/finance/payments" className="text-sm text-brand-orange hover:underline">
         ← Back
       </Link>
-      <h1 className="text-2xl font-bold text-brand-navy">Payment {payment.id.slice(-8)}</h1>
+      <h1 className="text-display-sm text-brand-navy tracking-tight">Payment {payment.id.slice(-8)}</h1>
       <Card className="space-y-3 text-sm">
         <Row label="Received at" value={formatIstDateTime(payment.receivedAt)} />
         <Row label="Student" value={payment.studentId} mono />
@@ -363,7 +363,7 @@ export function FinanceReportsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Collections report</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Collections report</h1>
         <p className="text-muted text-sm mt-1">Daily collections by payment method.</p>
       </div>
       <Card className="grid grid-cols-1 sm:grid-cols-3 gap-3">

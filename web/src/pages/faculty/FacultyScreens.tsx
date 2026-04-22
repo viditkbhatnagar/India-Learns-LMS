@@ -30,7 +30,7 @@ export function FacultyCoursesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">My courses</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">My courses</h1>
         <p className="text-muted text-sm mt-1">
           Courses you're assigned to teach. Open one to manage modules and review progress.
         </p>
@@ -81,7 +81,7 @@ export function FacultyCourseDetailPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-navy">{course.name}</h1>
+          <h1 className="text-display-sm text-brand-navy tracking-tight">{course.name}</h1>
           <p className="text-muted text-sm mt-1">
             <Badge tone={course.state === 'published' ? 'success' : 'warning'}>{course.state}</Badge>
             <span className="ml-3 font-mono text-xs">{course.slug}</span>
@@ -117,7 +117,7 @@ export function FacultyGradingQueuePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Grading queue</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Grading queue</h1>
         <p className="text-muted text-sm mt-1">
           Exam attempts awaiting essay grading from your courses.
         </p>
@@ -214,7 +214,7 @@ export function FacultyGradingDetailPage() {
   return (
     <div className="space-y-4 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Grade attempt</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Grade attempt</h1>
         <p className="text-muted text-sm mt-1">
           Student {a.studentId.slice(-6)} · MCQ {a.mcqScorePercent ?? '—'}%
         </p>
@@ -278,7 +278,7 @@ export function FacultyFeedbackPage() {
     <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-navy">Feedback</h1>
+          <h1 className="text-display-sm text-brand-navy tracking-tight">Feedback</h1>
           <p className="text-muted text-sm mt-1">
             Drafts and published responses. Students see only published items.
           </p>
@@ -388,7 +388,7 @@ export function FacultyFeedbackNewPage() {
 
   return (
     <div className="max-w-2xl space-y-4">
-      <h1 className="text-2xl font-bold text-brand-navy">New feedback</h1>
+      <h1 className="text-display-sm text-brand-navy tracking-tight">New feedback</h1>
       <Card>
         <form onSubmit={onSubmit} className="space-y-4">
           <label className="block">
@@ -396,7 +396,7 @@ export function FacultyFeedbackNewPage() {
             <select
               value={studentId}
               onChange={(e) => setStudentId(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-black/10 bg-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
               required
             >
               <option value="">Select…</option>
@@ -412,7 +412,7 @@ export function FacultyFeedbackNewPage() {
             <select
               value={courseId}
               onChange={(e) => setCourseId(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-black/10 bg-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
               required
             >
               <option value="">Select…</option>
@@ -428,7 +428,7 @@ export function FacultyFeedbackNewPage() {
             <select
               value={level}
               onChange={(e) => setLevel(e.target.value as typeof level)}
-              className="w-full h-10 px-3 rounded-lg border border-black/10 bg-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
             >
               <option value="course">Course</option>
               <option value="module">Module</option>
@@ -490,7 +490,7 @@ export function FacultyTimetablePage() {
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-brand-navy">My timetable</h1>
+          <h1 className="text-display-sm text-brand-navy tracking-tight">My timetable</h1>
           <p className="text-muted text-sm mt-1">Read-only view of your assigned classes.</p>
         </div>
         <Input

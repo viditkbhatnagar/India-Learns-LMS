@@ -55,7 +55,7 @@ export function AdminBatchesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Batches</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Batches</h1>
         <p className="text-muted text-sm mt-1">Each batch caps at 30 students by default.</p>
       </div>
 
@@ -76,7 +76,7 @@ export function AdminBatchesPage() {
             <select
               value={programId}
               onChange={(e) => setProgramId(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-black/10 bg-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
               required
             >
               <option value="">Select…</option>
@@ -163,7 +163,7 @@ export function AdminBatchDetailPage() {
       <Link to="/admin/batches" className="text-sm text-brand-orange hover:underline">
         ← Back
       </Link>
-      <h1 className="text-2xl font-bold text-brand-navy">Batch · {String(b.name)}</h1>
+      <h1 className="text-display-sm text-brand-navy tracking-tight">Batch · {String(b.name)}</h1>
       <Card className="grid grid-cols-2 gap-3 text-sm">
         <Row label="Status" value={String(b.status)} />
         <Row label="Capacity" value={String(b.capacity)} />
@@ -238,7 +238,7 @@ export function AdminTimetableBuilderPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Timetable builder</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Timetable builder</h1>
         <p className="text-muted text-sm mt-1">Add weekly recurring entries to a batch's timetable.</p>
       </div>
       <Card>
@@ -247,7 +247,7 @@ export function AdminTimetableBuilderPage() {
           <select
             value={batchId}
             onChange={(e) => setBatchId(e.target.value)}
-            className="w-full h-10 px-3 rounded-lg border border-black/10 bg-white"
+            className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
           >
             <option value="">Select…</option>
             {(batchesQ.data as Array<Record<string, unknown>> ?? []).map((b) => (
@@ -279,7 +279,7 @@ export function AdminTimetableBuilderPage() {
               <select
                 value={weekday}
                 onChange={(e) => setWeekday(Number(e.target.value))}
-                className="w-full h-10 px-3 rounded-lg border border-black/10 bg-white"
+                className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
               >
                 {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
                   <option key={i} value={i}>{d}</option>
@@ -363,7 +363,7 @@ export function AdminEnrollmentsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Enrolments</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Enrolments</h1>
         <p className="text-muted text-sm mt-1">All student–course relationships across batches.</p>
       </div>
       <Card>
@@ -437,7 +437,7 @@ export function AdminEnrollmentDetailPage() {
       <Link to="/admin/enrollments" className="text-sm text-brand-orange hover:underline">
         ← Back
       </Link>
-      <h1 className="text-2xl font-bold text-brand-navy">Enrolment {e.id.slice(-8)}</h1>
+      <h1 className="text-display-sm text-brand-navy tracking-tight">Enrolment {e.id.slice(-8)}</h1>
       <Card className="grid grid-cols-2 gap-3 text-sm">
         <Row label="Student" value={e.studentId} />
         <Row label="Course" value={e.courseId} />
@@ -502,7 +502,7 @@ export function AdminAuditLogsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Audit log</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Audit log</h1>
         <p className="text-muted text-sm mt-1">Every staff write — who did what, when.</p>
       </div>
       <Card className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -554,7 +554,7 @@ export function AdminFeeStructuresPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Fee structures</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Fee structures</h1>
         <p className="text-muted text-sm mt-1">
           Templates that drive invoice generation per program. Read-only browser; create via API.
         </p>
@@ -625,7 +625,7 @@ export function AdminTicketDetailPage() {
       </Link>
       <div>
         <p className="font-mono text-xs text-muted">{ticket.code}</p>
-        <h1 className="text-2xl font-bold text-brand-navy">{ticket.subject}</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">{ticket.subject}</h1>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
           <Badge tone="info">{ticket.category}</Badge>
           <Badge tone={ticket.state === 'closed' ? 'success' : 'warning'}>{ticket.state}</Badge>
@@ -684,7 +684,7 @@ export function AdminTicketDetailPage() {
             <select
               value={transitionTo}
               onChange={(e) => setTransitionTo(e.target.value as TicketState)}
-              className="w-full h-10 px-3 rounded-lg border border-black/10 bg-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
             >
               {(['open','assigned','awaiting_student','in_progress','resolved','closed'] as TicketState[]).map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -715,7 +715,7 @@ export function AdminSlaBreachesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">SLA breaches</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">SLA breaches</h1>
         <p className="text-muted text-sm mt-1">
           Tickets that missed the 24h ack or 5d (15bd for complaints) resolve target.
         </p>
@@ -776,7 +776,7 @@ export function AdminHolidaysPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-brand-navy">Holidays</h1>
+        <h1 className="text-display-sm text-brand-navy tracking-tight">Holidays</h1>
         <p className="text-muted text-sm mt-1">
           Public holidays mute timetable + fee notifications and adjust SLA business-day clocks.
         </p>
