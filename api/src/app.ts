@@ -61,6 +61,38 @@ export function createApp(): Express {
 
   app.use('/v1', v1Router());
 
+  // Kill-switch service worker. Served from the server (never from vite build)
+  // so it takes priority over any previously-registered workbox SW. When an
+  // older SW performs its routine update check it will fetch this path (that
+  // fetch bypasses the old SW's fetch handler by browser spec), see a new SW
+  // script, install + activate it. The new SW unregisters itself and forces
+  // all open clients to reload → next load is SW-free. This rescues users
+  // stuck on a stale "You're offline" cached precache from an earlier deploy.
+  const killSwitchSw = `// India Learns — SW kill-switch. Unregisters + reloads all clients.
+self.addEventListener('install', (event) => { self.skipWaiting(); });
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    try {
+      if (self.caches && self.caches.keys) {
+        const keys = await self.caches.keys();
+        await Promise.all(keys.map((k) => self.caches.delete(k)));
+      }
+      await self.registration.unregister();
+      const clients = await self.clients.matchAll({ type: 'window' });
+      for (const client of clients) {
+        try { client.navigate(client.url); } catch (_) {}
+      }
+    } catch (_) {}
+  })());
+});
+`;
+  app.get('/sw.js', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.status(200).send(killSwitchSw);
+  });
+
   // Optional single-service mode: same Node process also serves the built web
   // app from `web/dist`. Enabled when SERVE_WEB_FROM is set OR the default
   // `./web/dist` path exists relative to the process cwd. Render single-

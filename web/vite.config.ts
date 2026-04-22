@@ -1,76 +1,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
 
+// NOTE: vite-plugin-pwa removed for the initial staging rollout. The server
+// (api/src/app.ts) now serves a kill-switch `/sw.js` that actively
+// unregisters any service worker left over from earlier deploys — this
+// prevents the "You're offline" lock-out we saw on first staging. The
+// PWA manifest is still shipped as a static file in web/public/ so native
+// "Install" prompts keep working. Re-enable VitePWA() here after the UX
+// stabilises and offline/update-banner UX is designed properly.
 export default defineConfig({
   plugins: [
     react(),
-    VitePWA({
-      // M9 — workbox-window registers the SW from main.tsx so we can surface
-      // an update banner; vite-plugin-pwa just generates the SW + manifest.
-      registerType: 'prompt',
-      injectRegister: false,
-      filename: 'sw.js',
-      devOptions: { enabled: false },
-      manifest: {
-        name: 'India Learns',
-        short_name: 'India Learns',
-        description: 'India Learns — LMS for Diploma Programs.',
-        theme_color: '#1A3A8F',
-        background_color: '#FBF5E8',
-        display: 'standalone',
-        start_url: '/',
-        scope: '/',
-        orientation: 'portrait-primary',
-        icons: [
-          {
-            src: '/icons/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any',
-          },
-          {
-            src: '/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any',
-          },
-          {
-            src: '/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
-        ],
-      },
-      workbox: {
-        navigateFallback: '/offline.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/v1\//],
-        runtimeCaching: [
-          {
-            // Stable APIs — fast first paint, refresh in background.
-            urlPattern: ({ url }) =>
-              url.pathname.startsWith('/v1/me/') ||
-              url.pathname === '/v1/students/me/dashboard',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'il-api-me',
-              networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-            },
-          },
-          {
-            // Cloudinary media — cache aggressively.
-            urlPattern: /^https:\/\/res\.cloudinary\.com\/.*/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'il-media',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
-            },
-          },
-        ],
-      },
-    }),
   ],
   server: {
     port: 5173,
