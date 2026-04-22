@@ -7,14 +7,14 @@ const PROGRAMS = [
   {
     slug: 'aviation-diploma',
     name: 'Aviation Diploma',
-    description: 'LUC 300-hour in-person Aviation Diploma.',
+    description: 'India Learns 300-hour in-person Aviation Diploma.',
     totalHours: 300,
     isActive: true,
   },
   {
     slug: 'retail-fashion-diploma',
     name: 'Retail & Fashion Diploma',
-    description: 'LUC 300-hour in-person Retail & Fashion Diploma.',
+    description: 'India Learns 300-hour in-person Retail & Fashion Diploma.',
     totalHours: 300,
     isActive: true,
   },

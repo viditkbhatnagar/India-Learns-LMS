@@ -14,12 +14,10 @@ import { Card } from '../../components/ui/Card.js';
 function BrandHeader() {
   return (
     <div className="flex items-center gap-3 mb-6">
-      <div className="h-10 w-10 grid place-items-center rounded-xl bg-brand-orange text-brand-navy font-extrabold">
-        IL
-      </div>
+      <img src="/brand/logo.jpg" alt="" aria-hidden="true" className="h-10 w-auto" />
       <div>
         <p className="font-bold text-brand-navy leading-none">India Learns</p>
-        <p className="text-xs text-muted">LUC Diploma Programs</p>
+        <p className="text-xs text-muted">Diploma Programs</p>
       </div>
     </div>
   );
@@ -40,9 +38,8 @@ export function OnbEmailInvitePage() {
           <BrandHeader />
           <h1 className="text-2xl font-bold text-brand-navy">Your seat is reserved.</h1>
           <p className="text-muted mt-3 leading-relaxed text-sm">
-            You've been enrolled in a diploma program at LUC Training Centre.
-            Use the link below to activate your account. The link expires in 7
-            days.
+            You've been enrolled in a diploma program at India Learns. Use the
+            link below to activate your account. The link expires in 7 days.
           </p>
           <Link to="/onboarding/landing">
             <Button className="mt-6">Activate your account →</Button>
@@ -73,7 +70,7 @@ export function OnbLandingPage() {
           <ul className="mt-6 space-y-4">
             <LandingPoint n="01" t="Classes, content, tests — in one place" d="Everything in your dashboard." />
             <LandingPoint n="02" t="Your data is yours" d="DPDP 2023 compliant · India-hosted · Encrypted." />
-            <LandingPoint n="03" t="A Diploma that gets you hired" d="Verifiable online, recognised by LUC partners." />
+            <LandingPoint n="03" t="A Diploma that gets you hired" d="Verifiable online, recognised by our industry partners." />
           </ul>
         </div>
         <div className="p-10 flex flex-col justify-center">

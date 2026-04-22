@@ -4,13 +4,15 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 
 ---
 
-## Q-M1-01 — Brand name: "India Learns" or "India LearnHub"?
+## Q-M1-01 — Brand name: "India Learns" — **CLOSED 2026-04-22 (pre-launch, operator confirmed)**
+**Closed:** 2026-04-22 — operator confirmed "India Learns" is the brand name; no "LearnHub" variant. Domain will be decided at migration time (initial Render deploy uses a `.onrender.com` subdomain). Also dropped all "LUC" references from user-facing copy in the same session (UI, program descriptions, seed data, receipts org name, footer copyright, meta description, onboarding pages). LUC references remain only in `claude-code-docs/**` (original spec pack, internal docs) and `memory/**` (team context).
 **Raised:** 2026-04-21 (M1)
 **Owner:** Logan
 **Context:** `claude-code-docs/CLAUDE.md`, `01_BRD.md`, `03_TRD.md`, `04_UI_UX_Spec.md` all say "India Learns" with `app.indialearns.com`. Root `/CLAUDE.md` and `PROMPTS.md` (some sections) say "India LearnHub" with `app.indialearnhub.com`. M1 implementation uses "India Learns" per source-of-truth hierarchy. Need confirmation before M9 deploy + DNS purchase.
 **Impact if wrong:** Trivial fix (UI copy + `<title>` + env defaults), but affects domain registration — must be locked before M8/M9.
 
-## Q-PENDING-01 — Official India Learns logo SVG
+## Q-PENDING-01 — Official India Learns logo — **CLOSED 2026-04-22 (pre-launch, operator provided)**
+**Closed:** 2026-04-22 — operator provided `india-learns-logo.jpeg` at repo root. Copied to `web/public/brand/logo.jpg` and wired into AppShell header, LoginPage, and onboarding BrandHeader (replaces the old "IL" text badge). Used `sips` to resize to 192×192 + 512×512 PNGs at `web/public/icons/` (for PWA + Lighthouse) and 180×180 apple-touch-icon + 32×32 favicon. vite.config.ts manifest updated to point to PNG variants. Old placeholder SVGs deleted (`logo-placeholder.svg`, `icon-*.svg`, `favicon.svg`). Logo format is JPEG (raster) — if an SVG version arrives later, just drop it in and update the filenames.
 **Source:** Root `/CLAUDE.md` §8.
 **Owner:** Logan / Rejin.
 **Workaround:** Brand-color placeholder SVG generated from `#F58220` + `#1A3A8F`.

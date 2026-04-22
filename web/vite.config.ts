@@ -15,7 +15,7 @@ export default defineConfig({
       manifest: {
         name: 'India Learns',
         short_name: 'India Learns',
-        description: 'India Learns — LMS for LUC Diploma Programs.',
+        description: 'India Learns — LMS for Diploma Programs.',
         theme_color: '#1A3A8F',
         background_color: '#FBF5E8',
         display: 'standalone',
@@ -24,21 +24,21 @@ export default defineConfig({
         orientation: 'portrait-primary',
         icons: [
           {
-            src: '/icons/icon-192.svg',
+            src: '/icons/icon-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/icons/icon-512.svg',
+            src: '/icons/icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/icons/icon-maskable.svg',
+            src: '/icons/icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'maskable',
           },
         ],

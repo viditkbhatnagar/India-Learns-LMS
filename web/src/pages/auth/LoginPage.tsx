@@ -42,9 +42,9 @@ export function LoginPage() {
     <main className="min-h-screen bg-brand-cream flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="mx-auto h-12 w-12 rounded-xl bg-brand-orange text-brand-navy grid place-items-center font-extrabold">IL</div>
-          <h1 className="mt-4 text-2xl font-bold text-brand-navy">Sign in to India Learns</h1>
-          <p className="text-muted text-sm mt-1">LUC Diploma Programs — Student & Staff portal</p>
+          <img src="/brand/logo.jpg" alt="India Learns" className="mx-auto h-20 w-auto" />
+          <h1 className="mt-4 text-2xl font-bold text-brand-navy">Sign in</h1>
+          <p className="text-muted text-sm mt-1">Diploma Programs — Student &amp; Staff portal</p>
         </div>
         <Card>
           <form onSubmit={onSubmit} className="space-y-4">
@@ -83,7 +83,7 @@ export function LoginPage() {
           </div>
         </Card>
         <p className="text-muted text-xs text-center mt-6">
-          © 2026 LUC / India Learns. All rights reserved.
+          © 2026 India Learns. All rights reserved.
         </p>
       </div>
     </main>

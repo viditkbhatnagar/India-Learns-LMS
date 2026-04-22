@@ -525,6 +525,17 @@ Append-only log. Every entry: ID, date, decision, why, source.
 - Playwright now 12/32 green (was 3/32); remaining 20 are Q-VERIFY-03 color-contrast (17) + Q-VERIFY-04 UI-label drift (3). Proves the fix and proves auth, role routing, and screenshot capture are real-browser-functional.
 - The server never validates the format (stays opaque `min(1).max(128)`), so UUIDv4 is policy, not enforcement. If we ever want to tighten, the validator is a 1-line change in `api/src/routes/auth.ts`.
 
+## D-087 — Official logo wired + LUC dropped from user-facing copy
+**Date:** 2026-04-22 (pre-launch verification, operator signal)
+**Why:** Operator confirmed brand name is "India Learns" (closes Q-M1-01) and delivered the official logo JPEG (closes Q-PENDING-01) plus explicit instruction: "don't mention LUC anywhere, just India Learns." Session swap: app now ships the operator's logo across AppShell header, LoginPage, and onboarding BrandHeader; PWA icons (192/512 PNG + 180 apple-touch + 32 favicon) generated via `sips` from the same source jpeg; index.html + manifest description updated (also added a `<meta name="description">` which bumps the prior login-page SEO score toward the 90 gate); all "LUC" mentions removed from UI copy, onboarding flow, login subtitle/footer copyright, seed program descriptions, receipt org name, and the seed test fixture. LUC references remain only in `claude-code-docs/**` (original authored spec pack — not user-facing) and `memory/**` (internal team context).
+**Source:** Operator messages 2026-04-22.
+**How to apply:**
+- Logo at [web/public/brand/logo.jpg](../web/public/brand/logo.jpg); PWA icons at [web/public/icons/icon-{192,512}.png](../web/public/icons/icon-192.png) + apple-touch-icon.png; favicon at [web/public/favicon.png](../web/public/favicon.png).
+- UI refs: [web/src/components/AppShell.tsx](../web/src/components/AppShell.tsx) (header), [web/src/pages/auth/LoginPage.tsx](../web/src/pages/auth/LoginPage.tsx) (login splash), [web/src/pages/onboarding/Onboarding.tsx](../web/src/pages/onboarding/Onboarding.tsx) (BrandHeader).
+- Removed stale assets: `logo-placeholder.svg`, `icon-192.svg`, `icon-512.svg`, `icon-maskable.svg`, `favicon.svg`.
+- Root CLAUDE.md §9 suggested footer copy was `© 2026 LUC / India Learns.` — overridden by operator to `© 2026 India Learns.`
+- Receipt org name env default flipped from `India Learns (LUC)` → `India Learns` in [api/src/config/env.ts](../api/src/config/env.ts) + `.env.example` + dev `.env`.
+
 ## D-086 — Product-call sweep on 2026-04-22 pre-launch session (13 open questions closed)
 **Date:** 2026-04-22 (pre-launch verification, same session as D-084/D-085)
 **Why:** User delegated product-call decision-making for this session. Closed 13 open questions where the decision was low-risk and well-supported by the spec pack. Each decision is recorded inline in [open-questions.md](open-questions.md) with a `**CLOSED 2026-04-22 (pre-launch)**` header + rationale. Summary:

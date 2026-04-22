@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" role="img" aria-label="India Learns">
-  <rect width="192" height="192" rx="24" fill="#1A3A8F"/>
-  <circle cx="96" cy="72" r="28" fill="#F58220"/>
-  <path d="M36 150 L96 114 L156 150 Z" fill="#F58220"/>
-  <text x="96" y="178" text-anchor="middle" font-family="system-ui, sans-serif" font-weight="700" font-size="18" fill="#FBF5E8">IL</text>
-</svg>

@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="India Learns">
-  <title>India Learns (placeholder)</title>
-  <rect width="256" height="256" rx="32" fill="#1A3A8F"/>
-  <circle cx="128" cy="96" r="38" fill="#F58220"/>
-  <path d="M48 200 L128 152 L208 200 Z" fill="#F58220"/>
-  <text x="128" y="232" text-anchor="middle" font-family="Poppins, system-ui, sans-serif" font-weight="700" font-size="22" fill="#FBF5E8">India Learns</text>
-</svg>

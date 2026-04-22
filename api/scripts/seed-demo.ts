@@ -45,14 +45,14 @@ const PROGRAMS = [
   {
     slug: 'aviation-diploma',
     name: 'Aviation Diploma',
-    description: 'LUC 300-hour in-person Aviation Diploma.',
+    description: 'India Learns 300-hour in-person Aviation Diploma.',
     totalHours: 300,
     isActive: true,
   },
   {
     slug: 'retail-fashion-diploma',
     name: 'Retail & Fashion Diploma',
-    description: 'LUC 300-hour in-person Retail & Fashion Diploma.',
+    description: 'India Learns 300-hour in-person Retail & Fashion Diploma.',
     totalHours: 300,
     isActive: true,
   },
@@ -311,10 +311,11 @@ async function main(): Promise<void> {
   let installmentsShifted = 0;
   for (const s of students) {
     const enr = await Enrollment.findOne({ studentId: s._id, status: 'active' });
-    if (!enr) continue;
-    const res = await generateForEnrollment(String(enr._id), { actorUserId: finance._id });
-    invoicesCreated += res.createdCount;
-    installmentsShifted += await shiftFirstInstallmentToT7(s._id);
+    if (enr) {
+      const res = await generateForEnrollment(String(enr._id), { actorUserId: finance._id });
+      invoicesCreated += res.createdCount;
+      installmentsShifted += await shiftFirstInstallmentToT7(s._id);
+    }
   }
 
   const holidayResults = [

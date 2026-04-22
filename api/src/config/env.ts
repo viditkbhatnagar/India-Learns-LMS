@@ -40,7 +40,7 @@ const EnvSchema = z.object({
   CERTIFIER_API_KEY: z.string().optional().default(''),
   CERTIFIER_DEFAULT_TEMPLATE_ID: z.string().optional().default(''),
 
-  RECEIPT_ORG_NAME: z.string().default('India Learns (LUC)'),
+  RECEIPT_ORG_NAME: z.string().default('India Learns'),
   RECEIPT_ORG_ADDRESS: z.string().default('PENDING'),
   RECEIPT_ORG_GSTIN: z.string().default(''),
   RECEIPT_LOGO_URL: z.string().optional().default(''),

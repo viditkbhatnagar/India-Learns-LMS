@@ -114,10 +114,8 @@ export function AppShell({ children }: PropsWithChildren) {
               </svg>
             </button>
             <Link to={nav[0]?.to ?? '/'} className="flex items-center gap-2 font-semibold">
-              <span className="h-7 w-7 rounded-lg bg-brand-orange text-brand-navy grid place-items-center font-extrabold text-sm">
-                IL
-              </span>
-              <span className="hidden sm:inline">India Learns</span>
+              <img src="/brand/logo.jpg" alt="" aria-hidden="true" className="h-7 w-auto" />
+              <span className="sr-only sm:not-sr-only">India Learns</span>
             </Link>
             {readOnly && (
               <Badge tone="warning" className="hidden sm:inline-flex">Read-only</Badge>

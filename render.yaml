@@ -42,9 +42,9 @@ services:
       - key: EMAIL_FROM
         value: India Learns <notifications@app.indialearns.com>
       - key: RECEIPT_ORG_NAME
-        value: India Learns (LUC)
+        value: India Learns
       - key: RECEIPT_LOGO_URL
-        value: https://app.indialearns.com/brand/logo-placeholder.svg
+        value: https://app.indialearns.com/brand/logo.jpg
       - key: WHATSAPP_ENABLED
         value: false
       - key: CERTIFIER_ENABLED
