@@ -30,6 +30,7 @@ export interface UserDoc {
   enrolmentValidTo: Date | null;
   deptTag: DeptTag | null;
   isCourseCoordinator: boolean;
+  address: string | null;
   sessionCap: number;
   deletedAt: Date | null;
   createdAt: Date;
@@ -99,6 +100,7 @@ const UserSchema = new Schema<UserDoc>(
       default: null,
     },
     isCourseCoordinator: { type: Boolean, default: false },
+    address: { type: String, default: null },
     sessionCap: { type: Number, default: 5 },
     deletedAt: { type: Date, default: null },
   },

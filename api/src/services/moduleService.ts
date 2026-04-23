@@ -141,13 +141,18 @@ export async function listModulesForCourse(courseId: string): Promise<HydratedMo
 export async function createModule(
   courseId: string,
   input: CreateModuleInput,
-  actor: { role: Role } & ActorContext,
+  actor: { role: Role; userId?: Types.ObjectId } & ActorContext,
 ): Promise<HydratedModule> {
-  if (actor.role !== 'admin') {
-    throw new HttpError(403, 'FORBIDDEN', 'Only admins may create modules.');
+  if (actor.role !== 'admin' && actor.role !== 'faculty') {
+    throw new HttpError(403, 'FORBIDDEN', 'Only admins or assigned faculty may create modules.');
   }
   const course = await Course.findOne({ _id: requireId(courseId), deletedAt: null });
   if (!course) throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
+  if (actor.role === 'faculty') {
+    if (!actor.userId || !facultyAssignedToCourse(course, actor.userId)) {
+      throw new HttpError(403, 'FORBIDDEN', 'Not assigned to this course.');
+    }
+  }
   const clash = await ModuleModel.findOne({
     courseId: course._id,
     order: input.order,

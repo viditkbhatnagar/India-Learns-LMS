@@ -65,6 +65,7 @@ function toDto(doc: HydratedUser): UserPublicDto {
     enrolmentValidTo: iso(json.enrolmentValidTo),
     deptTag: (json.deptTag as UserPublicDto['deptTag']) ?? null,
     isCourseCoordinator: Boolean(json.isCourseCoordinator),
+    address: (json.address as string | null) ?? null,
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -183,7 +184,7 @@ export async function listUsers(query: UserListQuery): Promise<{
   return { items, total, page, limit };
 }
 
-const SELF_PATCH_FIELDS = new Set<keyof UpdateUserInput>(['name', 'phoneE164']);
+const SELF_PATCH_FIELDS = new Set<keyof UpdateUserInput>(['name', 'phoneE164', 'address']);
 
 export async function updateUser(
   id: string,
@@ -208,6 +209,9 @@ export async function updateUser(
   const before = scrubUser(doc.toObject());
   if (patch.name !== undefined) doc.name = patch.name.trim();
   if (patch.phoneE164 !== undefined) doc.phoneE164 = patch.phoneE164.trim();
+  if (patch.address !== undefined) {
+    doc.address = patch.address === null ? null : patch.address.trim() || null;
+  }
   if (isAdmin) {
     if (patch.programId !== undefined) {
       doc.programId = patch.programId ? new Types.ObjectId(patch.programId) : null;

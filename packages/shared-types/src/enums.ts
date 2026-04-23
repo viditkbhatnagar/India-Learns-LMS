@@ -210,6 +210,7 @@ export const AUDIT_ACTIONS = [
   'module.updated',
   'module.deleted',
   'module.viewed',
+  'announcement.created',
   'batch.created',
   'batch.updated',
   'batch.deleted',

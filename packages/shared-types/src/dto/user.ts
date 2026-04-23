@@ -17,6 +17,7 @@ export interface UserPublicDto {
   enrolmentValidTo: string | null;
   deptTag: DeptTag | null;
   isCourseCoordinator: boolean;
+  address: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -38,6 +39,7 @@ export interface CreateUserInput {
 export interface UpdateUserInput {
   name?: string;
   phoneE164?: string;
+  address?: string | null;
   programId?: string | null;
   batchId?: string | null;
   enrolmentValidFrom?: string | null;

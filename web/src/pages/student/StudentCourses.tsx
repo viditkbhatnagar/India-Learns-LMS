@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { meCoursesApi } from '../../lib/endpoints.js';
+import { announcementsApi, meCoursesApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { formatIstDateTime } from '../../lib/format.js';
 
 function PageHeader({ eyebrow, title, subtitle }: { eyebrow?: string; title: string; subtitle?: string }) {
   return (
@@ -103,6 +104,12 @@ export function StudentCourseDetail() {
     queryFn: () => meCoursesApi.get(courseId!),
     enabled: Boolean(courseId),
   });
+  const annQ = useQuery({
+    queryKey: ['course', courseId, 'announcements'],
+    queryFn: () => announcementsApi.list(courseId!),
+    enabled: Boolean(courseId),
+    retry: false,
+  });
 
   if (query.isLoading) return <Skeleton lines={6} />;
   if (query.isError) {
@@ -130,6 +137,28 @@ export function StudentCourseDetail() {
           </div>
         </section>
       </div>
+
+      {annQ.data && annQ.data.length > 0 && (
+        <Card accent="orange">
+          <CardHeader
+            title="Announcements"
+            subtitle="Latest from your faculty"
+          />
+          <ul className="space-y-3">
+            {annQ.data.slice(0, 5).map((a) => (
+              <li key={a.id} className="rounded-xl border border-black/5 bg-surface-muted p-4">
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <p className="font-semibold text-brand-navy">{a.subject}</p>
+                  <span className="text-xs text-muted whitespace-nowrap">
+                    {formatIstDateTime(a.createdAt)}
+                  </span>
+                </div>
+                <p className="text-sm whitespace-pre-wrap text-ink/90 leading-relaxed">{a.body}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card accent="navy">
         <CardHeader

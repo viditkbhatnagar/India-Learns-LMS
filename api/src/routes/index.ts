@@ -3,6 +3,7 @@ import { authRouter } from './auth.js';
 import { usersRouter } from './users.js';
 import { programsRouter } from './programs.js';
 import { coursesRouter } from './courses.js';
+import { courseAnnouncementsRouter } from './announcements.js';
 import { modulesRouter } from './modules.js';
 import { batchesRouter } from './batches.js';
 import { enrollmentsRouter } from './enrollments.js';
@@ -30,6 +31,7 @@ import { jobsSlaRouter } from './jobsSla.js';
 import { jobsFacultyDigestRouter } from './jobsFacultyDigest.js';
 import { ticketsRouter } from './tickets.js';
 import { meTicketsRouter } from './meTickets.js';
+import { staffGradingRouter } from './staffGrading.js';
 import { staffTicketsRouter } from './staffTickets.js';
 import { quizzesRouter, quizAttemptsRouter } from './quizzes.js';
 import { examsRouter, examAttemptsRouter } from './exams.js';
@@ -60,6 +62,7 @@ export function v1Router(): Router {
   router.use('/users', suspensionOverrideRouter());
   router.use('/programs', programsRouter());
   router.use('/courses', coursesRouter());
+  router.use('/courses/:courseId/announcements', courseAnnouncementsRouter());
   router.use('/modules', modulesRouter());
   router.use('/batches', batchesRouter());
   router.use('/batches', batchTimetableRouter());
@@ -94,6 +97,7 @@ export function v1Router(): Router {
   // literal `/me` segment isn't swallowed by the `/:id` handler.
   router.use('/me/tickets', meTicketsRouter());
   router.use('/tickets/me', meTicketsRouter());
+  router.use('/staff/grading-queue', staffGradingRouter());
   router.use('/staff/tickets', staffTicketsRouter());
   router.use('/tickets', ticketsRouter());
 

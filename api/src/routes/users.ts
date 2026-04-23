@@ -34,6 +34,7 @@ const CreateBody = z.object({
 const UpdateBody = z.object({
   name: z.string().min(1).max(120).optional(),
   phoneE164: z.string().regex(/^\+\d{6,15}$/).optional(),
+  address: z.string().max(500).nullable().optional(),
   programId: z.string().nullable().optional(),
   batchId: z.string().nullable().optional(),
   enrolmentValidFrom: z.string().datetime().nullable().optional(),

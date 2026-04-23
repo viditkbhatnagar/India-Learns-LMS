@@ -83,8 +83,17 @@ export const usersApi = {
     const res = await api.post<{ data: { user: UserPublicDto } }>('/users', input);
     return res.data.data.user;
   },
-  async update(id: string, input: Partial<{ name: string; email: string; phoneE164: string; programId: string; batchId: string }>) {
+  async update(id: string, input: Partial<{ name: string; email: string; phoneE164: string; address: string | null; programId: string; batchId: string }>) {
     const res = await api.patch<{ data: { user: UserPublicDto } }>(`/users/${id}`, input);
+    return res.data.data.user;
+  },
+  async updateMe(input: { name?: string; phoneE164?: string; address?: string | null }) {
+    // Server accepts PATCH /users/:id where :id === self.
+    const me = await api.get<{ data: { user: UserPublicDto } }>('/users/me');
+    const res = await api.patch<{ data: { user: UserPublicDto } }>(
+      `/users/${me.data.data.user.id}`,
+      input,
+    );
     return res.data.data.user;
   },
   async suspend(id: string, reason: string) {
@@ -121,6 +130,42 @@ export const programsApi = {
   async create(input: { name: string; slug: string; description?: string; totalHours?: number }) {
     const res = await api.post<{ data: { program: ProgramDto } }>('/programs', input);
     return res.data.data.program;
+  },
+};
+
+export const modulesApi = {
+  async createOnCourse(courseId: string, input: { title: string; order: number }) {
+    const res = await api.post<{ data: { module: ModuleDto } }>(
+      `/courses/${courseId}/modules`,
+      input,
+    );
+    return res.data.data.module;
+  },
+};
+
+export interface AnnouncementDto {
+  id: string;
+  courseId: string;
+  authorUserId: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const announcementsApi = {
+  async list(courseId: string) {
+    const res = await api.get<{ data: { items: AnnouncementDto[] } }>(
+      `/courses/${courseId}/announcements`,
+    );
+    return res.data.data.items;
+  },
+  async create(courseId: string, input: { subject: string; body: string }) {
+    const res = await api.post<{ data: { announcement: AnnouncementDto } }>(
+      `/courses/${courseId}/announcements`,
+      input,
+    );
+    return res.data.data.announcement;
   },
 };
 

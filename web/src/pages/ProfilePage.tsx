@@ -1,20 +1,68 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NOTIFICATION_TYPES } from 'india-learns-shared-types';
-import { authApi, notificationsApi } from '../lib/endpoints.js';
+import { authApi, notificationsApi, programsApi, usersApi } from '../lib/endpoints.js';
 import { useAuthStore } from '../store/auth.js';
 import { Card, CardHeader } from '../components/ui/Card.js';
 import { Button } from '../components/ui/Button.js';
-import { Input } from '../components/ui/Input.js';
+import { Input, TextArea } from '../components/ui/Input.js';
 import { Badge } from '../components/ui/Badge.js';
 import { Skeleton, ErrorAlert } from '../components/ui/States.js';
 import { ApiHttpError } from '../lib/api.js';
 
 export function ProfilePage() {
   const user = useAuthStore((s) => s.user);
+  const setSession = useAuthStore((s) => s.setSession);
+  const token = useAuthStore((s) => s.accessToken);
+  const qc = useQueryClient();
+
+  // Re-fetch the current user fresh so we have address + latest server state
+  // — useAuthStore only has what was frozen at login time.
+  const meQ = useQuery({
+    queryKey: ['users', 'me'],
+    queryFn: async () => authApi.me(),
+    enabled: Boolean(user),
+  });
+  const programsQ = useQuery({ queryKey: ['programs'], queryFn: programsApi.list });
+  const programName = (() => {
+    if (!meQ.data?.programId) return null;
+    return programsQ.data?.find((p) => p.id === meQ.data!.programId)?.name ?? null;
+  })();
+
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [profileMsg, setProfileMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  // Seed form state whenever we load/re-fetch the user.
+  useEffect(() => {
+    if (!meQ.data) return;
+    setName(meQ.data.name);
+    setPhone(meQ.data.phoneE164);
+    setAddress(meQ.data.address ?? '');
+  }, [meQ.data]);
+
+  const saveProfile = useMutation({
+    mutationFn: () =>
+      usersApi.updateMe({
+        name,
+        phoneE164: phone,
+        address: address.trim() ? address.trim() : null,
+      }),
+    onSuccess: (updated) => {
+      setProfileMsg({ kind: 'ok', text: 'Profile updated.' });
+      if (token) setSession(updated, token);
+      qc.invalidateQueries({ queryKey: ['users', 'me'] });
+    },
+    onError: (err) =>
+      setProfileMsg({
+        kind: 'err',
+        text: err instanceof ApiHttpError ? err.message : 'Failed to update profile.',
+      }),
+  });
 
   async function onChangePassword(e: FormEvent) {
     e.preventDefault();
@@ -33,7 +81,9 @@ export function ProfilePage() {
   }
 
   if (!user) return null;
-  const firstInitial = user.name.trim().charAt(0).toUpperCase();
+  if (meQ.isLoading) return <Skeleton variant="card" />;
+  const me = meQ.data ?? user;
+  const firstInitial = me.name.trim().charAt(0).toUpperCase();
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -53,28 +103,83 @@ export function ProfilePage() {
             {firstInitial}
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-lg text-brand-navy truncate">{user.name}</p>
-            <p className="text-sm text-muted truncate">{user.email}</p>
-            <div className="flex items-center gap-2 mt-1.5">
+            <p className="font-semibold text-lg text-brand-navy truncate">{me.name}</p>
+            <p className="text-sm text-muted truncate">{me.email}</p>
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <Badge tone="info" dot>
-                {user.role}
+                {me.role}
               </Badge>
-              {user.code && (
-                <span className="text-xs font-mono text-muted">{user.code}</span>
-              )}
+              {me.code && <span className="text-xs font-mono text-muted">{me.code}</span>}
+              {programName && <Badge tone="accent" dot>{programName}</Badge>}
             </div>
           </div>
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-y-2.5 text-sm border-t border-black/5 pt-4">
-          {user.phoneE164 && (
+          <dt className="text-muted">Status</dt>
+          <dd className="capitalize">{me.status}</dd>
+          {me.enrolmentValidFrom && me.enrolmentValidTo && (
             <>
-              <dt className="text-muted">Phone</dt>
-              <dd className="font-mono">{user.phoneE164}</dd>
+              <dt className="text-muted">Enrolment window</dt>
+              <dd>
+                {new Date(me.enrolmentValidFrom).toLocaleDateString()} –{' '}
+                {new Date(me.enrolmentValidTo).toLocaleDateString()}
+              </dd>
             </>
           )}
-          <dt className="text-muted">Status</dt>
-          <dd className="capitalize">{user.status}</dd>
         </dl>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Personal details"
+          subtitle="Update your contact information. Email is fixed — contact admin to change it."
+        />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setProfileMsg(null);
+            saveProfile.mutate();
+          }}
+          className="space-y-4"
+        >
+          <Input
+            label="Full name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={120}
+          />
+          <Input
+            label="Phone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+919812345678"
+            hint="E.164 format (country code + digits)"
+            required
+          />
+          <TextArea
+            label="Address"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Building / street / city / pin"
+            rows={3}
+          />
+          {profileMsg && (
+            <div
+              role={profileMsg.kind === 'ok' ? 'status' : 'alert'}
+              className={`rounded-xl p-3 text-sm ${
+                profileMsg.kind === 'ok'
+                  ? 'bg-emerald-50 border border-emerald-200 text-success'
+                  : 'bg-red-50 border border-danger/30 text-danger'
+              }`}
+            >
+              {profileMsg.text}
+            </div>
+          )}
+          <Button type="submit" loading={saveProfile.isPending}>
+            Save changes
+          </Button>
+        </form>
       </Card>
 
       <Card>

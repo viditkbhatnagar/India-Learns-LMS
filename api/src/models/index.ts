@@ -1,5 +1,7 @@
 export { User } from './user.js';
 export type { UserDoc, HydratedUser } from './user.js';
+export { Announcement } from './announcement.js';
+export type { AnnouncementDoc, HydratedAnnouncement } from './announcement.js';
 export { InviteToken } from './inviteToken.js';
 export type { InviteTokenDoc } from './inviteToken.js';
 export { RefreshToken } from './refreshToken.js';

@@ -13,7 +13,16 @@ import { Badge } from '../../components/ui/Badge.js';
 import { Button } from '../../components/ui/Button.js';
 import { TextArea, Input } from '../../components/ui/Input.js';
 import { EmptyState, ErrorAlert, Skeleton } from '../../components/ui/States.js';
-import { coursesApi, facultyApi, examsApi, feedbackApi, timetableApi, usersApi } from '../../lib/endpoints.js';
+import {
+  announcementsApi,
+  coursesApi,
+  facultyApi,
+  examsApi,
+  feedbackApi,
+  modulesApi,
+  timetableApi,
+  usersApi,
+} from '../../lib/endpoints.js';
 import { useAuthStore } from '../../store/auth.js';
 import { formatIstDateTime } from '../../lib/format.js';
 
@@ -67,44 +76,204 @@ export function FacultyCoursesPage() {
 
 export function FacultyCourseDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
+  const qc = useQueryClient();
   const q = useQuery({
     queryKey: ['course', id],
     queryFn: () => coursesApi.get(id),
     enabled: !!id,
   });
-  if (q.isLoading) return <Skeleton lines={6} />;
+  const annQ = useQuery({
+    queryKey: ['course', id, 'announcements'],
+    queryFn: () => announcementsApi.list(id),
+    enabled: !!id,
+  });
+
+  // Add-module form state.
+  const [newModuleTitle, setNewModuleTitle] = useState('');
+  const [newModuleOrder, setNewModuleOrder] = useState('');
+  const [moduleErr, setModuleErr] = useState<string | null>(null);
+  const addModule = useMutation({
+    mutationFn: () =>
+      modulesApi.createOnCourse(id, {
+        title: newModuleTitle.trim(),
+        order: Number(newModuleOrder),
+      }),
+    onSuccess: () => {
+      setNewModuleTitle('');
+      setNewModuleOrder('');
+      setModuleErr(null);
+      qc.invalidateQueries({ queryKey: ['course', id] });
+    },
+    onError: (err) => setModuleErr((err as Error).message),
+  });
+
+  // Announcement form state.
+  const [annSubject, setAnnSubject] = useState('');
+  const [annBody, setAnnBody] = useState('');
+  const [annErr, setAnnErr] = useState<string | null>(null);
+  const postAnn = useMutation({
+    mutationFn: () =>
+      announcementsApi.create(id, { subject: annSubject.trim(), body: annBody.trim() }),
+    onSuccess: () => {
+      setAnnSubject('');
+      setAnnBody('');
+      setAnnErr(null);
+      qc.invalidateQueries({ queryKey: ['course', id, 'announcements'] });
+    },
+    onError: (err) => setAnnErr((err as Error).message),
+  });
+
+  if (q.isLoading) return <Skeleton variant="card" />;
   if (q.isError) return <ErrorAlert message={(q.error as Error).message} onRetry={() => q.refetch()} />;
   if (!q.data) return null;
   const { course, modules } = q.data as { course: CourseDto; modules: ModuleDto[] };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-display-sm text-brand-navy tracking-tight">{course.name}</h1>
-          <p className="text-muted text-sm mt-1">
-            <Badge tone={course.state === 'published' ? 'success' : 'warning'}>{course.state}</Badge>
-            <span className="ml-3 font-mono text-xs">{course.slug}</span>
+          <p className="text-muted text-sm mt-1 flex items-center gap-3 flex-wrap">
+            <Badge tone={course.state === 'published' ? 'success' : 'warning'} dot>
+              {course.state}
+            </Badge>
+            <span className="font-mono text-xs">{course.slug}</span>
           </p>
         </div>
       </div>
-      <Card>
-        <CardHeader title="Modules" subtitle={`${modules.length} module${modules.length === 1 ? '' : 's'}`} />
+
+      {/* Announcements */}
+      <Card accent="orange">
+        <CardHeader
+          title="Announcements"
+          subtitle="Broadcast to every enrolled student in this course."
+        />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (annSubject.trim() && annBody.trim()) postAnn.mutate();
+          }}
+          className="space-y-3 mb-5"
+        >
+          <Input
+            label="Subject"
+            placeholder="e.g. Quiz 2 rescheduled to Friday"
+            value={annSubject}
+            onChange={(e) => setAnnSubject(e.target.value)}
+            maxLength={240}
+          />
+          <TextArea
+            label="Message"
+            placeholder="Full announcement body…"
+            value={annBody}
+            onChange={(e) => setAnnBody(e.target.value)}
+            rows={4}
+            maxLength={4000}
+          />
+          {annErr && (
+            <div className="rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm">
+              {annErr}
+            </div>
+          )}
+          <Button
+            type="submit"
+            loading={postAnn.isPending}
+            disabled={!annSubject.trim() || !annBody.trim()}
+          >
+            Post announcement
+          </Button>
+        </form>
+        {annQ.isLoading && <Skeleton lines={3} />}
+        {annQ.data &&
+          (annQ.data.length === 0 ? (
+            <EmptyState title="No announcements yet" message="Your posts will show up here." />
+          ) : (
+            <ul className="space-y-3">
+              {annQ.data.map((a) => (
+                <li key={a.id} className="rounded-xl border border-black/5 bg-surface-muted p-4">
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <p className="font-semibold text-brand-navy">{a.subject}</p>
+                    <span className="text-xs text-muted whitespace-nowrap">
+                      {formatIstDateTime(a.createdAt)}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap text-ink/90 leading-relaxed">{a.body}</p>
+                </li>
+              ))}
+            </ul>
+          ))}
+      </Card>
+
+      {/* Modules */}
+      <Card accent="navy">
+        <CardHeader
+          title="Modules"
+          subtitle={`${modules.length} module${modules.length === 1 ? '' : 's'}`}
+        />
         {modules.length === 0 ? (
-          <EmptyState title="No modules yet" message="Admin must add modules to this course." />
+          <EmptyState
+            title="No modules yet"
+            message="Add your first module below — students will see it once this course is published."
+          />
         ) : (
-          <ol className="space-y-2">
+          <ol className="space-y-2 mb-5">
             {modules.map((m) => (
-              <li key={m.id} className="flex items-center justify-between border border-black/5 rounded-lg p-3">
+              <li
+                key={m.id}
+                className="flex items-center justify-between border border-black/5 rounded-xl p-4 bg-white"
+              >
                 <div>
                   <p className="font-medium text-brand-navy">{m.title}</p>
-                  <p className="text-xs text-muted">{m.content?.length ?? 0} content items</p>
+                  <p className="text-xs text-muted">
+                    {m.content?.length ?? 0} content item{m.content?.length === 1 ? '' : 's'}
+                  </p>
                 </div>
                 <Badge tone="neutral">order {m.order}</Badge>
               </li>
             ))}
           </ol>
         )}
+        <div className="border-t border-black/5 pt-5">
+          <p className="text-xs uppercase tracking-wider text-muted font-semibold mb-3">
+            Add a new module
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newModuleTitle.trim() && newModuleOrder !== '') addModule.mutate();
+            }}
+            className="grid grid-cols-1 sm:grid-cols-[1fr,120px,auto] gap-3"
+          >
+            <Input
+              label="Title"
+              placeholder="Module title"
+              value={newModuleTitle}
+              onChange={(e) => setNewModuleTitle(e.target.value)}
+              maxLength={200}
+            />
+            <Input
+              label="Order"
+              type="number"
+              min={0}
+              value={newModuleOrder}
+              onChange={(e) => setNewModuleOrder(e.target.value)}
+            />
+            <div className="flex items-end">
+              <Button
+                type="submit"
+                loading={addModule.isPending}
+                disabled={!newModuleTitle.trim() || newModuleOrder === ''}
+              >
+                Add module
+              </Button>
+            </div>
+          </form>
+          {moduleErr && (
+            <div className="mt-3 rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm">
+              {moduleErr}
+            </div>
+          )}
+        </div>
       </Card>
     </div>
   );

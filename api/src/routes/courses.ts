@@ -232,12 +232,13 @@ export function coursesRouter(): Router {
 
   router.post(
     '/:id/modules',
-    requireRole('admin'),
+    requireRole('admin', 'faculty'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = CreateModuleBody.parse(req.body);
         const doc = await createModule(req.params.id ?? '', body, {
           role: req.auth!.role,
+          userId: req.auth!.userId,
           actorUserId: req.auth!.userId,
           ...requestContext(req),
         });
