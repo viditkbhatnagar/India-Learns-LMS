@@ -8,6 +8,12 @@ import {
   getSlaBreachReport,
 } from '../services/analyticsService.js';
 
+const SummaryQuery = z.object({
+  programId: z.string().min(1).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
 const CollectionsQuery = z.object({
   from: z.string().datetime(),
   to: z.string().datetime(),
@@ -27,9 +33,23 @@ export function analyticsRouter(): Router {
 
   router.get(
     '/summary',
-    async (_req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const data = await getAnalyticsSummary();
+        const q = SummaryQuery.parse(req.query);
+        if ((q.from && !q.to) || (!q.from && q.to)) {
+          res.status(400).json({
+            error: {
+              code: 'VALIDATION_FAILED',
+              message: '`from` and `to` must be supplied together.',
+            },
+          });
+          return;
+        }
+        const data = await getAnalyticsSummary({
+          programId: q.programId,
+          from: q.from ? new Date(q.from) : undefined,
+          to: q.to ? new Date(q.to) : undefined,
+        });
         res.status(200).json({ data });
       } catch (err) {
         next(err);

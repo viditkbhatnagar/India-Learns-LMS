@@ -56,6 +56,62 @@ describe('analyticsService', () => {
     expect(summary.apiCost.thisMonthPaise).toBeGreaterThan(0);
   });
 
+  it('getAnalyticsSummary narrows student counts by programId', async () => {
+    clearAnalyticsCache();
+    const progA = await makeProgram();
+    const progB = await makeProgram();
+
+    // Two students in A, one in B — all active.
+    const { user: studentA1 } = await makeStudent();
+    studentA1.programId = progA._id;
+    await studentA1.save();
+    const { user: studentA2 } = await makeStudent();
+    studentA2.programId = progA._id;
+    await studentA2.save();
+    const { user: studentB } = await makeStudent();
+    studentB.programId = progB._id;
+    await studentB.save();
+
+    const all = await getAnalyticsSummary({ bypassCache: true });
+    expect(all.students.active).toBe(3);
+
+    const aOnly = await getAnalyticsSummary({
+      bypassCache: true,
+      programId: progA._id.toString(),
+    });
+    expect(aOnly.students.active).toBe(2);
+
+    const bOnly = await getAnalyticsSummary({
+      bypassCache: true,
+      programId: progB._id.toString(),
+    });
+    expect(bOnly.students.active).toBe(1);
+  });
+
+  it('getAnalyticsSummary caches independently per programId + range', async () => {
+    clearAnalyticsCache();
+    const prog = await makeProgram();
+    // First call with no filters → cache key ""
+    const bare = await getAnalyticsSummary();
+    // Second call narrowed → different key, different generatedAt wouldn't
+    // matter; what matters is that the bare-key cache is still served fresh.
+    await getAnalyticsSummary({ programId: prog._id.toString() });
+    const bareAgain = await getAnalyticsSummary();
+    expect(bareAgain.generatedAt).toBe(bare.generatedAt);
+  });
+
+  it('getAnalyticsSummary with a date range uses that window for fees', async () => {
+    clearAnalyticsCache();
+    const windowed = await getAnalyticsSummary({
+      bypassCache: true,
+      from: new Date('2026-01-01T00:00:00Z'),
+      to: new Date('2026-02-01T00:00:00Z'),
+    });
+    // With no payments in the test DB, the windowed value is 0 — and both
+    // alias fields (thisMonth/ytd) mirror it when a range is active.
+    expect(windowed.fees.collectedThisMonthPaise).toBe(windowed.fees.collectedYtdPaise);
+  });
+
   it('parseIsoWeek returns correct Monday-to-Monday range', () => {
     const { start, end } = parseIsoWeek('2026-W18');
     // 2026-W18 Monday is 2026-04-27

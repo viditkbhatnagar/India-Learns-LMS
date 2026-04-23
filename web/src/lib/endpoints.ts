@@ -508,8 +508,10 @@ export const feedbackApi = {
 };
 
 export const analyticsApi = {
-  async summary() {
-    const res = await api.get<{ data: AnalyticsSummaryDto }>('/analytics/summary');
+  async summary(params?: { programId?: string; from?: string; to?: string }) {
+    const res = await api.get<{ data: AnalyticsSummaryDto }>('/analytics/summary', {
+      params,
+    });
     return res.data.data;
   },
   async collections(from: string, to: string) {

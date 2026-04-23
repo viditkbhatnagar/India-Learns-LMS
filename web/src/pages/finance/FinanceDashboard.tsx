@@ -14,7 +14,7 @@ export function FinanceDashboard() {
   const me = useAuthStore((s) => s.user);
   const query = useQuery({
     queryKey: ['analytics', 'summary'],
-    queryFn: analyticsApi.summary,
+    queryFn: () => analyticsApi.summary(),
     retry: false,
   });
 

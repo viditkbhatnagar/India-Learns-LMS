@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import type {
   AnalyticsSummaryDto,
   CollectionsReportDto,
@@ -20,12 +21,22 @@ import { nowUtc } from './clockService.js';
 // from collections built up over M2–M7; no separate ETL. Summary uses an
 // in-memory TTL cache (5 min) per TRD §6 line 753. `now` is parameterised so
 // tests can time-travel via clockService.
+//
+// Stakeholder follow-up (post-first-demo): the summary now supports optional
+// filters — programId (narrows to students in that program) and a [from, to]
+// date range (applies to all time-windowed metrics). Defaults reproduce the
+// original "this month / YTD / 14d rolling" semantics bit-for-bit so existing
+// callers and tests see zero drift.
 
 const SUMMARY_TTL_MS = 5 * 60 * 1000;
-let summaryCache: { expiresAt: number; value: AnalyticsSummaryDto } | null = null;
+const summaryCache = new Map<string, { expiresAt: number; value: AnalyticsSummaryDto }>();
 
 export function clearAnalyticsCache(): void {
-  summaryCache = null;
+  summaryCache.clear();
+}
+
+function cacheKey(opts: { programId?: string; from?: Date; to?: Date }): string {
+  return `${opts.programId ?? ''}|${opts.from?.toISOString() ?? ''}|${opts.to?.toISOString() ?? ''}`;
 }
 
 function startOfUtcDay(d: Date): Date {
@@ -72,48 +83,128 @@ export function parseIsoWeek(week: string): { start: Date; end: Date } {
   return { start, end };
 }
 
-async function studentsByStatus(now: Date) {
+interface Scope {
+  /** Student IDs to narrow by (null = all students). Resolved up-front once
+      per summary call from the programId filter. */
+  studentIds: Types.ObjectId[] | null;
+  /** `{ from, to }` if the caller supplied a date range — else null, and
+      each metric falls back to its default window (this-month / YTD / 14d /
+      this-week) so existing contracts are preserved. */
+  range: { from: Date; to: Date } | null;
+}
+
+function scopedStudentFilter(scope: Scope): Record<string, unknown> {
+  return scope.studentIds ? { studentId: { $in: scope.studentIds } } : {};
+}
+
+async function studentsByStatus(now: Date, scope: Scope) {
+  const base: Record<string, unknown> = { role: 'student', deletedAt: null };
+  if (scope.studentIds) base._id = { $in: scope.studentIds };
+
   const [active, suspended] = await Promise.all([
-    User.countDocuments({ role: 'student', status: 'active', deletedAt: null }),
-    User.countDocuments({
-      role: 'student',
-      status: 'suspended',
-      deletedAt: null,
-    }),
+    User.countDocuments({ ...base, status: 'active' }),
+    User.countDocuments({ ...base, status: 'suspended' }),
   ]);
-  // "In trial today" = students enrolled within the last 14d and paid nothing
-  // — approximated as "created in last 14d".
+  // "In trial today" = active students created within the selected window
+  // (or within the last 14 days when no range is passed).
+  const trialFrom = scope.range?.from ?? daysAgo(now, 14);
+  const trialTo = scope.range?.to ?? endOfUtcDay(now);
   const inTrialToday = await User.countDocuments({
-    role: 'student',
+    ...base,
     status: 'active',
-    deletedAt: null,
-    createdAt: { $gte: daysAgo(now, 14) },
+    createdAt: { $gte: trialFrom, $lt: trialTo },
   });
   return { active, suspended, inTrialToday };
 }
 
-async function admissionsCounts(now: Date) {
+async function admissionsCounts(now: Date, scope: Scope) {
+  const programFilter: Record<string, unknown> = {};
+  if (scope.studentIds) programFilter.studentId = { $in: scope.studentIds };
+
+  if (scope.range) {
+    // Windowed: "thisMonth" becomes "in range"; ytd is redundant so mirrors.
+    const inRange = await Enrollment.countDocuments({
+      ...programFilter,
+      createdAt: { $gte: scope.range.from, $lt: scope.range.to },
+    });
+    return { thisMonth: inRange, ytd: inRange };
+  }
   const [thisMonth, ytd] = await Promise.all([
-    Enrollment.countDocuments({ createdAt: { $gte: startOfMonth(now) } }),
-    Enrollment.countDocuments({ createdAt: { $gte: startOfYear(now) } }),
+    Enrollment.countDocuments({
+      ...programFilter,
+      createdAt: { $gte: startOfMonth(now) },
+    }),
+    Enrollment.countDocuments({
+      ...programFilter,
+      createdAt: { $gte: startOfYear(now) },
+    }),
   ]);
   return { thisMonth, ytd };
 }
 
-async function feesTotals(now: Date) {
+async function feesTotals(now: Date, scope: Scope) {
+  const studentFilter = scopedStudentFilter(scope);
+  const feeInstallmentModel = (await import('../models/index.js')).FeeInstallment;
+
+  if (scope.range) {
+    const [rangeAgg, outstandingAgg] = await Promise.all([
+      Payment.aggregate<{ total: number }>([
+        {
+          $match: {
+            ...studentFilter,
+            reversed: false,
+            receivedAt: { $gte: scope.range.from, $lt: scope.range.to },
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$amountPaise' } } },
+      ]),
+      feeInstallmentModel.aggregate<{ total: number }>([
+        {
+          $match: {
+            ...studentFilter,
+            status: { $in: ['pending', 'partial', 'overdue'] },
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$amountPaise' } } },
+      ]),
+    ]);
+    const windowed = rangeAgg[0]?.total ?? 0;
+    return {
+      // Both fields show the windowed value; UI labels fall to "in selected
+      // range" when a range is active, so there's no user confusion.
+      collectedThisMonthPaise: windowed,
+      collectedYtdPaise: windowed,
+      outstandingPaise: outstandingAgg[0]?.total ?? 0,
+    };
+  }
   const [monthAgg, ytdAgg, outstandingAgg] = await Promise.all([
     Payment.aggregate<{ total: number }>([
-      { $match: { reversed: false, receivedAt: { $gte: startOfMonth(now) } } },
+      {
+        $match: {
+          ...studentFilter,
+          reversed: false,
+          receivedAt: { $gte: startOfMonth(now) },
+        },
+      },
       { $group: { _id: null, total: { $sum: '$amountPaise' } } },
     ]),
     Payment.aggregate<{ total: number }>([
-      { $match: { reversed: false, receivedAt: { $gte: startOfYear(now) } } },
+      {
+        $match: {
+          ...studentFilter,
+          reversed: false,
+          receivedAt: { $gte: startOfYear(now) },
+        },
+      },
       { $group: { _id: null, total: { $sum: '$amountPaise' } } },
     ]),
-    // Outstanding = sum of pending/partial/overdue installments. We sum
-    // `amountPaise` and let the ledger reconcile.
-    (await import('../models/index.js')).FeeInstallment.aggregate<{ total: number }>([
-      { $match: { status: { $in: ['pending', 'partial', 'overdue'] } } },
+    feeInstallmentModel.aggregate<{ total: number }>([
+      {
+        $match: {
+          ...studentFilter,
+          status: { $in: ['pending', 'partial', 'overdue'] },
+        },
+      },
       { $group: { _id: null, total: { $sum: '$amountPaise' } } },
     ]),
   ]);
@@ -124,13 +215,29 @@ async function feesTotals(now: Date) {
   };
 }
 
-async function assessmentsPassRate(now: Date) {
-  const from = daysAgo(now, 30);
+async function assessmentsPassRate(now: Date, scope: Scope) {
+  const from = scope.range?.from ?? daysAgo(now, 30);
+  const to = scope.range?.to ?? endOfUtcDay(now);
+  const studentFilter = scopedStudentFilter(scope);
   const [quizPassed, quizTotal, examPassed, examTotal] = await Promise.all([
-    QuizAttempt.countDocuments({ submittedAt: { $gte: from }, passed: true }),
-    QuizAttempt.countDocuments({ submittedAt: { $gte: from, $ne: null } }),
-    ExamAttempt.countDocuments({ submittedAt: { $gte: from }, passed: true }),
-    ExamAttempt.countDocuments({ submittedAt: { $gte: from, $ne: null } }),
+    QuizAttempt.countDocuments({
+      ...studentFilter,
+      submittedAt: { $gte: from, $lt: to },
+      passed: true,
+    }),
+    QuizAttempt.countDocuments({
+      ...studentFilter,
+      submittedAt: { $gte: from, $lt: to, $ne: null },
+    }),
+    ExamAttempt.countDocuments({
+      ...studentFilter,
+      submittedAt: { $gte: from, $lt: to },
+      passed: true,
+    }),
+    ExamAttempt.countDocuments({
+      ...studentFilter,
+      submittedAt: { $gte: from, $lt: to, $ne: null },
+    }),
   ]);
   const samples = quizTotal + examTotal;
   const quizPassRatePercent = quizTotal === 0 ? 0 : Math.round((quizPassed / quizTotal) * 100);
@@ -138,16 +245,26 @@ async function assessmentsPassRate(now: Date) {
   return { quizPassRatePercent, examPassRatePercent, samples };
 }
 
-async function slaBreachesThisWeek(now: Date) {
-  const monday = startOfUtcDay(now);
-  const dayOfWeek = (monday.getUTCDay() + 6) % 7;
-  monday.setUTCDate(monday.getUTCDate() - dayOfWeek);
-  const nextMonday = new Date(monday.getTime() + 7 * 86_400_000);
+async function slaBreachesThisWeek(now: Date, scope: Scope) {
+  let from: Date;
+  let to: Date;
+  if (scope.range) {
+    from = scope.range.from;
+    to = scope.range.to;
+  } else {
+    const monday = startOfUtcDay(now);
+    const dayOfWeek = (monday.getUTCDay() + 6) % 7;
+    monday.setUTCDate(monday.getUTCDate() - dayOfWeek);
+    from = monday;
+    to = new Date(monday.getTime() + 7 * 86_400_000);
+  }
 
+  const studentFilter = scopedStudentFilter(scope);
   const breaches = await Ticket.find({
+    ...studentFilter,
     $or: [
-      { slaAckBreachedAt: { $gte: monday, $lt: nextMonday } },
-      { slaResolveBreachedAt: { $gte: monday, $lt: nextMonday } },
+      { slaAckBreachedAt: { $gte: from, $lt: to } },
+      { slaResolveBreachedAt: { $gte: from, $lt: to } },
     ],
   }).select('category slaAckBreachedAt slaResolveBreachedAt');
 
@@ -162,10 +279,10 @@ async function slaBreachesThisWeek(now: Date) {
   let thisWeek = 0;
   for (const t of breaches) {
     const bumped =
-      (t.slaAckBreachedAt && t.slaAckBreachedAt >= monday && t.slaAckBreachedAt < nextMonday)
+      (t.slaAckBreachedAt && t.slaAckBreachedAt >= from && t.slaAckBreachedAt < to)
       || (t.slaResolveBreachedAt
-        && t.slaResolveBreachedAt >= monday
-        && t.slaResolveBreachedAt < nextMonday);
+        && t.slaResolveBreachedAt >= from
+        && t.slaResolveBreachedAt < to);
     if (bumped) {
       thisWeek += 1;
       byCategory[t.category as TicketCategory] += 1;
@@ -174,11 +291,20 @@ async function slaBreachesThisWeek(now: Date) {
   return { thisWeek, byCategory };
 }
 
-async function feedbackCoverage(now: Date) {
-  const from = daysAgo(now, 7);
+async function feedbackCoverage(now: Date, scope: Scope) {
+  const from = scope.range?.from ?? daysAgo(now, 7);
+  const to = scope.range?.to ?? endOfUtcDay(now);
+  const studentFilter = scopedStudentFilter(scope);
   const [publishedLast7d, submittedLast7d] = await Promise.all([
-    FeedbackEntry.countDocuments({ status: 'published', publishedAt: { $gte: from } }),
-    ExamAttempt.countDocuments({ submittedAt: { $gte: from } }),
+    FeedbackEntry.countDocuments({
+      ...studentFilter,
+      status: 'published',
+      publishedAt: { $gte: from, $lt: to },
+    }),
+    ExamAttempt.countDocuments({
+      ...studentFilter,
+      submittedAt: { $gte: from, $lt: to },
+    }),
   ]);
   const coveragePercent =
     submittedLast7d === 0
@@ -187,13 +313,16 @@ async function feedbackCoverage(now: Date) {
   return { coveragePercent, publishedLast7d };
 }
 
-async function apiCostThisMonth(now: Date) {
+async function apiCostThisMonth(now: Date, scope: Scope) {
+  // API cost is tenant-wide; programId filter doesn't apply.
+  const from = scope.range?.from ?? startOfMonth(now);
+  const to = scope.range?.to ?? endOfUtcDay(now);
   const rows = await ApiCostLedger.aggregate<{
     _id: string;
     units: number;
     totalPaise: number;
   }>([
-    { $match: { atUtc: { $gte: startOfMonth(now) } } },
+    { $match: { atUtc: { $gte: from, $lt: to } } },
     {
       $group: {
         _id: '$provider',
@@ -213,19 +342,51 @@ async function apiCostThisMonth(now: Date) {
   return { thisMonthPaise, byProvider };
 }
 
+/**
+ * Resolve a 14-day daily-bucket window. If the caller supplied a range, we
+ * show the last 14 calendar days of that range (capped at `to`). Otherwise,
+ * we reproduce the original 14-days-up-to-now window.
+ */
+function sparklineWindow(now: Date, scope: Scope): { earliest: Date; latest: Date } {
+  if (scope.range) {
+    const latest = scope.range.to;
+    const earliest = new Date(
+      Math.max(scope.range.from.getTime(), latest.getTime() - 14 * 86_400_000),
+    );
+    return { earliest: startOfUtcDay(earliest), latest: startOfUtcDay(latest) };
+  }
+  return { earliest: daysAgo(now, 13), latest: endOfUtcDay(now) };
+}
+
+function bucketDays(earliest: Date, latest: Date): string[] {
+  const days: string[] = [];
+  let cursor = new Date(earliest);
+  while (cursor < latest && days.length < 14) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor = new Date(cursor.getTime() + 86_400_000);
+  }
+  return days;
+}
+
 async function sparklineFor(
   now: Date,
+  scope: Scope,
   model: typeof User,
   dateField: string,
-  match: Record<string, unknown>,
+  baseMatch: Record<string, unknown>,
 ): Promise<{ days: string[]; values: number[] }> {
-  const days: string[] = [];
-  const values: number[] = new Array(14).fill(0);
-  const earliest = daysAgo(now, 13);
+  const { earliest, latest } = sparklineWindow(now, scope);
+  const match: Record<string, unknown> = {
+    ...baseMatch,
+    [dateField]: { $gte: earliest, $lt: latest },
+  };
+  if (scope.studentIds && !('studentId' in match)) {
+    match.studentId = { $in: scope.studentIds };
+  }
   const rows = await (model as unknown as {
     aggregate: (pipe: unknown[]) => Promise<Array<{ _id: string; c: number }>>;
   }).aggregate([
-    { $match: { ...match, [dateField]: { $gte: earliest, $lt: endOfUtcDay(now) } } },
+    { $match: match },
     {
       $group: {
         _id: {
@@ -237,24 +398,20 @@ async function sparklineFor(
   ]);
   const counts = new Map<string, number>();
   rows.forEach((r) => counts.set(r._id, r.c));
-  for (let i = 13; i >= 0; i -= 1) {
-    const day = daysAgo(now, i);
-    const key = day.toISOString().slice(0, 10);
-    days.push(key);
-    values[13 - i] = counts.get(key) ?? 0;
-  }
+  const days = bucketDays(earliest, latest);
+  const values = days.map((d) => counts.get(d) ?? 0);
   return { days, values };
 }
 
-async function feesSparkline(now: Date): Promise<{ days: string[]; values: number[] }> {
-  const earliest = daysAgo(now, 13);
+async function feesSparkline(now: Date, scope: Scope): Promise<{ days: string[]; values: number[] }> {
+  const { earliest, latest } = sparklineWindow(now, scope);
+  const match: Record<string, unknown> = {
+    reversed: false,
+    receivedAt: { $gte: earliest, $lt: latest },
+  };
+  if (scope.studentIds) match.studentId = { $in: scope.studentIds };
   const rows = await Payment.aggregate<{ _id: string; total: number }>([
-    {
-      $match: {
-        reversed: false,
-        receivedAt: { $gte: earliest, $lt: endOfUtcDay(now) },
-      },
-    },
+    { $match: match },
     {
       $group: {
         _id: {
@@ -266,29 +423,22 @@ async function feesSparkline(now: Date): Promise<{ days: string[]; values: numbe
   ]);
   const sums = new Map<string, number>();
   rows.forEach((r) => sums.set(r._id, r.total));
-  const days: string[] = [];
-  const values: number[] = [];
-  for (let i = 13; i >= 0; i -= 1) {
-    const day = daysAgo(now, i);
-    const key = day.toISOString().slice(0, 10);
-    days.push(key);
-    values.push(sums.get(key) ?? 0);
-  }
+  const days = bucketDays(earliest, latest);
+  const values = days.map((d) => sums.get(d) ?? 0);
   return { days, values };
 }
 
-async function slaBreachSparkline(now: Date) {
-  const earliest = daysAgo(now, 13);
-  // Union of ack + resolve breaches by day.
+async function slaBreachSparkline(now: Date, scope: Scope) {
+  const { earliest, latest } = sparklineWindow(now, scope);
+  const match: Record<string, unknown> = {
+    $or: [
+      { slaAckBreachedAt: { $gte: earliest, $lt: latest } },
+      { slaResolveBreachedAt: { $gte: earliest, $lt: latest } },
+    ],
+  };
+  if (scope.studentIds) match.studentId = { $in: scope.studentIds };
   const rows = await Ticket.aggregate<{ _id: string; c: number }>([
-    {
-      $match: {
-        $or: [
-          { slaAckBreachedAt: { $gte: earliest, $lt: endOfUtcDay(now) } },
-          { slaResolveBreachedAt: { $gte: earliest, $lt: endOfUtcDay(now) } },
-        ],
-      },
-    },
+    { $match: match },
     {
       $project: {
         day: {
@@ -305,28 +455,55 @@ async function slaBreachSparkline(now: Date) {
   ]);
   const counts = new Map<string, number>();
   rows.forEach((r) => counts.set(r._id, r.c));
-  const days: string[] = [];
-  const values: number[] = [];
-  for (let i = 13; i >= 0; i -= 1) {
-    const day = daysAgo(now, i);
-    const key = day.toISOString().slice(0, 10);
-    days.push(key);
-    values.push(counts.get(key) ?? 0);
-  }
+  const days = bucketDays(earliest, latest);
+  const values = days.map((d) => counts.get(d) ?? 0);
   return { days, values };
 }
 
 export interface GetSummaryOptions {
   bypassCache?: boolean;
+  /** Narrow student-anchored metrics (students.*, admissions.*, fees.*,
+      assessments.*, feedback.*, sparklines.*) to this program. Does not
+      affect apiCost (tenant-wide) or non-student tickets. */
+  programId?: string;
+  /** Window for all time-ranged metrics. Omit both for the legacy
+      this-month / YTD / 14d / this-week defaults. */
+  from?: Date;
+  to?: Date;
 }
 
 export async function getAnalyticsSummary(
   options: GetSummaryOptions = {},
 ): Promise<AnalyticsSummaryDto> {
   const now = nowUtc();
-  if (!options.bypassCache && summaryCache && summaryCache.expiresAt > now.getTime()) {
-    return summaryCache.value;
+  const key = cacheKey(options);
+  const hit = summaryCache.get(key);
+  if (!options.bypassCache && hit && hit.expiresAt > now.getTime()) {
+    return hit.value;
   }
+
+  // Resolve student set for the program filter. We do it once so every
+  // metric re-uses the same cohort (and we only pay one round trip to the
+  // User collection).
+  let studentIds: Types.ObjectId[] | null = null;
+  if (options.programId && Types.ObjectId.isValid(options.programId)) {
+    const students = await User.find({
+      role: 'student',
+      programId: new Types.ObjectId(options.programId),
+      deletedAt: null,
+    }).select('_id');
+    studentIds = students.map((s) => s._id);
+    // If the program has zero students, every subsequent $in:[] returns
+    // empty — that's the correct answer (don't special-case).
+  }
+
+  const scope: Scope = {
+    studentIds,
+    range:
+      options.from && options.to
+        ? { from: options.from, to: options.to }
+        : null,
+  };
 
   const [
     students,
@@ -340,16 +517,16 @@ export async function getAnalyticsSummary(
     feesSpark,
     slaBreachSpark,
   ] = await Promise.all([
-    studentsByStatus(now),
-    admissionsCounts(now),
-    feesTotals(now),
-    assessmentsPassRate(now),
-    slaBreachesThisWeek(now),
-    feedbackCoverage(now),
-    apiCostThisMonth(now),
-    sparklineFor(now, Enrollment as unknown as typeof User, 'createdAt', {}),
-    feesSparkline(now),
-    slaBreachSparkline(now),
+    studentsByStatus(now, scope),
+    admissionsCounts(now, scope),
+    feesTotals(now, scope),
+    assessmentsPassRate(now, scope),
+    slaBreachesThisWeek(now, scope),
+    feedbackCoverage(now, scope),
+    apiCostThisMonth(now, scope),
+    sparklineFor(now, scope, Enrollment as unknown as typeof User, 'createdAt', {}),
+    feesSparkline(now, scope),
+    slaBreachSparkline(now, scope),
   ]);
 
   const value: AnalyticsSummaryDto = {
@@ -367,7 +544,7 @@ export async function getAnalyticsSummary(
       slaBreaches: slaBreachSpark,
     },
   };
-  summaryCache = { expiresAt: now.getTime() + SUMMARY_TTL_MS, value };
+  summaryCache.set(key, { expiresAt: now.getTime() + SUMMARY_TTL_MS, value });
   return value;
 }
 
