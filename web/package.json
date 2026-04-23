@@ -16,6 +16,7 @@
     "lighthouse": "node scripts/lighthouse.mjs"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/poppins": "^5.1.0",
     "@sentry/react": "^8.40.0",
     "@tanstack/react-query": "^5.99.2",

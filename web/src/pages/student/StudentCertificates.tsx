@@ -48,7 +48,7 @@ export function StudentCertificates() {
                 <div className="absolute inset-0 bg-hero-radial opacity-70" />
                 <div
                   aria-hidden
-                  className="relative h-20 w-20 rounded-full bg-white/10 border border-white/30 backdrop-blur-sm grid place-items-center shadow-elev-3"
+                  className="relative h-20 w-20 rounded-full bg-white/10 border border-white/30 grid place-items-center shadow-elev-3"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-10 w-10 text-brand-orange">
                     <circle cx="12" cy="10" r="6" />

@@ -7,6 +7,12 @@ import '@fontsource/poppins/400.css';
 import '@fontsource/poppins/500.css';
 import '@fontsource/poppins/600.css';
 import '@fontsource/poppins/700.css';
+// JetBrains Mono — paired with Poppins per the approved mockups. Used for
+// numeric values (stat tiles, fees, percentages), IDs (ticket/receipt/invoice/
+// student codes), times, and module-number badges.
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
+import '@fontsource/jetbrains-mono/700.css';
 import { App } from './App.js';
 import './index.css';
 import { initSentry } from './lib/sentry.js';

@@ -27,7 +27,7 @@ export function Card({
   return (
     <div
       className={clsx(
-        'bg-white rounded-2xl p-6 transition-all duration-200 ease-bounce',
+        'bg-white rounded-2xl p-6 transition-all duration-200 ease-decel',
         elevationClass[elevation],
         interactive &&
           'hover:shadow-elev-3 hover:-translate-y-0.5 cursor-pointer focus-within:ring-2 focus-within:ring-brand-navy/20',

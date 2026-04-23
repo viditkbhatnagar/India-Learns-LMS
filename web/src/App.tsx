@@ -48,41 +48,35 @@ import {
 } from './pages/admin/AdminUsers.js';
 import { AdminTickets } from './pages/admin/AdminTickets.js';
 import { AdminPrograms, AdminCourses } from './pages/admin/AdminPrograms.js';
-import {
-  AdminAuditLogsPage,
-  AdminBatchDetailPage,
-  AdminBatchesPage,
-  AdminEnrollmentDetailPage,
-  AdminEnrollmentsPage,
-  AdminFeeStructuresPage,
-  AdminHolidaysPage,
-  AdminSlaBreachesPage,
-  AdminTicketDetailPage,
-  AdminTimetableBuilderPage,
-} from './pages/admin/AdminScreens.js';
+import { AdminBatchesPage } from './pages/admin/AdminBatches.js';
+import { AdminBatchDetailPage } from './pages/admin/AdminBatchDetail.js';
+import { AdminTimetableBuilderPage } from './pages/admin/AdminTimetableBuilder.js';
+import { AdminEnrollmentsPage } from './pages/admin/AdminEnrollments.js';
+import { AdminEnrollmentDetailPage } from './pages/admin/AdminEnrollmentDetail.js';
+import { AdminAuditLogsPage } from './pages/admin/AdminAuditLogs.js';
+import { AdminFeeStructuresPage } from './pages/admin/AdminFeeStructures.js';
+import { AdminTicketDetailPage } from './pages/admin/AdminTicketDetail.js';
+import { AdminSlaBreachesPage } from './pages/admin/AdminSlaBreaches.js';
+import { AdminHolidaysPage } from './pages/admin/AdminHolidays.js';
 
 // Finance
 import { FinanceDashboard } from './pages/finance/FinanceDashboard.js';
 import { FinancePaymentNew } from './pages/finance/FinancePayment.js';
-import {
-  FinancePaymentDetailPage,
-  FinancePaymentsListPage,
-  FinanceReportsPage,
-  FinanceStudentDetailPage,
-  FinanceStudentsPage,
-} from './pages/finance/FinanceScreens.js';
+import { FinanceStudentsPage } from './pages/finance/FinanceStudents.js';
+import { FinanceStudentDetailPage } from './pages/finance/FinanceStudentDetail.js';
+import { FinancePaymentsListPage } from './pages/finance/FinancePaymentsList.js';
+import { FinancePaymentDetailPage } from './pages/finance/FinancePaymentDetail.js';
+import { FinanceReportsPage } from './pages/finance/FinanceReports.js';
 
 // Faculty
 import { FacultyDashboard } from './pages/faculty/FacultyDashboard.js';
-import {
-  FacultyCourseDetailPage,
-  FacultyCoursesPage,
-  FacultyFeedbackNewPage,
-  FacultyFeedbackPage,
-  FacultyGradingDetailPage,
-  FacultyGradingQueuePage,
-  FacultyTimetablePage,
-} from './pages/faculty/FacultyScreens.js';
+import { FacultyCoursesPage } from './pages/faculty/FacultyCourses.js';
+import { FacultyCourseDetailPage } from './pages/faculty/FacultyCourseDetail.js';
+import { FacultyGradingQueuePage } from './pages/faculty/FacultyGrading.js';
+import { FacultyGradingDetailPage } from './pages/faculty/FacultyGradingDetail.js';
+import { FacultyFeedbackPage } from './pages/faculty/FacultyFeedback.js';
+import { FacultyFeedbackNewPage } from './pages/faculty/FacultyFeedbackNew.js';
+import { FacultyTimetablePage } from './pages/faculty/FacultyTimetable.js';
 
 // Shared
 import { ProfilePage, NotificationPrefsPage } from './pages/ProfilePage.js';

@@ -78,7 +78,7 @@ export function StudentFees() {
             </div>
             <div className="h-2.5 rounded-full bg-surface-muted overflow-hidden">
               <div
-                className="h-full bg-accent-gradient rounded-full transition-all duration-700 ease-bounce"
+                className="h-full bg-accent-gradient rounded-full transition-all duration-700 ease-decel"
                 style={{ width: `${payPercent}%` }}
                 aria-hidden
               />

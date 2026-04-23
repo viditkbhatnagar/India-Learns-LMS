@@ -52,7 +52,7 @@ export function StudentDashboard() {
               {dash.enrolments.length === 1 ? '' : 's'} · stay on track this week.
             </p>
           </div>
-          <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 p-5">
+          <div className="rounded-2xl bg-white/10 border border-white/15 p-5">
             <p className="text-xs uppercase tracking-wider text-white/60 font-semibold mb-2">
               Next class
             </p>
@@ -208,22 +208,23 @@ function StatTile({
   href: string;
   cta: string;
 }) {
-  const accentBar: Record<typeof tone, string> = {
-    neutral: 'bg-muted/40',
-    info: 'bg-brand-navy',
-    success: 'bg-success',
-    warning: 'bg-warning',
-    danger: 'bg-danger',
-    accent: 'bg-brand-orange',
+  const numberTone: Record<typeof tone, string> = {
+    neutral: 'text-brand-navy',
+    info: 'text-brand-navy',
+    success: 'text-success',
+    warning: 'text-warning',
+    danger: 'text-danger',
+    accent: 'text-brand-orange',
   };
   return (
     <Link
       to={href}
-      className="group relative overflow-hidden rounded-2xl bg-white border border-black/5 shadow-elev-1 hover:shadow-elev-3 hover:-translate-y-0.5 transition-all duration-200 ease-bounce focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/30 focus-visible:ring-offset-2 p-5 block"
+      className="group relative overflow-hidden rounded-2xl bg-white border border-black/5 shadow-elev-1 hover:shadow-elev-3 hover:-translate-y-0.5 transition-all duration-200 ease-decel focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/30 focus-visible:ring-offset-2 p-5 block"
     >
-      <span className={`absolute left-0 top-0 bottom-0 w-1 ${accentBar[tone]}`} aria-hidden />
       <p className="text-xs uppercase tracking-wider text-muted font-semibold">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-brand-navy count-up">{value}</p>
+      <p className={`mt-2 text-2xl font-bold font-mono tabular-nums count-up ${numberTone[tone]}`}>
+        {value}
+      </p>
       <p className="mt-3 text-xs font-medium text-brand-navy/60 group-hover:text-brand-orange transition-colors">
         {cta} →
       </p>

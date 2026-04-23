@@ -238,15 +238,14 @@ function Stat({
   value: string;
   tone?: 'danger' | 'success' | 'default';
 }) {
-  const barColor =
-    tone === 'danger' ? 'bg-danger' : tone === 'success' ? 'bg-success' : 'bg-brand-navy';
   const textColor =
     tone === 'danger' ? 'text-danger' : tone === 'success' ? 'text-success' : 'text-brand-navy';
   return (
-    <div className="relative overflow-hidden rounded-xl border border-black/5 bg-white p-4">
-      <span className={`absolute left-0 top-0 bottom-0 w-1 ${barColor}`} aria-hidden />
+    <div className="rounded-xl border border-black/5 bg-white p-4">
       <p className="text-xs uppercase tracking-wider text-muted font-semibold">{label}</p>
-      <p className={`mt-1 font-bold text-lg count-up ${textColor}`}>{value}</p>
+      <p className={`mt-1 font-bold text-lg font-mono tabular-nums count-up ${textColor}`}>
+        {value}
+      </p>
     </div>
   );
 }

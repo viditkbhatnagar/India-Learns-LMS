@@ -89,10 +89,10 @@ export function StudentTimetable() {
                       aria-hidden
                       className="shrink-0 rounded-xl bg-white shadow-elev-1 px-3 py-2 text-center min-w-[72px]"
                     >
-                      <p className="text-brand-navy font-bold text-sm tabular-nums">
+                      <p className="text-brand-navy font-bold text-sm font-mono tabular-nums">
                         {formatInTimeZone(new Date(occ.startAt), 'Asia/Kolkata', 'HH:mm')}
                       </p>
-                      <p className="text-[10px] text-muted tabular-nums mt-0.5">
+                      <p className="text-[10px] text-muted font-mono tabular-nums mt-0.5">
                         {formatInTimeZone(new Date(occ.endAt), 'Asia/Kolkata', 'HH:mm')}
                       </p>
                     </div>

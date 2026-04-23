@@ -557,3 +557,25 @@ Append-only log. Every entry: ID, date, decision, why, source.
 - **Q-M7-04** (exam "Graded" state) — keep 4 states; grading completeness is per-attempt.
 **Source:** Open questions in memory/open-questions.md; spec pack deltas.
 **How to apply:** No code changes required for any of these (each was already the de-facto behaviour — the closure just promotes it from "maybe change" to "this is the policy"). Documentation cleanup in TRD/PRD is queued for the next doc-pack revision pass.
+
+## D-088 — UI polish pass: impeccable-audit remediation
+**Date:** 2026-04-24
+**Why:** UI audit against the `impeccable` skill's quality rules found several AI-slop patterns that had drifted in during implementation but are NOT in the approved mockups (`webapp/` + `mobile/`). Cross-referenced each finding against the mockups before touching anything.
+
+**Changes (all restore the approved mockup or are mechanical refactors — no brand-identity changes):**
+
+1. **Removed 4px left-stripe accents** from 5 StatTile variants (student/faculty/admin/finance dashboards + finance-payment summary). Mockups use only 1px neutral dividers, never colored side-stripes. Tone is now conveyed by the big-number text color, not a bar.
+2. **Removed decorative `backdrop-blur-sm` glassmorphism** from 4 student pages (dashboard next-class widget, certificate medallion, quiz/exam completion circles). Mockups have zero backdrop-blur. Kept the two *functional* blurs in AppShell (sidebar scroll translucency, modal overlay dim).
+3. **Restored Poppins + JetBrains Mono font pair** per [webapp/styles.css:39](webapp/styles.css#L39). Added `@fontsource/jetbrains-mono` (weights 400/500/700), added `mono` to Tailwind `fontFamily`, applied `font-mono tabular-nums` at all mockup call sites: stat values, ticket/receipt/invoice/student codes, timetable times, module-number badges, quiz/exam timers, fee amounts.
+4. **Renamed `ease-bounce` → `ease-decel`** in tailwind config + ~6 component usages. The curve `cubic-bezier(0.22, 1, 0.36, 1)` is ease-out-quint (no overshoot, compliant) — the old name invited future contributors to think overshoot was sanctioned.
+5. **Capped body-text prose at `max-w-[68ch]`** on ticket threads, announcements, feedback comments, faculty essay/submission bodies, admin ticket detail. Previously unbounded on a 1400px shell.
+6. **Split the three monolithic `*Screens.tsx` files** into per-route files (22 new files across `pages/admin/`, `pages/faculty/`, `pages/finance/`). AdminScreens (941 LOC), FacultyScreens (1014 LOC), FinanceScreens (416 LOC) deleted. Brought the project in line with [CLAUDE.md §5](CLAUDE.md#L237) "one file per resource" convention.
+7. **Migrated navy + orange palette scales to OKLCH** with anchor-preserving strategy: the `500` anchors (`#1A3A8F`, `#F58220`) are kept as exact hex so brand colors render pixel-identical; `50-400` and `600-900` are regenerated in OKLCH for perceptually uniform steps with reduced chroma at scale extremes. Also tinted `surface.DEFAULT` away from pure white toward a barely-perceptible warm off-white (`oklch(0.992 0.005 80)`) so cards sit harmoniously on the cream bg.
+
+**Dropped (intentionally not touching):**
+- Differentiating the 4 dashboards — mockups intentionally share the same stat-tile grid across roles. Not a divergence.
+- Adding a *display* font beyond Poppins + JetBrains Mono — approved pair is exactly these two; adding a third face would be a brand change requiring Logan/Rejin sign-off.
+- The `Card` `accent` top-border prop (border-t-2 orange/navy on hero cards) — approved mockup usage. Only side-stripes were the ban.
+
+**Source:** impeccable skill quality rules (absolute bans, AI-slop test, color + typography + motion rules); cross-referenced against approved mockups in `webapp/` (JSX + styles.css).
+**How to apply:** After the OKLCH switch, `npm run typecheck && npm run lint && npm run build` all pass in `web/`. Manual visual pass recommended before pushing — anchor colors are identical but scale neighbors shift subtly. If the palette ramp drift is noticeable, the OKLCH block in [web/tailwind.config.ts](web/tailwind.config.ts) is the only revert point; the other changes are independent.

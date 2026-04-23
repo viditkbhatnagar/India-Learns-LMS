@@ -371,10 +371,10 @@ function MetricCard({
   tone: MetricTone;
   subtle?: boolean;
 }) {
-  const accentBar: Record<MetricTone, string> = {
-    navy: 'bg-brand-navy',
-    orange: 'bg-brand-orange',
-    danger: 'bg-danger',
+  const numberTone: Record<MetricTone, string> = {
+    navy: 'text-brand-navy',
+    orange: 'text-brand-orange',
+    danger: 'text-danger',
   };
   const strokeColor: Record<MetricTone, string> = {
     navy: '#1A3A8F',
@@ -384,10 +384,9 @@ function MetricCard({
   const data = (spark ?? []).map((v, i) => ({ i, v }));
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-white border border-black/5 shadow-elev-1 hover:shadow-elev-2 transition-all duration-200 ease-bounce p-5">
-      <span className={`absolute left-0 top-0 bottom-0 w-1 ${accentBar[tone]}`} aria-hidden />
+    <div className="relative overflow-hidden rounded-2xl bg-white border border-black/5 shadow-elev-1 hover:shadow-elev-2 transition-all duration-200 ease-decel p-5">
       <p className="text-xs uppercase tracking-wider text-muted font-semibold">{label}</p>
-      <p className={`mt-2 font-bold text-brand-navy count-up ${subtle ? 'text-xl' : 'text-2xl'}`}>
+      <p className={`mt-2 font-bold font-mono tabular-nums count-up ${numberTone[tone]} ${subtle ? 'text-xl' : 'text-2xl'}`}>
         {value}
       </p>
       {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}

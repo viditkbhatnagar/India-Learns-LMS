@@ -50,12 +50,12 @@ export function StudentFeedback() {
                 }
               />
               {f.summary && (
-                <div className="rounded-xl bg-navy-50 border border-navy-100 p-4 text-ink leading-relaxed mb-4">
+                <div className="rounded-xl bg-navy-50 border border-navy-100 p-4 text-ink leading-relaxed mb-4 max-w-[68ch]">
                   {f.summary}
                 </div>
               )}
               {f.comments && (
-                <div className="rounded-xl bg-surface-muted p-4 text-sm whitespace-pre-wrap text-ink/90 leading-relaxed">
+                <div className="rounded-xl bg-surface-muted p-4 text-sm whitespace-pre-wrap text-ink/90 leading-relaxed max-w-[68ch]">
                   {f.comments}
                 </div>
               )}

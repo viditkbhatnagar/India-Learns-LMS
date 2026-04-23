@@ -114,9 +114,9 @@ export function ExamAttemptPage() {
             {submitted.totalScorePercent !== null && (
               <div
                 aria-hidden
-                className="mx-auto mt-6 h-28 w-28 rounded-full bg-white/10 border border-white/30 backdrop-blur-sm grid place-items-center shadow-elev-3"
+                className="mx-auto mt-6 h-28 w-28 rounded-full bg-white/10 border border-white/30 grid place-items-center shadow-elev-3"
               >
-                <p className="text-display-md text-brand-orange count-up">
+                <p className="text-display-md text-brand-orange font-mono tabular-nums count-up">
                   {submitted.totalScorePercent}%
                 </p>
               </div>

@@ -61,7 +61,7 @@ export function StudentCourses() {
             <Link
               key={e.id}
               to={`/student/courses/${e.courseId}`}
-              className="group block rounded-2xl overflow-hidden bg-white shadow-elev-1 hover:shadow-elev-3 hover:-translate-y-0.5 transition-all duration-200 ease-bounce border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/30 focus-visible:ring-offset-2"
+              className="group block rounded-2xl overflow-hidden bg-white shadow-elev-1 hover:shadow-elev-3 hover:-translate-y-0.5 transition-all duration-200 ease-decel border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/30 focus-visible:ring-offset-2"
             >
               {/* Top brand strip with course initials. */}
               <div className="relative h-24 bg-brand-gradient overflow-hidden">
@@ -161,7 +161,7 @@ export function StudentCourseDetail() {
                     {formatIstDateTime(a.createdAt)}
                   </span>
                 </div>
-                <p className="text-sm whitespace-pre-wrap text-ink/90 leading-relaxed">{a.body}</p>
+                <p className="text-sm whitespace-pre-wrap text-ink/90 leading-relaxed max-w-[68ch]">{a.body}</p>
               </li>
             ))}
           </ul>
@@ -190,7 +190,7 @@ export function StudentCourseDetail() {
                 >
                   <span
                     aria-hidden
-                    className="shrink-0 h-10 w-10 rounded-xl bg-navy-100 text-brand-navy font-bold grid place-items-center"
+                    className="shrink-0 h-10 w-10 rounded-xl bg-navy-100 text-brand-navy font-bold font-mono tabular-nums grid place-items-center"
                   >
                     {m.order + 1}
                   </span>
@@ -276,7 +276,7 @@ export function StudentModuleView() {
               </a>
             )}
             {block.kind === 'text' && block.textMarkdown && (
-              <div className="prose prose-sm max-w-none whitespace-pre-wrap text-ink/90 leading-relaxed">
+              <div className="prose prose-sm max-w-[68ch] whitespace-pre-wrap text-ink/90 leading-relaxed">
                 {block.textMarkdown}
               </div>
             )}
@@ -386,7 +386,7 @@ function StudentAssignmentRow({ a, courseId }: { a: AssignmentWithMine; courseId
           {graded && a.mySubmission?.feedback && (
             <div className="rounded-xl bg-navy-50 border border-navy-100 p-3 text-sm leading-relaxed">
               <p className="font-semibold text-brand-navy mb-1">Faculty feedback</p>
-              <p className="whitespace-pre-wrap text-ink/90">{a.mySubmission.feedback}</p>
+              <p className="whitespace-pre-wrap text-ink/90 max-w-[68ch]">{a.mySubmission.feedback}</p>
             </div>
           )}
           {a.state === 'closed' ? (

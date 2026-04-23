@@ -291,7 +291,7 @@ export function StudentTicketDetail() {
 
       <Card accent="navy">
         <CardHeader title="Original message" />
-        <p className="whitespace-pre-wrap text-ink leading-relaxed">{ticket.description}</p>
+        <p className="whitespace-pre-wrap text-ink leading-relaxed max-w-[68ch]">{ticket.description}</p>
       </Card>
 
       <Card>
@@ -305,7 +305,7 @@ export function StudentTicketDetail() {
                 <p className="text-xs text-muted mb-1.5 font-medium">
                   {formatIstDateTime(c.createdAt)}
                 </p>
-                <p className="whitespace-pre-wrap text-ink leading-relaxed">{c.body}</p>
+                <p className="whitespace-pre-wrap text-ink leading-relaxed max-w-[68ch]">{c.body}</p>
               </li>
             ))}
           </ul>

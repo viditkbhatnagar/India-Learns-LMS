@@ -173,17 +173,18 @@ function StatTile({
   tone: 'neutral' | 'info' | 'warning' | 'success';
   sub?: string;
 }) {
-  const accentBar: Record<typeof tone, string> = {
-    neutral: 'bg-muted/40',
-    info: 'bg-brand-navy',
-    warning: 'bg-warning',
-    success: 'bg-success',
+  const numberTone: Record<typeof tone, string> = {
+    neutral: 'text-brand-navy',
+    info: 'text-brand-navy',
+    warning: 'text-warning',
+    success: 'text-success',
   };
   return (
     <div className="relative overflow-hidden rounded-2xl bg-white border border-black/5 shadow-elev-1 p-5">
-      <span className={`absolute left-0 top-0 bottom-0 w-1 ${accentBar[tone]}`} aria-hidden />
       <p className="text-xs uppercase tracking-wider text-muted font-semibold">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-brand-navy count-up">{value}</p>
+      <p className={`mt-2 text-2xl font-bold font-mono tabular-nums count-up ${numberTone[tone]}`}>
+        {value}
+      </p>
       {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
     </div>
   );

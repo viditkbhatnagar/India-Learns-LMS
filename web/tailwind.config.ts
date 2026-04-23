@@ -5,44 +5,48 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand scales — anchor 500 matches the logo JPEG. Generated so
-        // navy-600/700 have enough contrast on cream for body text, and
-        // orange-100/200 are soft enough for hover/selected states.
+        // Brand scales — anchor 500 matches the logo JPEG exactly; surrounding
+        // steps are regenerated in OKLCH for perceptually uniform jumps.
+        // Chroma is reduced at 50/100 and 800/900 per the "reduce chroma near
+        // white/black" rule so pale tints don't look bruised and dark tones
+        // don't look muddy.
         navy: {
-          50: '#EEF2FB',
-          100: '#D5DFF3',
-          200: '#A8BCE6',
-          300: '#7897D6',
-          400: '#4B73C4',
+          50: 'oklch(0.958 0.018 265)',
+          100: 'oklch(0.886 0.045 265)',
+          200: 'oklch(0.767 0.080 265)',
+          300: 'oklch(0.630 0.115 265)',
+          400: 'oklch(0.498 0.135 265)',
           500: '#1A3A8F',
-          600: '#163180',
-          700: '#122769',
-          800: '#0E1E53',
-          900: '#0A163D',
+          600: 'oklch(0.328 0.127 266)',
+          700: 'oklch(0.275 0.105 266)',
+          800: 'oklch(0.222 0.083 266)',
+          900: 'oklch(0.172 0.058 265)',
         },
         orange: {
-          50: '#FFF4E8',
-          100: '#FFE2C0',
-          200: '#FFC082',
-          300: '#FFA04E',
-          400: '#FA8B2F',
+          50: 'oklch(0.970 0.025 72)',
+          100: 'oklch(0.920 0.058 72)',
+          200: 'oklch(0.834 0.115 65)',
+          300: 'oklch(0.773 0.157 55)',
+          400: 'oklch(0.738 0.170 50)',
           500: '#F58220',
-          600: '#DC6B15',
-          700: '#B5520D',
-          800: '#8C3E08',
-          900: '#642B04',
+          600: 'oklch(0.638 0.163 46)',
+          700: 'oklch(0.525 0.148 43)',
+          800: 'oklch(0.413 0.118 40)',
+          900: 'oklch(0.303 0.087 37)',
         },
         // Aliases for backward compat with existing components.
         'brand-orange': '#F58220',
         'brand-navy': '#1A3A8F',
         'brand-sky': '#6E9BCC',
         'brand-cream': '#FBF5E8',
-        // Neutral scale — warmer than Tailwind's default slate, to sit
-        // harmoniously against the cream background.
+        // Neutrals — ink already navy-tinted (not pure black). `muted` sits on
+        // the slate scale which is close enough to navy-tinted. `surface` now
+        // carries a barely-perceptible warm tint toward the cream bg so white
+        // cards feel grounded rather than floating.
         ink: '#0F1A2E',
         muted: '#64748B',
         surface: {
-          DEFAULT: '#FFFFFF',
+          DEFAULT: 'oklch(0.992 0.005 80)',
           alt: '#FBF5E8',
           muted: '#F3EFE3',
         },
@@ -52,6 +56,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['Poppins', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'Menlo', 'monospace'],
       },
       fontSize: {
         // Display ramp for hero headings.
@@ -116,7 +121,10 @@ const config: Config = {
         'pulse-soft': 'pulse-soft 2.4s ease-in-out infinite',
       },
       transitionTimingFunction: {
-        bounce: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        // ease-out-quint: smooth deceleration, no overshoot. Use for entrances,
+        // hover lifts, drawer slides. Named "decel" so nobody mistakes the curve
+        // for an actual bounce.
+        decel: 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
     },
   },

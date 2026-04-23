@@ -109,12 +109,13 @@ function MetricTile({
   value: string;
   tone: 'navy' | 'orange';
 }) {
-  const bar = tone === 'orange' ? 'bg-brand-orange' : 'bg-brand-navy';
+  const numberTone = tone === 'orange' ? 'text-brand-orange' : 'text-brand-navy';
   return (
     <div className="relative overflow-hidden rounded-2xl bg-white border border-black/5 shadow-elev-1 p-5">
-      <span className={`absolute left-0 top-0 bottom-0 w-1 ${bar}`} aria-hidden />
       <p className="text-xs uppercase tracking-wider text-muted font-semibold">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-brand-navy count-up">{value}</p>
+      <p className={`mt-2 text-2xl font-bold font-mono tabular-nums count-up ${numberTone}`}>
+        {value}
+      </p>
     </div>
   );
 }

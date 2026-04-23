@@ -61,7 +61,7 @@ export function Button({
       disabled={disabled || loading}
       className={clsx(
         'inline-flex items-center justify-center gap-2 rounded-xl font-semibold',
-        'transition-all duration-200 ease-bounce',
+        'transition-all duration-200 ease-decel',
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-elev-1',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
         variants[variant],
