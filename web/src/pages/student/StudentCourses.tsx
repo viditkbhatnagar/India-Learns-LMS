@@ -1,9 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { announcementsApi, meCoursesApi } from '../../lib/endpoints.js';
+import {
+  announcementsApi,
+  assignmentsApi,
+  meCoursesApi,
+  type AssignmentWithMine,
+} from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { Button } from '../../components/ui/Button.js';
+import { Input, TextArea } from '../../components/ui/Input.js';
 import { formatIstDateTime } from '../../lib/format.js';
 
 function PageHeader({ eyebrow, title, subtitle }: { eyebrow?: string; title: string; subtitle?: string }) {
@@ -160,14 +168,16 @@ export function StudentCourseDetail() {
         </Card>
       )}
 
+      <StudentAssignmentsCard courseId={courseId!} />
+
       <Card accent="navy">
         <CardHeader
-          title="Modules"
-          subtitle={`${modules.length} module${modules.length === 1 ? '' : 's'}`}
+          title="Sessions"
+          subtitle={`${modules.length} session${modules.length === 1 ? '' : 's'}`}
         />
         {modules.length === 0 ? (
           <EmptyState
-            title="No modules yet"
+            title="No sessions yet"
             message="The faculty hasn't published content yet. Check back soon."
           />
         ) : (
@@ -224,8 +234,8 @@ export function StudentModuleView() {
     return (
       <Card>
         <EmptyState
-          title="Module not found"
-          message="This module may not be published or you may not have access."
+          title="Session not found"
+          message="This session may not be published or you may not have access."
         />
       </Card>
     );
@@ -282,5 +292,151 @@ export function StudentModuleView() {
         ))}
       </div>
     </div>
+  );
+}
+
+// ---------- Student assignments card (embedded in course detail) ----------
+
+function StudentAssignmentsCard({ courseId }: { courseId: string }) {
+  const q = useQuery({
+    queryKey: ['course', courseId, 'assignments'],
+    queryFn: () => assignmentsApi.listForCourse(courseId),
+    enabled: Boolean(courseId),
+    retry: false,
+  });
+  if (q.isLoading) return <Skeleton lines={3} />;
+  if (q.isError || !q.data) return null;
+  const items = q.data;
+
+  if (items.length === 0) return null;
+
+  return (
+    <Card accent="orange">
+      <CardHeader
+        title="Assignments"
+        subtitle="Submit your work by the due date. Faculty grades and leaves feedback."
+      />
+      <ul className="space-y-3">
+        {items.map((a) => (
+          <StudentAssignmentRow key={a.id} a={a} courseId={courseId} />
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function StudentAssignmentRow({ a, courseId }: { a: AssignmentWithMine; courseId: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [body, setBody] = useState(a.mySubmission?.bodyText ?? '');
+  const [url, setUrl] = useState(a.mySubmission?.attachmentUrl ?? '');
+  const [err, setErr] = useState<string | null>(null);
+  const submit = useMutation({
+    mutationFn: () =>
+      assignmentsApi.submit(a.id, {
+        bodyText: body.trim(),
+        attachmentUrl: url.trim() ? url.trim() : null,
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ['course', courseId, 'assignments'] });
+    },
+    onError: (e) => setErr((e as Error).message),
+  });
+
+  const graded = a.mySubmission?.score !== null && a.mySubmission?.score !== undefined;
+  const submitted = Boolean(a.mySubmission);
+  const overdue = new Date(a.dueAt).getTime() < Date.now();
+
+  return (
+    <li className="rounded-xl border border-black/5 bg-white">
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-semibold text-brand-navy">{a.title}</p>
+            <p className="text-xs text-muted mt-0.5">
+              Due {new Date(a.dueAt).toLocaleDateString()}
+              {overdue && !submitted ? ' · overdue' : ''} · Max {a.maxScore} pts
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {graded ? (
+              <Badge tone="success" dot>
+                {a.mySubmission!.score} / {a.maxScore}
+              </Badge>
+            ) : submitted ? (
+              <Badge tone="info" dot>Submitted</Badge>
+            ) : overdue ? (
+              <Badge tone="danger" dot>Overdue</Badge>
+            ) : (
+              <Badge tone="warning" dot>Pending</Badge>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => setOpen((v) => !v)}>
+              {open ? 'Close' : submitted ? 'View / edit' : 'Open'}
+            </Button>
+          </div>
+        </div>
+        <p className="text-sm whitespace-pre-wrap text-ink/80 mt-2 line-clamp-3">
+          {a.instructions}
+        </p>
+      </div>
+      {open && (
+        <div className="border-t border-black/5 p-4 bg-surface-muted/60 space-y-3">
+          {graded && a.mySubmission?.feedback && (
+            <div className="rounded-xl bg-navy-50 border border-navy-100 p-3 text-sm leading-relaxed">
+              <p className="font-semibold text-brand-navy mb-1">Faculty feedback</p>
+              <p className="whitespace-pre-wrap text-ink/90">{a.mySubmission.feedback}</p>
+            </div>
+          )}
+          {a.state === 'closed' ? (
+            <div className="rounded-xl bg-surface-muted border border-black/5 p-3 text-sm text-muted">
+              This assignment is closed — no further submissions accepted.
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (body.trim() || url.trim()) submit.mutate();
+              }}
+              className="space-y-3"
+            >
+              <TextArea
+                label="Your response"
+                placeholder="Type your answer here…"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={5}
+                maxLength={16_000}
+              />
+              <Input
+                label="Attachment URL (optional)"
+                placeholder="Google Doc, Drive, or any link"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                type="url"
+              />
+              {err && (
+                <div className="rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm">
+                  {err}
+                </div>
+              )}
+              <Button
+                type="submit"
+                loading={submit.isPending}
+                disabled={!body.trim() && !url.trim()}
+              >
+                {submitted ? 'Resubmit' : 'Submit'}
+              </Button>
+              {submitted && (
+                <p className="text-xs text-muted">
+                  Resubmitting will clear your previous grade.
+                </p>
+              )}
+            </form>
+          )}
+        </div>
+      )}
+    </li>
   );
 }

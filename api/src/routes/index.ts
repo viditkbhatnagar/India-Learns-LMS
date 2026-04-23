@@ -4,6 +4,11 @@ import { usersRouter } from './users.js';
 import { programsRouter } from './programs.js';
 import { coursesRouter } from './courses.js';
 import { courseAnnouncementsRouter } from './announcements.js';
+import {
+  assignmentSubmissionsRouter,
+  assignmentsRouter,
+  courseAssignmentsRouter,
+} from './assignments.js';
 import { modulesRouter } from './modules.js';
 import { batchesRouter } from './batches.js';
 import { enrollmentsRouter } from './enrollments.js';
@@ -63,6 +68,9 @@ export function v1Router(): Router {
   router.use('/programs', programsRouter());
   router.use('/courses', coursesRouter());
   router.use('/courses/:courseId/announcements', courseAnnouncementsRouter());
+  router.use('/courses/:courseId/assignments', courseAssignmentsRouter());
+  router.use('/assignments', assignmentsRouter());
+  router.use('/assignment-submissions', assignmentSubmissionsRouter());
   router.use('/modules', modulesRouter());
   router.use('/batches', batchesRouter());
   router.use('/batches', batchTimetableRouter());

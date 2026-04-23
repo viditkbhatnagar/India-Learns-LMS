@@ -175,6 +175,10 @@ export const NOTIFICATION_TYPES = [
   'feedback.published',
   // M8 — certificates (PRD §14.3)
   'certificate.issued',
+  // Post-M9 — assignments (stakeholder follow-up)
+  'assignment.created',
+  'assignment.submitted',
+  'assignment.graded',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -277,5 +281,10 @@ export const AUDIT_ACTIONS = [
   'notification.retry_succeeded',
   'notification.retry_exhausted',
   'jobs.notifications_retry.invoked',
+  // Post-M9 — assignments (stakeholder follow-up)
+  'assignment.created',
+  'assignment.updated',
+  'assignment.submission.created',
+  'assignment.submission.graded',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

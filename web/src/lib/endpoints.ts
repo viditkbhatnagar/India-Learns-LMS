@@ -133,6 +133,102 @@ export const programsApi = {
   },
 };
 
+export interface AssignmentDto {
+  id: string;
+  courseId: string;
+  moduleId: string | null;
+  authorUserId: string;
+  title: string;
+  instructions: string;
+  dueAt: string;
+  maxScore: number;
+  state: 'open' | 'closed';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssignmentSubmissionDto {
+  id: string;
+  assignmentId: string;
+  courseId: string;
+  studentId: string;
+  bodyText: string;
+  attachmentUrl: string | null;
+  submittedAt: string;
+  score: number | null;
+  feedback: string | null;
+  gradedByUserId: string | null;
+  gradedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssignmentWithMine extends AssignmentDto {
+  mySubmission: AssignmentSubmissionDto | null;
+}
+
+export interface AssignmentSubmissionWithStudent extends AssignmentSubmissionDto {
+  student: { id: string; name: string; email: string; code: string | null } | null;
+}
+
+export const assignmentsApi = {
+  async listForCourse(courseId: string) {
+    const res = await api.get<{ data: { items: AssignmentWithMine[] } }>(
+      `/courses/${courseId}/assignments`,
+    );
+    return res.data.data.items;
+  },
+  async createOnCourse(
+    courseId: string,
+    input: {
+      title: string;
+      instructions: string;
+      dueAt: string;
+      maxScore: number;
+      moduleId?: string | null;
+    },
+  ) {
+    const res = await api.post<{ data: { assignment: AssignmentDto } }>(
+      `/courses/${courseId}/assignments`,
+      input,
+    );
+    return res.data.data.assignment;
+  },
+  async get(id: string) {
+    const res = await api.get<{
+      data: { assignment: AssignmentDto; mySubmission: AssignmentSubmissionDto | null };
+    }>(`/assignments/${id}`);
+    return res.data.data;
+  },
+  async update(id: string, input: Partial<{ title: string; instructions: string; dueAt: string; maxScore: number; state: 'open' | 'closed' }>) {
+    const res = await api.patch<{ data: { assignment: AssignmentDto } }>(
+      `/assignments/${id}`,
+      input,
+    );
+    return res.data.data.assignment;
+  },
+  async submit(id: string, input: { bodyText?: string; attachmentUrl?: string | null }) {
+    const res = await api.post<{ data: { submission: AssignmentSubmissionDto } }>(
+      `/assignments/${id}/submissions`,
+      input,
+    );
+    return res.data.data.submission;
+  },
+  async listSubmissions(id: string) {
+    const res = await api.get<{ data: { items: AssignmentSubmissionWithStudent[] } }>(
+      `/assignments/${id}/submissions`,
+    );
+    return res.data.data.items;
+  },
+  async grade(submissionId: string, input: { score: number; feedback?: string }) {
+    const res = await api.post<{ data: { submission: AssignmentSubmissionDto } }>(
+      `/assignment-submissions/${submissionId}/grade`,
+      input,
+    );
+    return res.data.data.submission;
+  },
+};
+
 export const modulesApi = {
   async createOnCourse(courseId: string, input: { title: string; order: number }) {
     const res = await api.post<{ data: { module: ModuleDto } }>(

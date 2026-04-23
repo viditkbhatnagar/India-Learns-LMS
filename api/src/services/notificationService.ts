@@ -48,6 +48,10 @@ const CHANNELS_BY_TYPE: Record<NotificationType, NotificationChannel[]> = {
   // M8 — PRD §14.3 line 553. No WhatsApp (not in the 3-template allowlist,
   // D-007); inapp + email only.
   'certificate.issued': ['inapp', 'email'],
+  // Post-M9 assignments — inapp + email, no WhatsApp (no approved template).
+  'assignment.created': ['inapp', 'email'],
+  'assignment.submitted': ['inapp', 'email'],
+  'assignment.graded': ['inapp', 'email'],
 };
 
 // Only three WABA templates are pre-approved at launch (D-007): `il_fee_due`,
