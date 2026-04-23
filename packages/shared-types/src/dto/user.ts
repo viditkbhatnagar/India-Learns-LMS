@@ -49,6 +49,7 @@ export interface UpdateUserInput {
 export interface UserListQuery {
   role?: Role;
   status?: UserStatus;
+  programId?: string;
   q?: string;
   page?: number;
   limit?: number;

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
 import type { Role } from 'india-learns-shared-types';
-import { usersApi } from '../../lib/endpoints.js';
+import { usersApi, programsApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
@@ -16,12 +16,15 @@ export function AdminUsers() {
   const me = useAuthStore((s) => s.user);
   const isReadOnly = me?.role === 'superadmin';
   const [role, setRole] = useState<Role | 'all'>('all');
+  const [programId, setProgramId] = useState<string>('all');
   const [q, setQ] = useState('');
+  const programsQ = useQuery({ queryKey: ['programs'], queryFn: programsApi.list });
   const query = useQuery({
-    queryKey: ['users', role, q],
+    queryKey: ['users', role, programId, q],
     queryFn: () =>
       usersApi.list({
         ...(role !== 'all' ? { role } : {}),
+        ...(programId !== 'all' ? { programId } : {}),
         ...(q ? { q } : {}),
       }),
   });
@@ -70,6 +73,23 @@ export function AdminUsers() {
               <option value="finance">Finance</option>
               <option value="admin">Admins</option>
               <option value="superadmin">Superadmins</option>
+            </select>
+          </label>
+          <label className="block w-full sm:w-auto">
+            <span className="block text-xs uppercase tracking-wider text-muted font-semibold mb-1.5">
+              Program
+            </span>
+            <select
+              value={programId}
+              onChange={(e) => setProgramId(e.target.value)}
+              className="w-full sm:w-56 h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
+            >
+              <option value="all">All programs</option>
+              {(programsQ.data ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
             </select>
           </label>
         </div>

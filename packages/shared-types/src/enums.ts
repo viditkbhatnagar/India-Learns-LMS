@@ -240,6 +240,7 @@ export const AUDIT_ACTIONS = [
   'jobs.autosuspend.invoked',
   'ticket.created',
   'ticket.assigned',
+  'ticket.reassigned',
   'ticket.comment.added',
   'ticket.state_changed',
   'ticket.reopened',

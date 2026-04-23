@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import {
   addComment,
+  assignTicket,
   createTicket,
   getTicketDetail,
   listForAdmin,
@@ -43,6 +44,10 @@ const TransitionBody = z.object({
 
 const ReopenBody = z.object({
   note: z.string().max(4000).optional(),
+});
+
+const AssignBody = z.object({
+  assigneeUserId: z.string().min(1).nullable(),
 });
 
 const ReopenRequestBody = z.object({
@@ -184,6 +189,30 @@ export function ticketsRouter(): Router {
           req.auth!,
           req.params.id ?? '',
           body.note,
+          {
+            actorUserId: req.auth!.userId,
+            ip: req.ip ?? '',
+            ua: req.header('user-agent') ?? '',
+          },
+        );
+        res.json({ data: { ticket: toTicketDto(ticket) } });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // Reassign ticket — admin + superadmin only
+  router.post(
+    '/:id/assign',
+    requireRole('admin', 'superadmin'),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const body = AssignBody.parse(req.body);
+        const ticket = await assignTicket(
+          req.auth!,
+          req.params.id ?? '',
+          body.assigneeUserId,
           {
             actorUserId: req.auth!.userId,
             ip: req.ip ?? '',

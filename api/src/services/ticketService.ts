@@ -357,6 +357,87 @@ export async function transitionTicket(
   return ticket;
 }
 
+/**
+ * Reassign a ticket to another staff user (or unassign with null). Only
+ * admin + superadmin may reassign; the new assignee must be a staff user
+ * (admin, superadmin, faculty, finance). If the ticket is still `open`,
+ * it flips to `assigned` as a side-effect. Writes an audit row and pings
+ * the new assignee via a notification.
+ */
+export async function assignTicket(
+  actor: AuthContext,
+  ticketId: string,
+  newAssigneeId: string | null,
+  ctx: TicketCtx,
+): Promise<HydratedTicket> {
+  if (actor.role !== 'admin' && actor.role !== 'superadmin') {
+    throw new HttpError(403, 'FORBIDDEN', 'Only admins may reassign tickets.');
+  }
+  if (!Types.ObjectId.isValid(ticketId)) {
+    throw new HttpError(404, 'NOT_FOUND', 'Ticket not found.');
+  }
+  const ticket = await Ticket.findById(ticketId);
+  if (!ticket) {
+    throw new HttpError(404, 'NOT_FOUND', 'Ticket not found.');
+  }
+
+  const before = { assigneeUserId: ticket.assigneeUserId?.toString() ?? null, state: ticket.state };
+
+  if (newAssigneeId === null) {
+    ticket.assigneeUserId = null;
+    ticket.assignedAt = null;
+  } else {
+    if (!Types.ObjectId.isValid(newAssigneeId)) {
+      throw new HttpError(422, 'VALIDATION_FAILED', 'assigneeUserId is not a valid id.');
+    }
+    const { User } = await import('../models/index.js');
+    const assignee = await User.findById(newAssigneeId);
+    if (!assignee) {
+      throw new HttpError(404, 'NOT_FOUND', 'Assignee not found.');
+    }
+    if (!isStaffRole(assignee.role)) {
+      throw new HttpError(
+        422,
+        'VALIDATION_FAILED',
+        'Assignee must be admin, superadmin, faculty, or finance.',
+      );
+    }
+    ticket.assigneeUserId = assignee._id;
+    ticket.assignedAt = nowUtc();
+    // Nudge state if still 'open'.
+    if (ticket.state === 'open') ticket.state = 'assigned';
+  }
+  await ticket.save();
+
+  await recordAudit({
+    actorUserId: ctx.actorUserId,
+    action: 'ticket.reassigned',
+    targetType: 'Ticket',
+    targetId: ticket._id,
+    before,
+    after: { assigneeUserId: ticket.assigneeUserId?.toString() ?? null, state: ticket.state },
+    ip: ctx.ip,
+    ua: ctx.ua,
+  });
+
+  // Notify the new assignee (fire-and-forget).
+  if (ticket.assigneeUserId) {
+    try {
+      await enqueueNotification({
+        type: 'ticket.assigned',
+        recipients: [ticket.assigneeUserId],
+        title: `Ticket ${ticket.code} assigned to you`,
+        body: ticket.subject,
+        data: { ticketId: ticket._id.toString(), ticketCode: ticket.code },
+      });
+    } catch {
+      // non-fatal
+    }
+  }
+
+  return ticket;
+}
+
 export async function reopenTicket(
   actor: AuthContext,
   ticketId: string,

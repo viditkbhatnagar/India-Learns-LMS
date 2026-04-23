@@ -62,7 +62,7 @@ export const authApi = {
 };
 
 export const usersApi = {
-  async list(params: { role?: string; status?: string; q?: string } = {}) {
+  async list(params: { role?: string; status?: string; programId?: string; q?: string } = {}) {
     const res = await api.get<{ data: { items: UserPublicDto[] } }>('/users', {
       params,
     });
@@ -130,8 +130,17 @@ export const coursesApi = {
     return res.data.data.items;
   },
   async get(id: string) {
-    const res = await api.get<{ data: { course: CourseDto; modules: ModuleDto[] } }>(`/courses/${id}`);
-    return res.data.data;
+    // /courses/:id returns only { course }; modules live on a separate
+    // endpoint. Fetch both in parallel so callers get the combined shape
+    // they already expect.
+    const [courseRes, modulesRes] = await Promise.all([
+      api.get<{ data: { course: CourseDto } }>(`/courses/${id}`),
+      api.get<{ data: { items: ModuleDto[] } }>(`/courses/${id}/modules`),
+    ]);
+    return {
+      course: courseRes.data.data.course,
+      modules: modulesRes.data.data.items,
+    };
   },
   async create(input: { programId: string; name: string; slug: string; summary?: string }) {
     const res = await api.post<{ data: { course: CourseDto } }>('/courses', input);
@@ -252,15 +261,21 @@ export const ticketsApi = {
     const res = await api.post<{ data: { ticket: TicketDto } }>('/tickets', input);
     return res.data.data.ticket;
   },
-  async addComment(id: string, body: string) {
+  async addComment(id: string, body: string, visibility?: 'public' | 'internal') {
     const res = await api.post<{ data: { comment: TicketCommentDto } }>(
       `/tickets/${id}/comments`,
-      { body },
+      visibility ? { body, visibility } : { body },
     );
     return res.data.data.comment;
   },
   async transition(id: string, input: { to: TicketState; note?: string }) {
     const res = await api.post<{ data: { ticket: TicketDto } }>(`/tickets/${id}/state`, input);
+    return res.data.data.ticket;
+  },
+  async assign(id: string, assigneeUserId: string | null) {
+    const res = await api.post<{ data: { ticket: TicketDto } }>(`/tickets/${id}/assign`, {
+      assigneeUserId,
+    });
     return res.data.data.ticket;
   },
   async requestReopen(id: string, note?: string) {

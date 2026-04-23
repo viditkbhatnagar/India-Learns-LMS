@@ -162,6 +162,9 @@ export async function listUsers(query: UserListQuery): Promise<{
   const filter: Record<string, unknown> = {};
   if (query.role) filter.role = query.role;
   if (query.status) filter.status = query.status;
+  if (query.programId && Types.ObjectId.isValid(query.programId)) {
+    filter.programId = new Types.ObjectId(query.programId);
+  }
   if (query.q) {
     const safe = query.q.trim().replace(/[\\^$*+?.()|[\]{}]/g, '\\$&');
     filter.$or = [

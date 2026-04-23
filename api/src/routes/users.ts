@@ -45,6 +45,7 @@ const UpdateBody = z.object({
 const ListQuery = z.object({
   role: z.enum(['admin', 'superadmin', 'finance', 'faculty', 'student']).optional(),
   status: z.enum(['pending', 'active', 'suspended', 'revoked']).optional(),
+  programId: z.string().min(1).optional(),
   q: z.string().max(120).optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().max(100).optional(),

@@ -24,6 +24,7 @@ import {
   programsApi,
   ticketsApi,
   timetableEntriesApi,
+  usersApi,
 } from '../../lib/endpoints.js';
 import { formatIstDate, formatIstDateTime } from '../../lib/format.js';
 
@@ -595,11 +596,24 @@ export function AdminTicketDetailPage() {
     queryFn: () => ticketsApi.get(ticketId),
     enabled: !!ticketId,
   });
+  // Staff users eligible to be assigned. Filter down from the full /users
+  // list to admin/superadmin/faculty/finance (student/suspended skipped by
+  // default because the server rejects them anyway).
+  const staffQ = useQuery({
+    queryKey: ['admin', 'ticket-staff'],
+    queryFn: async () => {
+      const roles = ['admin', 'superadmin', 'faculty', 'finance'] as const;
+      const lists = await Promise.all(roles.map((r) => usersApi.list({ role: r })));
+      return lists.flat();
+    },
+  });
   const [comment, setComment] = useState('');
+  const [commentVisibility, setCommentVisibility] = useState<'public' | 'internal'>('public');
   const [transitionTo, setTransitionTo] = useState<TicketState>('assigned');
   const [transitionNote, setTransitionNote] = useState('');
+  const [assigneeId, setAssigneeId] = useState<string>('');
   const addComment = useMutation({
-    mutationFn: () => ticketsApi.addComment(ticketId, comment),
+    mutationFn: () => ticketsApi.addComment(ticketId, comment, commentVisibility),
     onSuccess: () => {
       setComment('');
       qc.invalidateQueries({ queryKey: ['admin', 'ticket', ticketId] });
@@ -609,6 +623,12 @@ export function AdminTicketDetailPage() {
     mutationFn: () => ticketsApi.transition(ticketId, { to: transitionTo, note: transitionNote }),
     onSuccess: () => {
       setTransitionNote('');
+      qc.invalidateQueries({ queryKey: ['admin', 'ticket', ticketId] });
+    },
+  });
+  const assign = useMutation({
+    mutationFn: () => ticketsApi.assign(ticketId, assigneeId || null),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'ticket', ticketId] });
     },
   });
@@ -637,19 +657,37 @@ export function AdminTicketDetailPage() {
         <p className="text-sm whitespace-pre-wrap">{ticket.description}</p>
       </Card>
       <Card>
-        <CardHeader title="Conversation" />
+        <CardHeader
+          title="Conversation"
+          subtitle="Public replies are visible to the student; internal notes are staff-only."
+        />
         {comments.length === 0 ? (
           <EmptyState title="No comments yet" />
         ) : (
           <ul className="space-y-3">
-            {comments.map((c) => (
-              <li key={c.id} className="border-l-4 border-brand-orange/40 pl-3">
-                <p className="text-xs text-muted">
-                  {c.authorUserId.slice(-6)} · {formatIstDateTime(c.createdAt)} · {c.visibility}
-                </p>
-                <p className="text-sm whitespace-pre-wrap mt-1">{c.body}</p>
-              </li>
-            ))}
+            {comments.map((c) => {
+              const internal = c.visibility === 'internal';
+              return (
+                <li
+                  key={c.id}
+                  className={`rounded-xl border p-4 ${
+                    internal
+                      ? 'border-amber-200 bg-amber-50/60'
+                      : 'border-black/5 bg-surface-muted'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1.5 text-xs text-muted">
+                    <span className="font-mono">{c.authorUserId.slice(-6)}</span>
+                    <span>·</span>
+                    <span>{formatIstDateTime(c.createdAt)}</span>
+                    <Badge tone={internal ? 'warning' : 'info'} size="sm" dot>
+                      {internal ? 'Internal' : 'Public'}
+                    </Badge>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap text-ink leading-relaxed">{c.body}</p>
+                </li>
+              );
+            })}
           </ul>
         )}
         <form
@@ -657,16 +695,82 @@ export function AdminTicketDetailPage() {
             e.preventDefault();
             if (comment.trim()) addComment.mutate();
           }}
-          className="mt-4 space-y-2"
+          className="mt-5 space-y-3"
         >
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-semibold text-brand-navy">Visibility:</span>
+            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                name="visibility"
+                checked={commentVisibility === 'public'}
+                onChange={() => setCommentVisibility('public')}
+                className="accent-brand-orange"
+              />
+              <span>Public (student sees this)</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5 cursor-pointer ml-4">
+              <input
+                type="radio"
+                name="visibility"
+                checked={commentVisibility === 'internal'}
+                onChange={() => setCommentVisibility('internal')}
+                className="accent-brand-orange"
+              />
+              <span>Internal (staff only)</span>
+            </label>
+          </div>
           <TextArea
-            label="Add a public comment"
+            label={commentVisibility === 'internal' ? 'Add an internal note' : 'Add a public reply'}
+            placeholder={
+              commentVisibility === 'internal'
+                ? 'Visible to admin/faculty/finance only'
+                : 'The student will see this'
+            }
             rows={3}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
           />
           <Button type="submit" loading={addComment.isPending} disabled={!comment.trim()}>
-            Post comment
+            Post {commentVisibility === 'internal' ? 'internal note' : 'public reply'}
+          </Button>
+        </form>
+      </Card>
+      <Card>
+        <CardHeader
+          title="Assign"
+          subtitle={
+            ticket.assigneeUserId
+              ? `Currently assigned to ${ticket.assigneeUserId.slice(-6)}`
+              : 'Currently unassigned'
+          }
+        />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            assign.mutate();
+          }}
+          className="flex flex-col sm:flex-row gap-3 items-end"
+        >
+          <label className="block flex-1">
+            <span className="block text-sm font-semibold text-brand-navy mb-1.5 tracking-tight">
+              New assignee
+            </span>
+            <select
+              value={assigneeId}
+              onChange={(e) => setAssigneeId(e.target.value)}
+              className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
+            >
+              <option value="">— Unassign —</option>
+              {(staffQ.data ?? []).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} · {u.role}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button type="submit" loading={assign.isPending}>
+            Reassign
           </Button>
         </form>
       </Card>
