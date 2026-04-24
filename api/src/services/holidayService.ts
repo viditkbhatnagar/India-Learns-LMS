@@ -11,7 +11,7 @@ import { utcDateForIstDay } from './timetableTz.js';
 import type { ActorContext } from './userService.js';
 
 function assertAdmin(role: Role, verb: string): void {
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', `Only admins may ${verb} holidays.`);
   }
 }

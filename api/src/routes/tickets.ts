@@ -34,6 +34,7 @@ const CreateTicketBody = z.object({
 const AddCommentBody = z.object({
   body: z.string().min(1).max(8000),
   visibility: z.enum(['public', 'internal']).optional(),
+  mentionUserIds: z.array(z.string().min(1)).max(20).optional(),
   attachments: z.array(AttachmentInput).optional(),
 });
 
@@ -48,6 +49,7 @@ const ReopenBody = z.object({
 
 const AssignBody = z.object({
   assigneeUserId: z.string().min(1).nullable(),
+  coAssigneeUserIds: z.array(z.string().min(1)).max(20).optional(),
 });
 
 const ReopenRequestBody = z.object({
@@ -218,6 +220,7 @@ export function ticketsRouter(): Router {
             ip: req.ip ?? '',
             ua: req.header('user-agent') ?? '',
           },
+          body.coAssigneeUserIds,
         );
         res.json({ data: { ticket: toTicketDto(ticket) } });
       } catch (err) {

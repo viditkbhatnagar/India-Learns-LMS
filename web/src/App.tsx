@@ -201,7 +201,7 @@ export function App() {
             path="/finance/*"
             element={
               <RequireAuth>
-                <RequireRole roles={['finance']}>
+                <RequireRole roles={['finance', 'superadmin']}>
                   <Routes>
                     <Route path="dashboard" element={<FinanceDashboard />} />
                     <Route path="students" element={<FinanceStudentsPage />} />

@@ -98,14 +98,14 @@ describe('programs CRUD', () => {
     expect(res.body.error.code).toBe('PROGRAM_IN_USE');
   });
 
-  it('non-admin staff (superadmin) cannot create', async () => {
+  it('superadmin can create programs (round-3 oversight policy)', async () => {
     const su = await makeUser({ role: 'superadmin', password: 'Admin#1234567' });
     const at = await tokenFor(su);
     const res = await http()
       .post('/v1/programs')
       .set(bearer(at))
-      .send({ name: 'x', slug: 'x-sa' });
-    expect(res.status).toBe(403);
+      .send({ name: 'Superadmin Program', slug: 'sa-program' });
+    expect(res.status).toBe(201);
   });
 
   it('seeded programs appear via GET /v1/programs', async () => {

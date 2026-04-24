@@ -16,7 +16,7 @@ export function suspensionOverrideRouter(): Router {
 
   router.post(
     '/:id/suspension/override',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = ApplyBody.parse(req.body);
@@ -34,7 +34,7 @@ export function suspensionOverrideRouter(): Router {
 
   router.delete(
     '/:id/suspension/override',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const user = await revokeOverride(req.params.id ?? '', {

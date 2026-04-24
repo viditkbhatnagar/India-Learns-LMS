@@ -72,7 +72,7 @@ export function programsRouter(): Router {
 
   router.post(
     '/',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = CreateBody.parse(req.body);
@@ -104,7 +104,7 @@ export function programsRouter(): Router {
 
   router.patch(
     '/:id',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = UpdateBody.parse(req.body);
@@ -122,7 +122,7 @@ export function programsRouter(): Router {
 
   router.delete(
     '/:id',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await deleteProgram(req.params.id ?? '', {

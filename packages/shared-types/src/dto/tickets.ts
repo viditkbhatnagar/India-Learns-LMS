@@ -23,6 +23,7 @@ export interface TicketDto {
   description: string;
   state: TicketState;
   assigneeUserId: string | null;
+  coAssigneeUserIds: string[];
   assignedAt: string | null;
   firstAckAt: string | null;
   resolvedAt: string | null;
@@ -71,6 +72,10 @@ export interface CreateTicketInput {
 export interface AddCommentInput {
   body: string;
   visibility?: TicketCommentVisibility;
+  /** Users to @mention — they receive a `ticket.commented` notification
+      even if they're not the counterparty / assignee. Ignored when
+      students post (server forces public + clears mentions). */
+  mentionUserIds?: string[];
   attachments?: TicketAttachmentDto[];
 }
 

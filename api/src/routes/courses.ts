@@ -104,7 +104,7 @@ export function coursesRouter(): Router {
 
   router.post(
     '/',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = CreateBody.parse(req.body);
@@ -142,7 +142,7 @@ export function coursesRouter(): Router {
 
   router.patch(
     '/:id',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = UpdateBody.parse(req.body);
@@ -160,7 +160,7 @@ export function coursesRouter(): Router {
 
   router.post(
     '/:id/publish',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await publishCourse(req.params.id ?? '', {
@@ -177,7 +177,7 @@ export function coursesRouter(): Router {
 
   router.post(
     '/:id/unpublish',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await unpublishCourse(req.params.id ?? '', {
@@ -194,7 +194,7 @@ export function coursesRouter(): Router {
 
   router.delete(
     '/:id',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await deleteCourse(req.params.id ?? '', {
@@ -232,7 +232,7 @@ export function coursesRouter(): Router {
 
   router.post(
     '/:id/modules',
-    requireRole('admin', 'faculty'),
+    requireRole('admin', 'superadmin', 'faculty'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = CreateModuleBody.parse(req.body);

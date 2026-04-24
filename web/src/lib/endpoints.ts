@@ -402,10 +402,18 @@ export const ticketsApi = {
     const res = await api.post<{ data: { ticket: TicketDto } }>('/tickets', input);
     return res.data.data.ticket;
   },
-  async addComment(id: string, body: string, visibility?: 'public' | 'internal') {
+  async addComment(
+    id: string,
+    body: string,
+    visibility?: 'public' | 'internal',
+    mentionUserIds?: string[],
+  ) {
+    const payload: Record<string, unknown> = { body };
+    if (visibility) payload.visibility = visibility;
+    if (mentionUserIds && mentionUserIds.length > 0) payload.mentionUserIds = mentionUserIds;
     const res = await api.post<{ data: { comment: TicketCommentDto } }>(
       `/tickets/${id}/comments`,
-      visibility ? { body, visibility } : { body },
+      payload,
     );
     return res.data.data.comment;
   },
@@ -413,10 +421,17 @@ export const ticketsApi = {
     const res = await api.post<{ data: { ticket: TicketDto } }>(`/tickets/${id}/state`, input);
     return res.data.data.ticket;
   },
-  async assign(id: string, assigneeUserId: string | null) {
-    const res = await api.post<{ data: { ticket: TicketDto } }>(`/tickets/${id}/assign`, {
-      assigneeUserId,
-    });
+  async assign(
+    id: string,
+    assigneeUserId: string | null,
+    coAssigneeUserIds?: string[],
+  ) {
+    const payload: Record<string, unknown> = { assigneeUserId };
+    if (coAssigneeUserIds !== undefined) payload.coAssigneeUserIds = coAssigneeUserIds;
+    const res = await api.post<{ data: { ticket: TicketDto } }>(
+      `/tickets/${id}/assign`,
+      payload,
+    );
     return res.data.data.ticket;
   },
   async requestReopen(id: string, note?: string) {

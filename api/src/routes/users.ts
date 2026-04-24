@@ -93,7 +93,7 @@ export function usersRouter(): Router {
 
   router.post(
     '/',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = CreateBody.parse(req.body);
@@ -145,7 +145,7 @@ export function usersRouter(): Router {
 
   router.post(
     '/:id/suspend',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = SuspendBody.parse(req.body);
@@ -163,7 +163,7 @@ export function usersRouter(): Router {
 
   router.post(
     '/:id/unsuspend',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await unsuspendUser((req.params.id ?? ''), {
@@ -180,7 +180,7 @@ export function usersRouter(): Router {
 
   router.post(
     '/:id/resend-invite',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await resendInvite((req.params.id ?? ''), {
@@ -197,7 +197,7 @@ export function usersRouter(): Router {
 
   router.delete(
     '/:id',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await softDeleteUser((req.params.id ?? ''), {

@@ -10,11 +10,9 @@ import { Badge } from '../../components/ui/Badge.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { PageHeader } from '../../components/ui/PageHeader.js';
 import { ApiHttpError } from '../../lib/api.js';
-import { useAuthStore } from '../../store/auth.js';
 
 export function AdminUsers() {
-  const me = useAuthStore((s) => s.user);
-  const isReadOnly = me?.role === 'superadmin';
+  const isReadOnly = false; // superadmin now has full write access (round 3)
   const [role, setRole] = useState<Role | 'all'>('all');
   const [programId, setProgramId] = useState<string>('all');
   const [q, setQ] = useState('');
@@ -285,8 +283,7 @@ export function AdminInviteUser() {
 
 export function AdminUserDetail() {
   const { id } = useParams<{ id: string }>();
-  const me = useAuthStore((s) => s.user);
-  const isReadOnly = me?.role === 'superadmin';
+  const isReadOnly = false; // superadmin now has full write access (round 3)
   const qc = useQueryClient();
   const query = useQuery({
     queryKey: ['users', id],

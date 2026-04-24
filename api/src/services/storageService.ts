@@ -21,7 +21,7 @@ export async function requestUploadTicket(
   },
   actor: { role: Role; userId: Types.ObjectId },
 ): Promise<StorageUploadTicketResponse> {
-  if (actor.role !== 'admin' && actor.role !== 'faculty') {
+  if (actor.role !== 'admin' && actor.role !== 'superadmin' && actor.role !== 'faculty') {
     throw new HttpError(403, 'FORBIDDEN', 'Only admins or faculty may request upload URLs.');
   }
   if (actor.role === 'faculty') {

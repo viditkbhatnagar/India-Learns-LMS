@@ -60,7 +60,7 @@ function toDto(doc: HydratedCourse): CourseDto {
 export { toDto as toCourseDto };
 
 function assertAdmin(role: Role, verb: string): void {
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', `Only admins may ${verb} courses.`);
   }
 }

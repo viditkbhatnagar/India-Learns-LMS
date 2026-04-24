@@ -112,7 +112,7 @@ describe('users CRUD', () => {
     expect(me.body.data.user.passwordHash).toBeUndefined();
   });
 
-  it('refuses POST /v1/users from a superadmin (TRD §5.2 admin-only)', async () => {
+  it('allows POST /v1/users from a superadmin (round-3 oversight policy)', async () => {
     const superadmin = await makeUser({
       role: 'superadmin',
       password: 'Super#12345',
@@ -127,12 +127,12 @@ describe('users CRUD', () => {
       .set('authorization', `Bearer ${accessToken}`)
       .send({
         role: 'student',
-        name: 'Blocked',
-        email: 'blocked@example.com',
+        name: 'Invited by SA',
+        email: 'sa-invited@example.com',
         phoneE164: '+919999000100',
       });
-    expect(attempt.status).toBe(403);
-    expect(attempt.body.error.code).toBe('FORBIDDEN');
+    expect(attempt.status).toBe(201);
+    expect(attempt.body.data.user.email).toBe('sa-invited@example.com');
   });
 
   it('blocks non-admins from admin mutations', async () => {

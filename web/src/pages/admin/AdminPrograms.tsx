@@ -7,12 +7,10 @@ import { Input } from '../../components/ui/Input.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { PageHeader } from '../../components/ui/PageHeader.js';
-import { useAuthStore } from '../../store/auth.js';
 import { ApiHttpError } from '../../lib/api.js';
 
 export function AdminPrograms() {
-  const me = useAuthStore((s) => s.user);
-  const readOnly = me?.role === 'superadmin';
+  const readOnly = false; // superadmin now has full write access (round 3)
   const qc = useQueryClient();
   const query = useQuery({ queryKey: ['programs'], queryFn: programsApi.list });
   const [name, setName] = useState('');

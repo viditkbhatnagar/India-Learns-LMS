@@ -36,6 +36,7 @@ import { jobsSlaRouter } from './jobsSla.js';
 import { jobsFacultyDigestRouter } from './jobsFacultyDigest.js';
 import { ticketsRouter } from './tickets.js';
 import { meTicketsRouter } from './meTickets.js';
+import { auditLogsRouter } from './auditLogs.js';
 import { staffGradingRouter } from './staffGrading.js';
 import { staffTicketsRouter } from './staffTickets.js';
 import { quizzesRouter, quizAttemptsRouter } from './quizzes.js';
@@ -105,6 +106,7 @@ export function v1Router(): Router {
   // literal `/me` segment isn't swallowed by the `/:id` handler.
   router.use('/me/tickets', meTicketsRouter());
   router.use('/tickets/me', meTicketsRouter());
+  router.use('/audit-logs', auditLogsRouter());
   router.use('/staff/grading-queue', staffGradingRouter());
   router.use('/staff/tickets', staffTicketsRouter());
   router.use('/tickets', ticketsRouter());

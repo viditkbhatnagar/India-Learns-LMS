@@ -23,6 +23,10 @@ export interface TicketDoc {
   description: string;
   state: TicketState;
   assigneeUserId: Types.ObjectId | null;
+  /** Additional users looped into the ticket alongside the primary
+      assignee. They receive the same notifications and can post public/
+      internal comments but SLA counts against the primary. */
+  coAssigneeUserIds: Types.ObjectId[];
   assignedAt: Date | null;
   firstAckAt: Date | null;
   resolvedAt: Date | null;
@@ -94,6 +98,10 @@ const TicketSchema = new Schema<TicketDoc>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       default: null,
+    },
+    coAssigneeUserIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+      default: [],
     },
     assignedAt: { type: Date, default: null },
     firstAckAt: { type: Date, default: null },

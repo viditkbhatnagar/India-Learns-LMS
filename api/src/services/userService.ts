@@ -112,7 +112,7 @@ export async function createUser(
   input: CreateUserInput,
   actor: { role: Role } & ActorContext,
 ): Promise<HydratedUser> {
-  if (actor.role !== 'admin') {
+  if (actor.role !== 'admin' && actor.role !== 'superadmin') {
     // TRD §5.2 + PRD §3.1: only admin creates users.
     throw new HttpError(403, 'FORBIDDEN', 'Only admins may create users.');
   }
@@ -195,7 +195,7 @@ export async function updateUser(
   const doc = await User.findById(targetId);
   if (!doc) throw new HttpError(404, 'NOT_FOUND', 'User not found.');
   const isSelf = targetId.equals(actor.userId);
-  const isAdmin = actor.role === 'admin';
+  const isAdmin = actor.role === 'admin' || actor.role === 'superadmin';
   if (!isAdmin && !isSelf) {
     throw new HttpError(403, 'FORBIDDEN', 'Cannot edit another user.');
   }
@@ -253,7 +253,7 @@ export async function suspendUser(
   reason: string,
   actor: { role: Role } & ActorContext,
 ): Promise<HydratedUser> {
-  if (actor.role !== 'admin') {
+  if (actor.role !== 'admin' && actor.role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', 'Only admins may suspend users.');
   }
   const targetId = requireId(id);
@@ -281,7 +281,7 @@ export async function unsuspendUser(
   id: string,
   actor: { role: Role } & ActorContext,
 ): Promise<HydratedUser> {
-  if (actor.role !== 'admin') {
+  if (actor.role !== 'admin' && actor.role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', 'Only admins may unsuspend users.');
   }
   const targetId = requireId(id);
@@ -311,7 +311,7 @@ export async function resendInvite(
   id: string,
   actor: { role: Role } & ActorContext,
 ): Promise<HydratedUser> {
-  if (actor.role !== 'admin') {
+  if (actor.role !== 'admin' && actor.role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', 'Only admins may resend invites.');
   }
   const doc = await User.findById(requireId(id));
@@ -341,7 +341,7 @@ export async function softDeleteUser(
   id: string,
   actor: { role: Role } & ActorContext,
 ): Promise<HydratedUser> {
-  if (actor.role !== 'admin') {
+  if (actor.role !== 'admin' && actor.role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', 'Only admins may delete users.');
   }
   const targetId = requireId(id);

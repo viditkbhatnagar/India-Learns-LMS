@@ -48,7 +48,7 @@ export function holidaysRouter(): Router {
 
   router.post(
     '/',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = CreateBody.parse(req.body);
@@ -66,7 +66,7 @@ export function holidaysRouter(): Router {
 
   router.delete(
     '/:id',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await deleteHoliday(req.params.id ?? '', {

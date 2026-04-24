@@ -143,7 +143,8 @@ export async function createModule(
   input: CreateModuleInput,
   actor: { role: Role; userId?: Types.ObjectId } & ActorContext,
 ): Promise<HydratedModule> {
-  if (actor.role !== 'admin' && actor.role !== 'faculty') {
+  const isAdmin = actor.role === 'admin' || actor.role === 'superadmin';
+  if (!isAdmin && actor.role !== 'faculty') {
     throw new HttpError(403, 'FORBIDDEN', 'Only admins or assigned faculty may create modules.');
   }
   const course = await Course.findOne({ _id: requireId(courseId), deletedAt: null });
@@ -191,7 +192,7 @@ export async function updateModule(
   if (!course) throw new HttpError(404, 'NOT_FOUND', 'Parent course not found.');
 
   const allowed =
-    actor.role === 'admin'
+    actor.role === 'admin' || actor.role === 'superadmin'
       ? ADMIN_PATCH_FIELDS
       : actor.role === 'faculty' && facultyAssignedToCourse(course, actor.userId)
         ? FACULTY_PATCH_FIELDS
@@ -246,7 +247,7 @@ export async function deleteModule(
   id: string,
   actor: { role: Role } & ActorContext,
 ): Promise<HydratedModule> {
-  if (actor.role !== 'admin') {
+  if (actor.role !== 'admin' && actor.role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', 'Only admins may delete modules.');
   }
   const doc = await ModuleModel.findOne({ _id: requireId(id), deletedAt: null });

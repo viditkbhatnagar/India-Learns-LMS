@@ -54,7 +54,7 @@ function toDto(doc: HydratedEnrollment): EnrollmentDto {
 export { toDto as toEnrollmentDto };
 
 function assertAdmin(role: Role, verb: string): void {
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', `Only admins may ${verb} enrolments.`);
   }
 }

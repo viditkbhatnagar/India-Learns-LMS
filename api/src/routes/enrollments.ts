@@ -61,7 +61,7 @@ export function enrollmentsRouter(): Router {
 
   router.post(
     '/',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = CreateBody.parse(req.body);
@@ -105,7 +105,7 @@ export function enrollmentsRouter(): Router {
 
   router.patch(
     '/:id',
-    requireRole('admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = UpdateBody.parse(req.body);

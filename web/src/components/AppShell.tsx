@@ -125,6 +125,12 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
   superadmin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
     { label: 'Users', to: '/admin/users', icon: Icon.users },
+    { label: 'Programs', to: '/admin/programs', icon: Icon.layers },
+    { label: 'Courses', to: '/admin/courses', icon: Icon.book },
+    { label: 'Batches', to: '/admin/batches', icon: Icon.grid },
+    { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
+    { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
+    { label: 'Finance', to: '/finance/dashboard', icon: Icon.rupee },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
@@ -148,7 +154,10 @@ export function AppShell({ children }: PropsWithChildren) {
   if (!user) return null;
 
   const nav = NAV_BY_ROLE[user.role as Role] ?? [];
-  const readOnly = user.role === 'superadmin';
+  // Super Admin now has full write access across every surface for
+  // quality-assurance oversight (stakeholder ask, round 3). No read-only
+  // pill is rendered anymore.
+  const readOnly = false;
 
   async function handleLogout() {
     try {

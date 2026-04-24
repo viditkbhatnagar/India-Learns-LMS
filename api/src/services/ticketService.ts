@@ -63,6 +63,7 @@ export function toTicketDto(doc: HydratedTicket): TicketDto {
     description: doc.description,
     state: doc.state,
     assigneeUserId: doc.assigneeUserId ? doc.assigneeUserId.toString() : null,
+    coAssigneeUserIds: (doc.coAssigneeUserIds ?? []).map((id) => id.toString()),
     assignedAt: doc.assignedAt ? doc.assignedAt.toISOString() : null,
     firstAckAt: doc.firstAckAt ? doc.firstAckAt.toISOString() : null,
     resolvedAt: doc.resolvedAt ? doc.resolvedAt.toISOString() : null,
@@ -358,17 +359,17 @@ export async function transitionTicket(
 }
 
 /**
- * Reassign a ticket to another staff user (or unassign with null). Only
- * admin + superadmin may reassign; the new assignee must be a staff user
- * (admin, superadmin, faculty, finance). If the ticket is still `open`,
- * it flips to `assigned` as a side-effect. Writes an audit row and pings
- * the new assignee via a notification.
+ * Reassign a ticket. `newAssigneeId=null` unassigns the primary. Optional
+ * `coAssigneeIds` array sets the additional people looped in alongside
+ * the primary — SLA still counts against the primary but co-assignees
+ * get every notification and can comment. Admin + superadmin only.
  */
 export async function assignTicket(
   actor: AuthContext,
   ticketId: string,
   newAssigneeId: string | null,
   ctx: TicketCtx,
+  coAssigneeIds?: string[],
 ): Promise<HydratedTicket> {
   if (actor.role !== 'admin' && actor.role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', 'Only admins may reassign tickets.');
@@ -381,8 +382,15 @@ export async function assignTicket(
     throw new HttpError(404, 'NOT_FOUND', 'Ticket not found.');
   }
 
-  const before = { assigneeUserId: ticket.assigneeUserId?.toString() ?? null, state: ticket.state };
+  const before = {
+    assigneeUserId: ticket.assigneeUserId?.toString() ?? null,
+    coAssigneeUserIds: (ticket.coAssigneeUserIds ?? []).map((i) => i.toString()),
+    state: ticket.state,
+  };
 
+  const { User } = await import('../models/index.js');
+
+  // Validate + resolve primary.
   if (newAssigneeId === null) {
     ticket.assigneeUserId = null;
     ticket.assignedAt = null;
@@ -390,11 +398,8 @@ export async function assignTicket(
     if (!Types.ObjectId.isValid(newAssigneeId)) {
       throw new HttpError(422, 'VALIDATION_FAILED', 'assigneeUserId is not a valid id.');
     }
-    const { User } = await import('../models/index.js');
     const assignee = await User.findById(newAssigneeId);
-    if (!assignee) {
-      throw new HttpError(404, 'NOT_FOUND', 'Assignee not found.');
-    }
+    if (!assignee) throw new HttpError(404, 'NOT_FOUND', 'Assignee not found.');
     if (!isStaffRole(assignee.role)) {
       throw new HttpError(
         422,
@@ -404,9 +409,34 @@ export async function assignTicket(
     }
     ticket.assigneeUserId = assignee._id;
     ticket.assignedAt = nowUtc();
-    // Nudge state if still 'open'.
     if (ticket.state === 'open') ticket.state = 'assigned';
   }
+
+  // Validate + resolve co-assignees (optional).
+  if (coAssigneeIds !== undefined) {
+    const unique = Array.from(
+      new Set(coAssigneeIds.filter((id) => Types.ObjectId.isValid(id))),
+    );
+    const filtered = unique.filter((id) => id !== ticket.assigneeUserId?.toString());
+    if (filtered.length > 0) {
+      const coUsers = await User.find({
+        _id: { $in: filtered.map((id) => new Types.ObjectId(id)) },
+      }).select('_id role');
+      for (const u of coUsers) {
+        if (!isStaffRole(u.role)) {
+          throw new HttpError(
+            422,
+            'VALIDATION_FAILED',
+            'Co-assignees must be staff (admin/superadmin/faculty/finance).',
+          );
+        }
+      }
+      ticket.coAssigneeUserIds = coUsers.map((u) => u._id);
+    } else {
+      ticket.coAssigneeUserIds = [];
+    }
+  }
+
   await ticket.save();
 
   await recordAudit({
@@ -415,18 +445,26 @@ export async function assignTicket(
     targetType: 'Ticket',
     targetId: ticket._id,
     before,
-    after: { assigneeUserId: ticket.assigneeUserId?.toString() ?? null, state: ticket.state },
+    after: {
+      assigneeUserId: ticket.assigneeUserId?.toString() ?? null,
+      coAssigneeUserIds: ticket.coAssigneeUserIds.map((i) => i.toString()),
+      state: ticket.state,
+    },
     ip: ctx.ip,
     ua: ctx.ua,
   });
 
-  // Notify the new assignee (fire-and-forget).
-  if (ticket.assigneeUserId) {
+  // Notify everyone looped into the ticket.
+  const recipients = [
+    ...(ticket.assigneeUserId ? [ticket.assigneeUserId] : []),
+    ...ticket.coAssigneeUserIds,
+  ];
+  if (recipients.length > 0) {
     try {
       await enqueueNotification({
         type: 'ticket.assigned',
-        recipients: [ticket.assigneeUserId],
-        title: `Ticket ${ticket.code} assigned to you`,
+        recipients,
+        title: `Ticket ${ticket.code} — assignment updated`,
         body: ticket.subject,
         data: { ticketId: ticket._id.toString(), ticketCode: ticket.code },
       });
@@ -633,14 +671,46 @@ export async function addComment(
     ua: ctx.ua,
   });
 
-  // Notify the counterparty — staff → student, student → assignee.
+  // Notify the counterparty — staff → student, student → assignee —
+  // plus any staff @-mentioned by the author and every co-assignee looped
+  // into the ticket. Students can't mention (server clears the list).
   try {
-    const recipients: Types.ObjectId[] = [];
+    const recipientSet = new Map<string, Types.ObjectId>();
+    const addRecipient = (id: Types.ObjectId | null | undefined): void => {
+      if (!id) return;
+      const key = id.toString();
+      if (key === actor.userId.toString()) return; // never notify the author
+      if (!recipientSet.has(key)) recipientSet.set(key, id);
+    };
+
     if (actor.role === 'student') {
-      if (ticket.assigneeUserId) recipients.push(ticket.assigneeUserId);
+      addRecipient(ticket.assigneeUserId);
+      for (const id of ticket.coAssigneeUserIds ?? []) addRecipient(id);
     } else if (visibility === 'public') {
-      recipients.push(ticket.studentId);
+      addRecipient(ticket.studentId);
+      addRecipient(ticket.assigneeUserId);
+      for (const id of ticket.coAssigneeUserIds ?? []) addRecipient(id);
+    } else {
+      // internal note: only loop in staff already on the ticket.
+      addRecipient(ticket.assigneeUserId);
+      for (const id of ticket.coAssigneeUserIds ?? []) addRecipient(id);
     }
+
+    // @mentions — staff-only (students' mentionUserIds is ignored upstream).
+    if (isStaffRole(actor.role) && input.mentionUserIds && input.mentionUserIds.length > 0) {
+      const mentionIds = Array.from(
+        new Set(input.mentionUserIds.filter((id) => Types.ObjectId.isValid(id))),
+      ).map((id) => new Types.ObjectId(id));
+      if (mentionIds.length > 0) {
+        const { User } = await import('../models/index.js');
+        const mentioned = await User.find({ _id: { $in: mentionIds } }).select('_id role');
+        for (const u of mentioned) {
+          if (isStaffRole(u.role)) addRecipient(u._id);
+        }
+      }
+    }
+
+    const recipients = Array.from(recipientSet.values());
     if (recipients.length > 0) {
       await enqueueNotification({
         type: 'ticket.commented',

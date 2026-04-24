@@ -44,7 +44,7 @@ function toDto(doc: HydratedProgram): ProgramDto {
 export { toDto as toProgramDto };
 
 function assertAdmin(role: Role, verb: string): void {
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'superadmin') {
     throw new HttpError(403, 'FORBIDDEN', `Only admins may ${verb} programs.`);
   }
 }
