@@ -198,20 +198,20 @@ async function ensureStudentSubmission(
 test.describe('Phase B-1 — gradebook + two-step publish', () => {
   test('faculty lands on dashboard and gradebook is reachable', async ({ page }) => {
     await login(page, FACULTY, FACULTY_DASH);
-    // The gradebook is reachable per-course. Walk via "My courses".
     await page.getByRole('link', { name: /my courses|courses/i }).first().click();
     await page.waitForURL(/\/faculty\/courses/, { timeout: 15_000 });
-    // First course in the list — open it.
-    const firstCourse = page.getByRole('link').filter({ hasText: /open|view|details/i }).first();
-    if (await firstCourse.isVisible().catch(() => false)) {
-      await firstCourse.click();
-    } else {
-      // Fallback: any link inside the courses list area
-      await page.locator('a[href*="/faculty/courses/"]').first().click();
-    }
-    // Gradebook tab/link on the course detail
-    await page.getByRole('link', { name: /gradebook/i }).first().click();
-    await expect(page.getByRole('heading', { name: /gradebook/i })).toBeVisible();
+    // Click the first course — after Phase B-2 the legacy
+    // /faculty/courses/:id path redirects into the shared shell at
+    // /courses/:id/overview (the new IA from developer-handoff §3).
+    await page.locator('a[href*="/faculty/courses/"]').first().click();
+    await page.waitForURL(/\/courses\/[a-f0-9]{24}\/overview/, { timeout: 15_000 });
+    // Click the Gradebook tab in the shell's nav.
+    await page.getByRole('link', { name: 'Gradebook' }).first().click();
+    await page.waitForURL(/\/courses\/[a-f0-9]{24}\/gradebook/, { timeout: 10_000 });
+    // The shell doesn't render an h1 "Gradebook" — the course name is the
+    // h1 and the tab content uses metric-card labels. Assert against the
+    // grading-backlog metric so we know the gradebook actually rendered.
+    await expect(page.getByText(/grading backlog/i).first()).toBeVisible();
   });
 
   test('draft → edit → publish round trip + student does not see draft', async ({ page, browser }) => {
