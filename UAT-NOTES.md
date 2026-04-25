@@ -50,24 +50,49 @@ anything that takes longer than the time-box or feels off.
 
 ## Findings template
 
-Append a row per finding. Don't edit prior rows.
+Append findings under the correct bucket below. Don't edit prior rows.
+
+The three buckets sort the noise:
+
+- **blocker** — ship-stopping bug. Faculty / student can't complete the
+  workflow, or the system reports a wrong state, or data is lost. Triage
+  immediately on a tactical branch; merge before the next UAT session.
+- **friction** — works but annoying. Confusing copy, awkward layout,
+  button in the wrong spot, attendance roster scrolls badly with 30
+  students, success toast doesn't appear, etc. Batch into a polish PR;
+  don't merge piecemeal.
+- **future** — out of scope for the current phase. Anything beyond the
+  developer handoff PDF or that needs a fresh spec. Captured here so it
+  doesn't get lost on the way to the backlog.
+
+### Per-finding template
 
 ```
-### YYYY-MM-DD HH:MM — <name>, <role>
-
-- Where: <URL or screen>
-- What: <what they saw>
-- Expected: <what they expected>
-- Severity: blocker / annoying / cosmetic / suggestion
-- Reproducer: <steps>
-- Screenshot: <link or attached>
+- Where:       <URL or screen>
+- What:        <what they saw>
+- Expected:    <what they expected>
+- Reproducer:  <steps if non-obvious>
+- Screenshot:  <link or attached>
+- Reporter:    <name>, <role>, <date>
 ```
 
 ---
 
-## Findings
+## Findings — blocker
 
 (empty — first UAT session populates this)
+
+---
+
+## Findings — friction
+
+(empty — expected pattern: 3-6 frictions per UAT session)
+
+---
+
+## Findings — future
+
+(empty — anything beyond the developer handoff PDF)
 
 ---
 
@@ -77,9 +102,12 @@ Phase B is end-to-end complete. Don't start B-3 (or any new phase) until:
 
 1. At least one full 30-minute UAT session has been run with a real
    faculty member.
-2. Findings of severity `blocker` or `annoying` have either been resolved
-   on a tactical follow-up branch or explicitly deferred with a reason.
-3. The seed script (`api/scripts/seed-uat-students.ts`) has been re-run
+2. Every entry in the **blocker** bucket has either landed on `main` or
+   been explicitly demoted (with a reason in the entry itself).
+3. The **friction** bucket has been triaged into "fix now" / "fix in a
+   batch later" / "won't fix" so it's clear what's gating ship vs. what's
+   just queued.
+4. The seed script (`api/scripts/seed-uat-students.ts`) has been re-run
    after any schema changes that affect student enrolment shape.
 
 Synthetic forward motion ahead of UAT signal is risk accumulation against
