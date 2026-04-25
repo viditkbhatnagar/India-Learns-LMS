@@ -13,12 +13,33 @@ export interface ModuleContentBlockDoc {
   quizId: Types.ObjectId | null;
 }
 
+export interface ModuleLearningOutcomeDoc {
+  mloId: string;            // e.g. "M1-LO1"
+  code: string;
+  statement: string;
+  bloomLevel: string;
+  verb: string;
+  linkedPLOs: string[];
+  linkedKSCs: string[];     // generator's `competencyLinks`
+}
+
 export interface ModuleDoc {
   _id: Types.ObjectId;
   courseId: Types.ObjectId;
   title: string;
   order: number;
   content: ModuleContentBlockDoc[];
+  // Curriculum-generator fields (Phase A). All optional with safe defaults
+  // so existing modules created before the import feature still validate.
+  sourceModuleId: string | null;        // e.g. "mod1"
+  code: string | null;                  // e.g. "MOD101"
+  coreElective: 'core' | 'elective';    // generator has no marker; defaults to 'core'
+  aim: string;                          // mapped from generator `description`
+  prerequisites: string[];
+  learningOutcomes: ModuleLearningOutcomeDoc[];
+  totalHours: number | null;
+  contactHours: number | null;
+  selfStudyHours: number | null;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -42,6 +63,19 @@ const ModuleContentSchema = new Schema<ModuleContentBlockDoc>(
   { _id: true, versionKey: false },
 );
 
+const MLOSchema = new Schema<ModuleLearningOutcomeDoc>(
+  {
+    mloId: { type: String, required: true },
+    code: { type: String, required: true },
+    statement: { type: String, required: true },
+    bloomLevel: { type: String, default: '' },
+    verb: { type: String, default: '' },
+    linkedPLOs: { type: [String], default: [] },
+    linkedKSCs: { type: [String], default: [] },
+  },
+  { _id: false, versionKey: false },
+);
+
 const ModuleSchema = new Schema<ModuleDoc>(
   {
     courseId: {
@@ -53,6 +87,15 @@ const ModuleSchema = new Schema<ModuleDoc>(
     title: { type: String, required: true, trim: true, maxlength: 200 },
     order: { type: Number, required: true, min: 0 },
     content: { type: [ModuleContentSchema], default: [] },
+    sourceModuleId: { type: String, default: null },
+    code: { type: String, default: null },
+    coreElective: { type: String, enum: ['core', 'elective'], default: 'core' },
+    aim: { type: String, default: '' },
+    prerequisites: { type: [String], default: [] },
+    learningOutcomes: { type: [MLOSchema], default: [] },
+    totalHours: { type: Number, default: null },
+    contactHours: { type: Number, default: null },
+    selfStudyHours: { type: Number, default: null },
     deletedAt: { type: Date, default: null },
   },
   {

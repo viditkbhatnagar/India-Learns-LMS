@@ -53,6 +53,7 @@ import {
 } from './notificationPrefs.js';
 import { analyticsRouter } from './analytics.js';
 import { jobsNotificationsRouter } from './jobsNotifications.js';
+import { curriculumImportRouter } from './curriculumImport.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -107,6 +108,7 @@ export function v1Router(): Router {
   router.use('/me/tickets', meTicketsRouter());
   router.use('/tickets/me', meTicketsRouter());
   router.use('/audit-logs', auditLogsRouter());
+  router.use('/curriculum-import', curriculumImportRouter());
   router.use('/staff/grading-queue', staffGradingRouter());
   router.use('/staff/tickets', staffTicketsRouter());
   router.use('/tickets', ticketsRouter());

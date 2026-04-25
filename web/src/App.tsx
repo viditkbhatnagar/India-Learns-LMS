@@ -54,6 +54,7 @@ import { AdminTimetableBuilderPage } from './pages/admin/AdminTimetableBuilder.j
 import { AdminEnrollmentsPage } from './pages/admin/AdminEnrollments.js';
 import { AdminEnrollmentDetailPage } from './pages/admin/AdminEnrollmentDetail.js';
 import { AdminAuditLogsPage } from './pages/admin/AdminAuditLogs.js';
+import { AdminCurriculumImport } from './pages/admin/AdminCurriculumImport.js';
 import { AdminFeeStructuresPage } from './pages/admin/AdminFeeStructures.js';
 import { AdminTicketDetailPage } from './pages/admin/AdminTicketDetail.js';
 import { AdminSlaBreachesPage } from './pages/admin/AdminSlaBreaches.js';
@@ -187,6 +188,7 @@ export function App() {
                     <Route path="enrollments" element={<AdminEnrollmentsPage />} />
                     <Route path="enrollments/:id" element={<AdminEnrollmentDetailPage />} />
                     <Route path="audit-logs" element={<AdminAuditLogsPage />} />
+                    <Route path="curriculum-import" element={<AdminCurriculumImport />} />
                     <Route path="fee-structures" element={<AdminFeeStructuresPage />} />
                     <Route path="holidays" element={<AdminHolidaysPage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
