@@ -454,9 +454,10 @@ test.describe('Phase B-1 — gradebook + two-step publish', () => {
       test.skip(true, 'no courses available — skipping banner check');
       return;
     }
-    await page.goto(`/faculty/courses/${list[0].id}/gradebook`);
-    // Expect either an explicit oversight banner or the global Read-only
-    // pill from the LMS guide §1.
+    // /faculty/* is gated to faculty only — superadmin lands at the admin
+    // mirror of the gradebook route, which renders the same component
+    // with the oversight banner.
+    await page.goto(`/admin/courses/${list[0].id}/gradebook`);
     const banner = page.getByText(/oversight|read[- ]only|view[- ]only/i).first();
     await expect(banner).toBeVisible({ timeout: 10_000 });
   });
