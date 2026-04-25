@@ -55,6 +55,8 @@ import { AdminEnrollmentsPage } from './pages/admin/AdminEnrollments.js';
 import { AdminEnrollmentDetailPage } from './pages/admin/AdminEnrollmentDetail.js';
 import { AdminAuditLogsPage } from './pages/admin/AdminAuditLogs.js';
 import { AdminCurriculumImport } from './pages/admin/AdminCurriculumImport.js';
+import { CourseGradebookPage } from './pages/staff/CourseGradebook.js';
+import { AssignmentGradingPage } from './pages/staff/AssignmentGrading.js';
 import { AdminFeeStructuresPage } from './pages/admin/AdminFeeStructures.js';
 import { AdminTicketDetailPage } from './pages/admin/AdminTicketDetail.js';
 import { AdminSlaBreachesPage } from './pages/admin/AdminSlaBreaches.js';
@@ -189,6 +191,11 @@ export function App() {
                     <Route path="enrollments/:id" element={<AdminEnrollmentDetailPage />} />
                     <Route path="audit-logs" element={<AdminAuditLogsPage />} />
                     <Route path="curriculum-import" element={<AdminCurriculumImport />} />
+                    <Route path="courses/:courseId/gradebook" element={<CourseGradebookPage />} />
+                    <Route
+                      path="courses/:courseId/assignments/:assignmentId/grading"
+                      element={<AssignmentGradingPage />}
+                    />
                     <Route path="fee-structures" element={<AdminFeeStructuresPage />} />
                     <Route path="holidays" element={<AdminHolidaysPage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
@@ -230,6 +237,11 @@ export function App() {
                     <Route path="dashboard" element={<FacultyDashboard />} />
                     <Route path="courses" element={<FacultyCoursesPage />} />
                     <Route path="courses/:id" element={<FacultyCourseDetailPage />} />
+                    <Route path="courses/:id/gradebook" element={<CourseGradebookPage />} />
+                    <Route
+                      path="courses/:courseId/assignments/:assignmentId/grading"
+                      element={<AssignmentGradingPage />}
+                    />
                     <Route path="grading" element={<FacultyGradingQueuePage />} />
                     <Route path="grading/:attemptId" element={<FacultyGradingDetailPage />} />
                     <Route path="feedback" element={<FacultyFeedbackPage />} />

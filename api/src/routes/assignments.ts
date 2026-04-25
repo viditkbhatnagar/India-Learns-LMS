@@ -16,6 +16,14 @@ import {
 } from '../models/index.js';
 import { recordAudit } from '../services/auditService.js';
 import { enqueueNotification } from '../services/notificationService.js';
+import {
+  bulkPublish,
+  getGradebookView,
+  publishGrade,
+  saveDraft,
+  toStaffSubmissionDto,
+  toStudentSubmissionDto,
+} from '../services/assignmentSubmissionService.js';
 
 const CreateAssignmentBody = z.object({
   title: z.string().min(1).max(240),
@@ -38,9 +46,23 @@ const SubmitBody = z.object({
   attachmentUrl: z.string().url().max(2048).nullable().optional(),
 });
 
-const GradeBody = z.object({
+const DraftGradeBody = z.object({
   score: z.number().min(0),
   feedback: z.string().max(4000).optional(),
+  rubricScores: z
+    .array(
+      z.object({
+        criterionIndex: z.number().int().min(0),
+        score: z.number().min(0),
+        comment: z.string().max(2000).optional(),
+      }),
+    )
+    .max(50)
+    .optional(),
+});
+
+const BulkPublishBody = z.object({
+  submissionIds: z.array(z.string().min(1)).min(1).max(100),
 });
 
 function toAssignmentDto(doc: HydratedAssignment) {
@@ -59,23 +81,9 @@ function toAssignmentDto(doc: HydratedAssignment) {
   };
 }
 
-function toSubmissionDto(doc: HydratedAssignmentSubmission) {
-  return {
-    id: doc._id.toString(),
-    assignmentId: doc.assignmentId.toString(),
-    courseId: doc.courseId.toString(),
-    studentId: doc.studentId.toString(),
-    bodyText: doc.bodyText,
-    attachmentUrl: doc.attachmentUrl,
-    submittedAt: doc.submittedAt.toISOString(),
-    score: doc.score,
-    feedback: doc.feedback,
-    gradedByUserId: doc.gradedByUserId ? doc.gradedByUserId.toString() : null,
-    gradedAt: doc.gradedAt ? doc.gradedAt.toISOString() : null,
-    createdAt: doc.createdAt.toISOString(),
-    updatedAt: doc.updatedAt.toISOString(),
-  };
-}
+// Submission DTO conversion is centralized in assignmentSubmissionService —
+// `toStaffSubmissionDto` returns the full grade payload, `toStudentSubmissionDto`
+// strips drafts so the API never leaks an unpublished grade to a student.
 
 async function loadCourseOr404(courseId: string): Promise<HydratedCourse> {
   if (!Types.ObjectId.isValid(courseId)) {
@@ -142,7 +150,7 @@ export function courseAssignmentsRouter(): Router {
             items: assignments.map((a) => ({
               ...toAssignmentDto(a),
               mySubmission: mySubs.get(a._id.toString())
-                ? toSubmissionDto(mySubs.get(a._id.toString())!)
+                ? toStudentSubmissionDto(mySubs.get(a._id.toString())!)
                 : null,
             })),
           },
@@ -259,7 +267,7 @@ export function assignmentsRouter(): Router {
         res.json({
           data: {
             assignment: toAssignmentDto(assignment),
-            mySubmission: mySubmission ? toSubmissionDto(mySubmission) : null,
+            mySubmission: mySubmission ? toStudentSubmissionDto(mySubmission) : null,
           },
         });
       } catch (err) {
@@ -351,6 +359,7 @@ export function assignmentsRouter(): Router {
         }
 
         const now = new Date();
+        const lateFlag = now.getTime() > assignment.dueAt.getTime();
         const sub = await AssignmentSubmission.findOneAndUpdate(
           { assignmentId: assignment._id, studentId: userId },
           {
@@ -359,11 +368,18 @@ export function assignmentsRouter(): Router {
               bodyText: text,
               attachmentUrl: url,
               submittedAt: now,
-              // Clear previous grading when a student re-submits.
+              status: 'submitted',
+              lateFlag,
+              // Clear previous grading when a student re-submits — they
+              // re-enter the grading queue and the prior grade is recorded
+              // only in the audit log's `before` payload.
               score: null,
               feedback: null,
+              rubricScores: [],
               gradedByUserId: null,
               gradedAt: null,
+              publishedByUserId: null,
+              publishedAt: null,
             },
           },
           { new: true, upsert: true, setDefaultsOnInsert: true },
@@ -402,14 +418,15 @@ export function assignmentsRouter(): Router {
           // non-fatal
         }
 
-        res.status(201).json({ data: { submission: toSubmissionDto(sub) } });
+        res.status(201).json({ data: { submission: toStudentSubmissionDto(sub) } });
       } catch (err) {
         next(err);
       }
     },
   );
 
-  // Faculty lists every submission for an assignment.
+  // Faculty lists every submission for an assignment. Optional ?status=
+  // filter for the per-assignment grading view's filter chips.
   router.get(
     '/:id/submissions',
     requireRole('faculty', 'admin', 'superadmin'),
@@ -428,7 +445,18 @@ export function assignmentsRouter(): Router {
           throw new HttpError(403, 'FORBIDDEN', 'Not assigned to this course.');
         }
 
-        const subs = await AssignmentSubmission.find({ assignmentId: assignment._id })
+        const filter: Record<string, unknown> = { assignmentId: assignment._id };
+        const statusParam = req.query.status as string | undefined;
+        if (statusParam === 'needs_grading') {
+          filter.status = { $in: ['submitted', 'needs_grading'] };
+        } else if (statusParam === 'graded') {
+          filter.status = { $in: ['graded_draft', 'published'] };
+        } else if (statusParam === 'drafts') {
+          filter.status = 'graded_draft';
+        } else if (statusParam === 'published') {
+          filter.status = 'published';
+        }
+        const subs = await AssignmentSubmission.find(filter)
           .sort({ submittedAt: -1 })
           .limit(500);
 
@@ -448,10 +476,49 @@ export function assignmentsRouter(): Router {
           }),
         );
 
+        // For 'missing' view we synthesize zero-rows for enrolled students who
+        // never submitted, so faculty can see the gap in the grading view.
+        let missing: Array<{
+          assignmentId: string;
+          studentId: string;
+          student: { id: string; name: string; email: string; code: string | null } | null;
+          dueAt: string;
+        }> = [];
+        if (statusParam === 'missing') {
+          const submittedIds = new Set(subs.map((s) => s.studentId.toString()));
+          const enrolments = await Enrollment.find({
+            courseId: course._id,
+            status: 'active',
+          }).select('studentId');
+          const enrolledIds = enrolments
+            .map((e) => e.studentId.toString())
+            .filter((sid) => !submittedIds.has(sid));
+          const missingStudents = await User.find({ _id: { $in: enrolledIds } })
+            .select('_id name email code')
+            .lean();
+          const now = Date.now();
+          if (now > assignment.dueAt.getTime()) {
+            missing = missingStudents.map((s) => ({
+              assignmentId: assignment._id.toString(),
+              studentId: String(s._id),
+              student: {
+                id: String(s._id),
+                name: s.name as string,
+                email: s.email as string,
+                code: (s.code as string | null) ?? null,
+              },
+              dueAt: assignment.dueAt.toISOString(),
+            }));
+          }
+          // Caller wants only missing — return empty submissions array.
+          res.json({ data: { items: [], missing } });
+          return;
+        }
+
         res.json({
           data: {
             items: subs.map((s) => ({
-              ...toSubmissionDto(s),
+              ...toStaffSubmissionDto(s),
               student: studentMap.get(s.studentId.toString()) ?? null,
             })),
           },
@@ -471,77 +538,75 @@ export function assignmentSubmissionsRouter(): Router {
   router.use(requireAuth);
   router.use(requireRole('faculty', 'admin', 'superadmin'));
 
+  // Bulk publish — must mount before /:id/* so the literal "bulk-publish"
+  // path doesn't get swallowed by the dynamic id segment.
   router.post(
-    '/:id/grade',
+    '/bulk-publish',
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { id } = req.params;
-        if (!Types.ObjectId.isValid(id ?? '')) {
-          throw new HttpError(404, 'NOT_FOUND', 'Submission not found.');
-        }
-        const sub = await AssignmentSubmission.findById(id);
-        if (!sub) throw new HttpError(404, 'NOT_FOUND', 'Submission not found.');
-
-        const assignment = await Assignment.findOne({
-          _id: sub.assignmentId,
-          deletedAt: null,
-        });
-        if (!assignment) throw new HttpError(404, 'NOT_FOUND', 'Assignment not found.');
-
-        const course = await loadCourseOr404(assignment.courseId.toString());
-        const { role, userId } = req.auth!;
-        if (role === 'faculty' && !facultyCanWrite(course, userId)) {
-          throw new HttpError(403, 'FORBIDDEN', 'Not assigned to this course.');
-        }
-
-        const body = GradeBody.parse(req.body);
-        if (body.score > assignment.maxScore) {
-          throw new HttpError(
-            422,
-            'VALIDATION_FAILED',
-            `score exceeds maxScore (${assignment.maxScore}).`,
-          );
-        }
-        const before = sub.toObject();
-        sub.score = body.score;
-        sub.feedback = body.feedback?.trim() || null;
-        sub.gradedByUserId = userId;
-        sub.gradedAt = new Date();
-        await sub.save();
-
-        await recordAudit({
-          actorUserId: userId,
-          action: 'assignment.submission.graded',
-          targetType: 'AssignmentSubmission',
-          targetId: sub._id,
-          before,
-          after: sub.toObject(),
-          details: { assignmentId: assignment._id.toString() },
-          ip: req.ip,
+        const body = BulkPublishBody.parse(req.body);
+        const result = await bulkPublish(req.auth!, body.submissionIds, {
+          ip: req.ip ?? '',
           ua: req.header('user-agent') ?? '',
         });
-
-        try {
-          await enqueueNotification({
-            type: 'assignment.graded',
-            recipients: [sub.studentId],
-            title: `${assignment.title} graded`,
-            body: `You scored ${sub.score} / ${assignment.maxScore}.`,
-            data: {
-              assignmentId: assignment._id.toString(),
-              submissionId: sub._id.toString(),
-            },
-          });
-        } catch {
-          // non-fatal
-        }
-
-        res.json({ data: { submission: toSubmissionDto(sub) } });
+        res.json({ data: result });
       } catch (err) {
         next(err);
       }
     },
   );
+
+  // Save a draft grade. Faculty + admin + superadmin only. Status flips to
+  // graded_draft; student does NOT see this until publish.
+  router.post(
+    '/:id/draft',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const body = DraftGradeBody.parse(req.body);
+        const sub = await saveDraft(req.auth!, req.params.id ?? '', body, {
+          ip: req.ip ?? '',
+          ua: req.header('user-agent') ?? '',
+        });
+        res.json({ data: { submission: toStaffSubmissionDto(sub) } });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // Publish a draft → student now sees the grade. Audit-logged + notification.
+  router.post(
+    '/:id/publish',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const sub = await publishGrade(req.auth!, req.params.id ?? '', {
+          ip: req.ip ?? '',
+          ua: req.header('user-agent') ?? '',
+        });
+        res.json({ data: { submission: toStaffSubmissionDto(sub) } });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  return router;
+}
+
+/** Mounted at /v1/courses/:courseId/gradebook. */
+export function courseGradebookRouter(): Router {
+  const router = Router({ mergeParams: true });
+  router.use(requireAuth);
+  router.use(requireRole('faculty', 'admin', 'superadmin'));
+
+  router.get('/', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const view = await getGradebookView(req.auth!, req.params.courseId ?? '');
+      res.json({ data: view });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   return router;
 }

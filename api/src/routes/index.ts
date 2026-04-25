@@ -8,6 +8,7 @@ import {
   assignmentSubmissionsRouter,
   assignmentsRouter,
   courseAssignmentsRouter,
+  courseGradebookRouter,
 } from './assignments.js';
 import { modulesRouter } from './modules.js';
 import { batchesRouter } from './batches.js';
@@ -71,6 +72,7 @@ export function v1Router(): Router {
   router.use('/courses', coursesRouter());
   router.use('/courses/:courseId/announcements', courseAnnouncementsRouter());
   router.use('/courses/:courseId/assignments', courseAssignmentsRouter());
+  router.use('/courses/:courseId/gradebook', courseGradebookRouter());
   router.use('/assignments', assignmentsRouter());
   router.use('/assignment-submissions', assignmentSubmissionsRouter());
   router.use('/modules', modulesRouter());

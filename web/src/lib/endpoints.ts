@@ -147,6 +147,18 @@ export interface AssignmentDto {
   updatedAt: string;
 }
 
+export type SubmissionStatus =
+  | 'submitted'
+  | 'needs_grading'
+  | 'graded_draft'
+  | 'published';
+
+export interface AssignmentSubmissionRubricScore {
+  criterionIndex: number;
+  score: number;
+  comment: string;
+}
+
 export interface AssignmentSubmissionDto {
   id: string;
   assignmentId: string;
@@ -155,10 +167,15 @@ export interface AssignmentSubmissionDto {
   bodyText: string;
   attachmentUrl: string | null;
   submittedAt: string;
+  status: SubmissionStatus;
+  lateFlag: boolean;
   score: number | null;
   feedback: string | null;
+  rubricScores: AssignmentSubmissionRubricScore[];
   gradedByUserId: string | null;
   gradedAt: string | null;
+  publishedByUserId: string | null;
+  publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -214,18 +231,88 @@ export const assignmentsApi = {
     );
     return res.data.data.submission;
   },
-  async listSubmissions(id: string) {
-    const res = await api.get<{ data: { items: AssignmentSubmissionWithStudent[] } }>(
-      `/assignments/${id}/submissions`,
-    );
-    return res.data.data.items;
+  async listSubmissions(
+    id: string,
+    params: { status?: 'needs_grading' | 'graded' | 'drafts' | 'published' | 'missing' } = {},
+  ) {
+    const res = await api.get<{
+      data: {
+        items: AssignmentSubmissionWithStudent[];
+        missing?: Array<{
+          assignmentId: string;
+          studentId: string;
+          student: { id: string; name: string; email: string; code: string | null } | null;
+          dueAt: string;
+        }>;
+      };
+    }>(`/assignments/${id}/submissions`, { params });
+    return {
+      items: res.data.data.items,
+      missing: res.data.data.missing ?? [],
+    };
   },
-  async grade(submissionId: string, input: { score: number; feedback?: string }) {
+  async saveDraft(
+    submissionId: string,
+    input: {
+      score: number;
+      feedback?: string;
+      rubricScores?: Array<{ criterionIndex: number; score: number; comment?: string }>;
+    },
+  ) {
     const res = await api.post<{ data: { submission: AssignmentSubmissionDto } }>(
-      `/assignment-submissions/${submissionId}/grade`,
+      `/assignment-submissions/${submissionId}/draft`,
       input,
     );
     return res.data.data.submission;
+  },
+  async publish(submissionId: string) {
+    const res = await api.post<{ data: { submission: AssignmentSubmissionDto } }>(
+      `/assignment-submissions/${submissionId}/publish`,
+      {},
+    );
+    return res.data.data.submission;
+  },
+  async bulkPublish(submissionIds: string[]) {
+    const res = await api.post<{
+      data: {
+        published: string[];
+        skipped: Array<{ submissionId: string; reason: string }>;
+        failed: Array<{ submissionId: string; reason: string }>;
+      };
+    }>('/assignment-submissions/bulk-publish', { submissionIds });
+    return res.data.data;
+  },
+  async gradebook(courseId: string) {
+    const res = await api.get<{
+      data: {
+        course: { id: string; name: string };
+        students: Array<{ id: string; name: string; email: string; code: string | null }>;
+        assignments: Array<{
+          id: string;
+          title: string;
+          dueAt: string;
+          maxScore: number;
+          deliveryVariant: string | null;
+          moduleId: string | null;
+          sessionId: string | null;
+        }>;
+        cells: Array<{
+          assignmentId: string;
+          studentId: string;
+          submissionId: string | null;
+          computedStatus: SubmissionStatus | 'not_started' | 'missing';
+          score: number | null;
+          isDraft: boolean;
+          lateFlag: boolean;
+          publishedAt: string | null;
+          gradedAt: string | null;
+        }>;
+        backlog: number;
+        publishedCount: number;
+        draftCount: number;
+      };
+    }>(`/courses/${courseId}/gradebook`);
+    return res.data.data;
   },
 };
 

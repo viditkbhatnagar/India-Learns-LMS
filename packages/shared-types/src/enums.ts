@@ -286,6 +286,9 @@ export const AUDIT_ACTIONS = [
   'assignment.updated',
   'assignment.submission.created',
   'assignment.submission.graded',
+  // Phase B-1 — two-step grading (draft + publish)
+  'assignment.submission.draft_saved',
+  'assignment.submission.published',
   // Post-M9 — curriculum-generator import (Phase A)
   'curriculum.imported',
 ] as const;

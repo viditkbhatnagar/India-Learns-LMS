@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CourseDto, ModuleDto } from 'india-learns-shared-types';
 import { Card, CardHeader } from '../../components/ui/Card.js';
@@ -70,7 +70,7 @@ export function FacultyCourseDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-display-sm text-brand-navy tracking-tight">{course.name}</h1>
           <p className="text-muted text-sm mt-1 flex items-center gap-3 flex-wrap">
@@ -80,6 +80,9 @@ export function FacultyCourseDetailPage() {
             <span className="font-mono text-xs">{course.slug}</span>
           </p>
         </div>
+        <Link to={`/faculty/courses/${course.id}/gradebook`}>
+          <Button>Open gradebook</Button>
+        </Link>
       </div>
 
       <Card accent="orange">
@@ -395,7 +398,7 @@ function FacultySubmissionsPanel({
       </div>
     );
   }
-  const items = q.data ?? [];
+  const items = q.data?.items ?? [];
 
   return (
     <div className="border-t border-black/5 bg-surface-muted/60 p-4 space-y-3">
@@ -435,9 +438,9 @@ function SubmissionRow({
   const [feedback, setFeedback] = useState(s.feedback ?? '');
   const [editing, setEditing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const grade = useMutation({
+  const saveDraft = useMutation({
     mutationFn: () =>
-      assignmentsApi.grade(s.id, {
+      assignmentsApi.saveDraft(s.id, {
         score: Number(score),
         feedback: feedback.trim() || undefined,
       }),
@@ -448,7 +451,17 @@ function SubmissionRow({
     },
     onError: (e) => setErr((e as Error).message),
   });
+  const publish = useMutation({
+    mutationFn: () => assignmentsApi.publish(s.id),
+    onSuccess: () => {
+      setErr(null);
+      onGraded();
+    },
+    onError: (e) => setErr((e as Error).message),
+  });
   const graded = s.score !== null;
+  const isDraft = s.status === 'graded_draft';
+  const isPublished = s.status === 'published';
 
   return (
     <li className="rounded-xl bg-white border border-black/5 p-4">
@@ -463,11 +476,33 @@ function SubmissionRow({
           <p className="text-xs text-muted mt-0.5">
             Submitted {formatIstDateTime(s.submittedAt)}
             {graded ? ` · Scored ${s.score} / ${maxScore}` : ' · Not graded'}
+            {s.lateFlag && ' · Late'}
           </p>
+          {isDraft && (
+            <span className="inline-block mt-1 text-[10px] uppercase tracking-wider font-bold rounded bg-amber-100 text-amber-900 px-1.5 py-0.5">
+              Draft — student not notified yet
+            </span>
+          )}
+          {isPublished && (
+            <span className="inline-block mt-1 text-[10px] uppercase tracking-wider font-bold rounded bg-emerald-100 text-emerald-900 px-1.5 py-0.5">
+              Published
+            </span>
+          )}
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setEditing((v) => !v)}>
-          {editing ? 'Close' : graded ? 'Re-grade' : 'Grade'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setEditing((v) => !v)}>
+            {editing ? 'Close' : graded ? 'Re-grade' : 'Grade'}
+          </Button>
+          {isDraft && (
+            <Button
+              size="sm"
+              loading={publish.isPending}
+              onClick={() => publish.mutate()}
+            >
+              Publish
+            </Button>
+          )}
+        </div>
       </div>
       {s.bodyText && (
         <div className="mt-3 rounded-lg bg-surface-muted p-3 text-sm whitespace-pre-wrap text-ink/90 leading-relaxed max-w-[68ch]">
@@ -488,7 +523,7 @@ function SubmissionRow({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (score !== '') grade.mutate();
+            if (score !== '') saveDraft.mutate();
           }}
           className="mt-4 space-y-3 border-t border-black/5 pt-4"
         >
@@ -513,9 +548,14 @@ function SubmissionRow({
               {err}
             </div>
           )}
-          <Button type="submit" loading={grade.isPending} disabled={score === ''}>
-            Save grade
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button type="submit" loading={saveDraft.isPending} disabled={score === ''}>
+              Save draft
+            </Button>
+            <p className="text-xs text-muted">
+              Saving as draft — student does not see the grade until you publish.
+            </p>
+          </div>
         </form>
       )}
       {graded && !editing && s.feedback && (
