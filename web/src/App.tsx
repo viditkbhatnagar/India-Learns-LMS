@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Role } from 'india-learns-shared-types';
 import { RequireAuth, RequireRole, defaultRouteForRole } from './components/guards.js';
@@ -55,8 +55,9 @@ import { AdminEnrollmentsPage } from './pages/admin/AdminEnrollments.js';
 import { AdminEnrollmentDetailPage } from './pages/admin/AdminEnrollmentDetail.js';
 import { AdminAuditLogsPage } from './pages/admin/AdminAuditLogs.js';
 import { AdminCurriculumImport } from './pages/admin/AdminCurriculumImport.js';
-import { CourseGradebookPage } from './pages/staff/CourseGradebook.js';
-import { AssignmentGradingPage } from './pages/staff/AssignmentGrading.js';
+// CourseGradebookPage + AssignmentGradingPage no longer mounted at the
+// top level — the B-2 course shell renders both via inner Routes.
+import { CourseShell } from './pages/staff/CourseShell.js';
 import { AdminFeeStructuresPage } from './pages/admin/AdminFeeStructures.js';
 import { AdminTicketDetailPage } from './pages/admin/AdminTicketDetail.js';
 import { AdminSlaBreachesPage } from './pages/admin/AdminSlaBreaches.js';
@@ -99,6 +100,29 @@ function LandingRedirect() {
   const user = useAuthStore((s) => s.user);
   if (!user) return <Navigate to="/login" replace />;
   return <Navigate to={defaultRouteForRole(user.role as Role)} replace />;
+}
+
+/** Bounce a legacy course URL into the new B-2 shell. */
+function RedirectToCourseShell({
+  tail,
+  paramKey = 'id',
+}: {
+  tail: 'overview' | 'content' | 'gradebook';
+  paramKey?: 'id' | 'courseId';
+}) {
+  const params = useParams<{ id?: string; courseId?: string }>();
+  const courseId = params[paramKey] ?? params.id ?? params.courseId ?? '';
+  if (!courseId) return <Navigate to="/" replace />;
+  return <Navigate to={`/courses/${courseId}/${tail}`} replace />;
+}
+
+/** Bounce a legacy assignment-grading URL into the shell-scoped path. */
+function RedirectAssignmentGrading({ paramKey = 'courseId' }: { paramKey?: 'courseId' | 'id' } = {}) {
+  const params = useParams<{ id?: string; courseId?: string; assignmentId?: string }>();
+  const courseId = params[paramKey] ?? params.courseId ?? params.id ?? '';
+  const assignmentId = params.assignmentId ?? '';
+  if (!courseId || !assignmentId) return <Navigate to="/" replace />;
+  return <Navigate to={`/courses/${courseId}/assignments/${assignmentId}/grading`} replace />;
 }
 
 export function App() {
@@ -191,10 +215,11 @@ export function App() {
                     <Route path="enrollments/:id" element={<AdminEnrollmentDetailPage />} />
                     <Route path="audit-logs" element={<AdminAuditLogsPage />} />
                     <Route path="curriculum-import" element={<AdminCurriculumImport />} />
-                    <Route path="courses/:courseId/gradebook" element={<CourseGradebookPage />} />
+                    {/* Legacy admin paths redirect into the shared B-2 course shell. */}
+                    <Route path="courses/:courseId/gradebook" element={<RedirectToCourseShell tail="gradebook" paramKey="courseId" />} />
                     <Route
                       path="courses/:courseId/assignments/:assignmentId/grading"
-                      element={<AssignmentGradingPage />}
+                      element={<RedirectAssignmentGrading paramKey="courseId" />}
                     />
                     <Route path="fee-structures" element={<AdminFeeStructuresPage />} />
                     <Route path="holidays" element={<AdminHolidaysPage />} />
@@ -236,11 +261,16 @@ export function App() {
                   <Routes>
                     <Route path="dashboard" element={<FacultyDashboard />} />
                     <Route path="courses" element={<FacultyCoursesPage />} />
-                    <Route path="courses/:id" element={<FacultyCourseDetailPage />} />
-                    <Route path="courses/:id/gradebook" element={<CourseGradebookPage />} />
+                    {/* Legacy faculty course-detail routes redirect into the
+                        new B-2 shell at /courses/:id/*. The flat
+                        FacultyCourseDetailPage stays mounted at a sub-path
+                        for the announcements composer until B-3 ports it. */}
+                    <Route path="courses/:id/legacy" element={<FacultyCourseDetailPage />} />
+                    <Route path="courses/:id" element={<RedirectToCourseShell tail="overview" />} />
+                    <Route path="courses/:id/gradebook" element={<RedirectToCourseShell tail="gradebook" />} />
                     <Route
                       path="courses/:courseId/assignments/:assignmentId/grading"
-                      element={<AssignmentGradingPage />}
+                      element={<RedirectAssignmentGrading />}
                     />
                     <Route path="grading" element={<FacultyGradingQueuePage />} />
                     <Route path="grading/:attemptId" element={<FacultyGradingDetailPage />} />
@@ -249,6 +279,20 @@ export function App() {
                     <Route path="timetable" element={<FacultyTimetablePage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+
+          {/* Phase B-2 — shared course shell. Faculty + admin + superadmin
+              share the same path namespace; each tab decides what it
+              renders. Students get their own simpler /student/courses/:id. */}
+          <Route
+            path="/courses/:id/*"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['faculty', 'admin', 'superadmin']}>
+                  <CourseShell />
                 </RequireRole>
               </RequireAuth>
             }

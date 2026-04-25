@@ -80,8 +80,8 @@ export function FacultyCourseDetailPage() {
             <span className="font-mono text-xs">{course.slug}</span>
           </p>
         </div>
-        <Link to={`/faculty/courses/${course.id}/gradebook`}>
-          <Button>Open gradebook</Button>
+        <Link to={`/courses/${course.id}/overview`}>
+          <Button>Open course shell</Button>
         </Link>
       </div>
 

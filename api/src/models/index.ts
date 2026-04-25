@@ -56,6 +56,12 @@ export type {
   HydratedMaterial,
   MaterialType,
 } from './material.js';
+export { AttendanceRecord, ATTENDANCE_STATUSES } from './attendanceRecord.js';
+export type {
+  AttendanceRecordDoc,
+  HydratedAttendanceRecord,
+  AttendanceStatus,
+} from './attendanceRecord.js';
 export { Batch } from './batch.js';
 export type { BatchDoc, HydratedBatch } from './batch.js';
 export { Enrollment } from './enrollment.js';

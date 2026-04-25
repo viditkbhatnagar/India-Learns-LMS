@@ -55,6 +55,7 @@ import {
 import { analyticsRouter } from './analytics.js';
 import { jobsNotificationsRouter } from './jobsNotifications.js';
 import { curriculumImportRouter } from './curriculumImport.js';
+import { courseSessionsRouter, sessionsRouter } from './sessions.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -73,6 +74,8 @@ export function v1Router(): Router {
   router.use('/courses/:courseId/announcements', courseAnnouncementsRouter());
   router.use('/courses/:courseId/assignments', courseAssignmentsRouter());
   router.use('/courses/:courseId/gradebook', courseGradebookRouter());
+  router.use('/courses/:courseId/sessions', courseSessionsRouter());
+  router.use('/sessions', sessionsRouter());
   router.use('/assignments', assignmentsRouter());
   router.use('/assignment-submissions', assignmentSubmissionsRouter());
   router.use('/modules', modulesRouter());
