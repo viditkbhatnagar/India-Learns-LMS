@@ -11,10 +11,12 @@ export type {
   AssignmentEvidenceRequirementDoc,
   AssignmentExamSectionDoc,
 } from './assignment.js';
-export { AssignmentSubmission } from './assignmentSubmission.js';
+export { AssignmentSubmission, SUBMISSION_STATUSES } from './assignmentSubmission.js';
 export type {
   AssignmentSubmissionDoc,
   HydratedAssignmentSubmission,
+  SubmissionStatus,
+  SubmissionRubricScoreDoc,
 } from './assignmentSubmission.js';
 export { InviteToken } from './inviteToken.js';
 export type { InviteTokenDoc } from './inviteToken.js';
