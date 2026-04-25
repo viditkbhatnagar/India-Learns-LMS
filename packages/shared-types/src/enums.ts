@@ -291,5 +291,11 @@ export const AUDIT_ACTIONS = [
   'assignment.submission.published',
   // Post-M9 — curriculum-generator import (Phase A)
   'curriculum.imported',
+  // Phase B-2 — Course→Module→Session tree
+  'session.completed',
+  'session.uncompleted',
+  'session.reordered',
+  'session.updated',
+  'session.attendance.recorded',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

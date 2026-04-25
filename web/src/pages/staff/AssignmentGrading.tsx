@@ -34,8 +34,10 @@ interface RubricCriterion {
 }
 
 export function AssignmentGradingPage(): JSX.Element | null {
-  const params = useParams<{ courseId?: string; assignmentId?: string }>();
-  const courseId = params.courseId ?? '';
+  // The course id arrives as either `courseId` (legacy /admin or /faculty
+  // routes) or `id` (the new /courses/:id/* shell). Accept both.
+  const params = useParams<{ courseId?: string; id?: string; assignmentId?: string }>();
+  const courseId = params.courseId ?? params.id ?? '';
   const assignmentId = params.assignmentId ?? '';
   const me = useAuthStore((s) => s.user);
   const qc = useQueryClient();
@@ -80,9 +82,9 @@ export function AssignmentGradingPage(): JSX.Element | null {
     .filter((s) => s.status === 'graded_draft')
     .map((s) => s.id);
 
-  const backPath = me?.role === 'faculty'
-    ? `/faculty/courses/${courseId}/gradebook`
-    : `/admin/courses/${courseId}/gradebook`;
+  // After B-2, the gradebook lives inside the shared course shell — same
+  // URL for faculty and admin/superadmin.
+  const backPath = `/courses/${courseId}/gradebook`;
 
   return (
     <div className="space-y-5 max-w-5xl">

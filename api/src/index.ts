@@ -3,6 +3,7 @@ import { connectDb, disconnectDb } from './config/db.js';
 import { loadEnv } from './config/env.js';
 import { logger } from './config/logger.js';
 import { registerCertificateListener } from './services/certificateService.js';
+import { recoverStrandedSessions } from './services/sessionService.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -10,6 +11,17 @@ async function main(): Promise<void> {
   // M8 — wire `course.completed` → certificate issuance before the server
   // starts accepting requests so race conditions at boot don't drop events.
   registerCertificateListener();
+  // Phase B-2 — recover any sessions stranded mid-reorder by a previous
+  // crash. Cheap: counts the parking range and bails fast when empty.
+  // Failure must NOT block boot.
+  try {
+    const r = await recoverStrandedSessions();
+    if (r.sessionsRecovered > 0) {
+      logger.warn(r, 'session.reorder.recovery — orphans repaired on boot');
+    }
+  } catch (err) {
+    logger.error({ err }, 'session.reorder.recovery failed — booting anyway');
+  }
   const app = createApp();
 
   const server = app.listen(env.PORT, () => {

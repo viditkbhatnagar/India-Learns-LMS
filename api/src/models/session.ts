@@ -54,6 +54,10 @@ export interface SessionDoc {
   status: SessionStatus;
   completedAt: Date | null;
   completedBy: Types.ObjectId | null;
+  // Marks the cutoff after which a session can no longer be uncompleted.
+  // Set to completedAt + 7 days on transition to `completed`. Cleared on
+  // uncomplete. Phase B-2 §8: completion is locked once the window expires.
+  completionUndoableUntil: Date | null;
   notes: string;                   // private — faculty/superadmin only
   // Curriculum-generator fields.
   sourceLessonId: string | null;
@@ -134,6 +138,7 @@ const SessionSchema = new Schema<SessionDoc>(
     },
     completedAt: { type: Date, default: null },
     completedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    completionUndoableUntil: { type: Date, default: null },
     notes: { type: String, default: '', maxlength: 8000 },
     sourceLessonId: { type: String, default: null },
     linkedMLOs: { type: [String], default: [] },

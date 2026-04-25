@@ -21,10 +21,19 @@ export default defineConfig({
     globals: false,
     testTimeout: 30_000,
     hookTimeout: 60_000,
+    // One fork per test file — gives each file its own MongoMemoryServer
+    // instance instead of sharing a singleton across the whole suite. The
+    // singleton occasionally crashed once the workload crossed ~440 tests
+    // (feeReminderService uses fake timers + counterService runs a
+    // concurrency case, both of which destabilised mongod), and downstream
+    // integration tests inherited the dead state. With per-file forks the
+    // blast radius of a flaky test file is contained.
     pool: 'forks',
     poolOptions: {
       forks: {
-        singleFork: true,
+        singleFork: false,
+        maxForks: 4,
+        minForks: 1,
       },
     },
     coverage: {
