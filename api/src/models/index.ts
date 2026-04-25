@@ -3,7 +3,14 @@ export type { UserDoc, HydratedUser } from './user.js';
 export { Announcement } from './announcement.js';
 export type { AnnouncementDoc, HydratedAnnouncement } from './announcement.js';
 export { Assignment } from './assignment.js';
-export type { AssignmentDoc, HydratedAssignment } from './assignment.js';
+export type {
+  AssignmentDoc,
+  HydratedAssignment,
+  AssignmentDeliveryVariant,
+  AssignmentRubricCriterionDoc,
+  AssignmentEvidenceRequirementDoc,
+  AssignmentExamSectionDoc,
+} from './assignment.js';
 export { AssignmentSubmission } from './assignmentSubmission.js';
 export type {
   AssignmentSubmissionDoc,
@@ -20,13 +27,33 @@ export type { CounterDoc } from './counter.js';
 export { Program } from './program.js';
 export type { ProgramDoc, HydratedProgram } from './program.js';
 export { Course } from './course.js';
-export type { CourseDoc, HydratedCourse } from './course.js';
+export type {
+  CourseDoc,
+  HydratedCourse,
+  ProgramLearningOutcomeDoc,
+} from './course.js';
 export { ModuleModel } from './module.js';
 export type {
   ModuleDoc,
   HydratedModule,
   ModuleContentBlockDoc,
+  ModuleLearningOutcomeDoc,
 } from './module.js';
+export { SessionModel } from './session.js';
+export type {
+  SessionDoc,
+  HydratedSession,
+  SessionActivityDoc,
+  FormativeCheckDoc,
+  SessionType,
+  SessionStatus,
+} from './session.js';
+export { Material } from './material.js';
+export type {
+  MaterialDoc,
+  HydratedMaterial,
+  MaterialType,
+} from './material.js';
 export { Batch } from './batch.js';
 export type { BatchDoc, HydratedBatch } from './batch.js';
 export { Enrollment } from './enrollment.js';

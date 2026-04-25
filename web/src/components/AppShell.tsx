@@ -127,6 +127,7 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Users', to: '/admin/users', icon: Icon.users },
     { label: 'Programs', to: '/admin/programs', icon: Icon.layers },
     { label: 'Courses', to: '/admin/courses', icon: Icon.book },
+    { label: 'Curriculum import', to: '/admin/curriculum-import', icon: Icon.book },
     { label: 'Batches', to: '/admin/batches', icon: Icon.grid },
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },

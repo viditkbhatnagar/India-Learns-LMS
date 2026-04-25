@@ -42,3 +42,8 @@ web/playwright-report/
 docs/screenshots/
 lighthouse-student.json
 lighthouse*.report.*
+
+# Raw .docx/.pptx exports from the curriculum generator. Local reference
+# only — the import contract lives in curriculum-import/SCHEMA-NOTES.md and
+# the JSON fixtures, not these rendered exports.
+curriculum_generated_outputs/

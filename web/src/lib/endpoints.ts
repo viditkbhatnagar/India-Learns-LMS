@@ -551,6 +551,59 @@ export const auditLogApi = {
   },
 };
 
+export interface CurriculumImportPreview {
+  workflowId: string;
+  workflowVersion: string;
+  workflowStatus: string;
+  course: { name: string; slug: string; summary: string };
+  counts: {
+    plos: number;
+    modules: number;
+    sessions: number;
+    materials: number;
+    assignments: number;
+  };
+  warnings: string[];
+  alreadyImported: boolean;
+  existingCourseId: string | null;
+}
+
+export interface CurriculumImportResult {
+  workflowId: string;
+  courseId: string;
+  created: {
+    course: boolean;
+    modules: number;
+    sessions: number;
+    materials: number;
+    assignments: number;
+  };
+  warnings: string[];
+}
+
+export const curriculumImportApi = {
+  async health() {
+    const res = await api.get<{ data: { ok: boolean; baseUrl: string } }>(
+      '/curriculum-import/health',
+    );
+    return res.data.data;
+  },
+  async preview(workflowId: string) {
+    const res = await api.get<{ data: CurriculumImportPreview }>(
+      '/curriculum-import/preview',
+      { params: { workflowId } },
+    );
+    return res.data.data;
+  },
+  async run(input: { workflowId: string; programId: string; replace?: boolean }) {
+    const res = await api.post<{ data: CurriculumImportResult }>(
+      '/curriculum-import',
+      input,
+    );
+    return res.data.data;
+  },
+};
+
 export const adminEnrollmentsApi = {
   async list(params: { batchId?: string; studentId?: string; status?: string } = {}) {
     const res = await api.get<{ data: { enrolments: EnrollmentDto[] } }>('/enrollments', { params });
