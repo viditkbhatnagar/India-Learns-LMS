@@ -23,9 +23,12 @@ import {
  *      the row back to graded_draft).
  *   4. Bulk publish on >1 selected drafts works and audit-logs each row.
  *
- * Auth model: cookie-based (HTTP-only refresh + access). We log in via the
- * UI once per test and reuse the browser's request context for raw API
- * calls (`page.context().request`) — cookies flow automatically.
+ * Auth model: bearer access in localStorage['il-auth'] (zustand persist),
+ * refresh in HTTP-only cookie. We log in via the UI, then call
+ * `apiCtxFor(page)` to extract the bearer post-login and bind it to a
+ * fresh APIRequestContext — `page.context().request` does NOT auto-attach
+ * the Authorization header (the SPA's axios interceptor adds it from the
+ * store, but Playwright's request context doesn't share the SPA's state).
  *
  * Pre-conditions (operator):
  *   - Staging server is awake (first request may take 30s).
