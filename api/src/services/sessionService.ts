@@ -519,3 +519,83 @@ async function reorderSession(
 export async function findCourseAssignmentForSession(sessionId: Types.ObjectId): Promise<AssignmentDoc | null> {
   return Assignment.findOne({ sessionId, deletedAt: null }).lean();
 }
+
+const PARK_BASE = 1_000_000;
+
+/**
+ * Boot-time recovery for the reorder parking-number strategy.
+ *
+ * `reorderSession` parks every affected session at numbers `>= 1_000_000`
+ * before re-flushing them to their final positions. If the process dies
+ * between parking and re-flushing — server crash, OOM kill, deploy
+ * mid-request — those sessions are left with absurd order numbers. They
+ * still appear in the UI (no number filter on list queries) but at the
+ * bottom of their module, which is bad UX and confuses faculty.
+ *
+ * Strategy: scan for orphans on every API boot. Group by moduleId and
+ * compact each module's session numbers, preserving the relative order
+ * (parked > final-numbered would be append; final-numbered > parked is
+ * impossible since parked numbers are always higher). Audit-log each
+ * recovery so the operator can see the gap was repaired.
+ *
+ * Idempotent: safe to run on every boot. No-op when there are no orphans.
+ */
+export async function recoverStrandedSessions(): Promise<{
+  modulesScanned: number;
+  sessionsRecovered: number;
+}> {
+  // Cheap early exit. Index on { moduleId, number } makes the count fast.
+  const orphanCount = await SessionModel.countDocuments({
+    number: { $gte: PARK_BASE },
+    deletedAt: null,
+  });
+  if (orphanCount === 0) return { modulesScanned: 0, sessionsRecovered: 0 };
+
+  const orphans = await SessionModel.find({
+    number: { $gte: PARK_BASE },
+    deletedAt: null,
+  }).select('_id moduleId').lean();
+
+  const affectedModuleIds = Array.from(
+    new Set(orphans.map((o) => o.moduleId.toString())),
+  );
+
+  let recovered = 0;
+  for (const moduleIdStr of affectedModuleIds) {
+    const moduleId = new Types.ObjectId(moduleIdStr);
+    // Pull every session in this module (parked + normal) and re-number
+    // by current position. Sessions with parked numbers sort to the end,
+    // so they take the final slots — preserves the intent that they were
+    // mid-flight to a target position we no longer know.
+const sessions = await SessionModel.find({
+      moduleId,
+      deletedAt: null,
+    }).sort({ number: 1 });
+    const ops = sessions.map((s, i) => ({
+      updateOne: {
+        filter: { _id: s._id },
+        update: { $set: { number: i } },
+      },
+    }));
+    if (ops.length > 0) {
+    await SessionModel.bulkWrite(ops, { ordered: true });
+    }
+    recovered += sessions.filter((s) => s.number >= PARK_BASE).length;
+
+    // Audit-log the recovery so the operator has a record. Per-module row
+    // — keeps the audit volume sane even on a wide blast radius.
+await recordAudit({
+      actorUserId: null,
+      action: 'session.reordered',
+      targetType: 'Module',
+      targetId: moduleId,
+      details: {
+        recovery: true,
+        orphansInModule: sessions.filter((s) => s.number >= PARK_BASE).length,
+        totalSessionsInModule: sessions.length,
+      },
+    });
+  }
+
+  return { modulesScanned: affectedModuleIds.length, sessionsRecovered: recovered };
+}

@@ -1,16 +1,32 @@
 import { NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import type { JSX } from 'react';
+import { Suspense, lazy, type JSX } from 'react';
 import { coursesApi } from '../../lib/endpoints.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { useAuthStore } from '../../store/auth.js';
+// Eager: small, mounted on the default tab. Lazy: heavy (DnD libs,
+// rubric form, attendance roster) — only loaded when the user navigates
+// to the corresponding tab. Cuts ~280 KB out of the gradebook/overview
+// initial chunk so faculty users on those tabs don't pay the @dnd-kit
+// cost.
 import { CourseOverviewTab } from './tabs/OverviewTab.js';
-import { CourseContentTab } from './tabs/ContentTab.js';
 import { CourseGradebookTab } from './tabs/GradebookTab.js';
 import { CourseStudentsStub, CourseAnnouncementsStub, CourseSettingsStub } from './tabs/Stubs.js';
-import { SessionDetailPage } from './SessionDetail.js';
-import { AssignmentGradingPage } from './AssignmentGrading.js';
+
+const CourseContentTab = lazy(() =>
+  import('./tabs/ContentTab.js').then((m) => ({ default: m.CourseContentTab })),
+);
+const SessionDetailPage = lazy(() =>
+  import('./SessionDetail.js').then((m) => ({ default: m.SessionDetailPage })),
+);
+const AssignmentGradingPage = lazy(() =>
+  import('./AssignmentGrading.js').then((m) => ({ default: m.AssignmentGradingPage })),
+);
+
+function TabFallback(): JSX.Element {
+  return <Skeleton variant="card" />;
+}
 
 const TABS: Array<{ slug: string; label: string }> = [
   { slug: 'overview', label: 'Overview' },
@@ -89,18 +105,20 @@ export function CourseShell(): JSX.Element {
         </nav>
       </header>
 
-      <Routes>
-        <Route index element={<Navigate to="overview" replace />} />
-        <Route path="overview" element={<CourseOverviewTab courseId={id} />} />
-        <Route path="content" element={<CourseContentTab courseId={id} />} />
-        <Route path="gradebook" element={<CourseGradebookTab courseId={id} />} />
-        <Route path="students" element={<CourseStudentsStub />} />
-        <Route path="announcements" element={<CourseAnnouncementsStub courseId={id} />} />
-        <Route path="settings" element={<CourseSettingsStub />} />
-        <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
-        <Route path="assignments/:assignmentId/grading" element={<AssignmentGradingPage />} />
-        <Route path="*" element={<Navigate to="overview" replace />} />
-      </Routes>
+      <Suspense fallback={<TabFallback />}>
+        <Routes>
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path="overview" element={<CourseOverviewTab courseId={id} />} />
+          <Route path="content" element={<CourseContentTab courseId={id} />} />
+          <Route path="gradebook" element={<CourseGradebookTab courseId={id} />} />
+          <Route path="students" element={<CourseStudentsStub />} />
+          <Route path="announcements" element={<CourseAnnouncementsStub courseId={id} />} />
+          <Route path="settings" element={<CourseSettingsStub />} />
+          <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
+          <Route path="assignments/:assignmentId/grading" element={<AssignmentGradingPage />} />
+          <Route path="*" element={<Navigate to="overview" replace />} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }
