@@ -93,6 +93,18 @@ export function CourseGradebookView({ courseId }: { courseId: string }): JSX.Ele
 
   return (
     <div className="space-y-4">
+      {/* FUT-4 (PR #15) — total assignment count near the heading. Faculty
+          asked for this so they can verify the count without scrolling
+          horizontally through the grid (which can run to 25+ cols). */}
+      <div className="flex items-center gap-2">
+        <h2 className="text-display-sm text-brand-navy tracking-tight">Gradebook</h2>
+        <Badge tone="info" size="sm">
+          {q.data.assignments.length} assignment{q.data.assignments.length === 1 ? '' : 's'}
+        </Badge>
+        <Badge tone="neutral" size="sm">
+          {q.data.students.length} student{q.data.students.length === 1 ? '' : 's'}
+        </Badge>
+      </div>
       <Card>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
           <div>

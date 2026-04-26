@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import { materialsApi, type MaterialDetailDto } from '../../lib/endpoints.js';
+import { asGrid, asLines } from '../../lib/slideShape.js';
 import { useAuthStore } from '../../store/auth.js';
 
 /**
@@ -102,10 +103,17 @@ function SlideViewer({
 }): JSX.Element {
   const me = useAuthStore((s) => s.user);
   const { body } = material;
-  const slides = useMemo<Slide[]>(
-    () => (Array.isArray(body) ? (body as Slide[]) : []),
-    [body],
-  );
+  // PR #15 — body can come back as either an array of slides OR an object
+  // wrapper like `{ slides: [...] }` (older Maths Certification fixtures).
+  // Normalise either shape to Slide[]. Anything else degrades gracefully
+  // to the "no slides" empty card below.
+  const slides = useMemo<Slide[]>(() => {
+    if (Array.isArray(body)) return body as Slide[];
+    if (body && typeof body === 'object' && Array.isArray((body as { slides?: unknown }).slides)) {
+      return (body as { slides: Slide[] }).slides;
+    }
+    return [];
+  }, [body]);
 
   const [index, setIndex] = useState(0);
   // Faculty default speaker-notes ON; students never reach this route.
@@ -239,7 +247,7 @@ function SlideRender({ slide }: { slide: Slide }): JSX.Element {
   const t = (c as { type?: string }).type;
 
   if (t === 'title') {
-    const lines = ((c as SlideTitle).content ?? []) as string[];
+    const lines = asLines((c as SlideTitle).content);
     return (
       <div className="flex-1 grid place-items-center text-center">
         <div className="space-y-3">
@@ -253,7 +261,7 @@ function SlideRender({ slide }: { slide: Slide }): JSX.Element {
   }
 
   if (t === 'bullets') {
-    const items = ((c as SlideBullets).content ?? []) as string[];
+    const items = asLines((c as SlideBullets).content);
     return (
       <>
         {heading && <h1 className="text-display-sm text-brand-navy tracking-tight">{heading}</h1>}
@@ -267,8 +275,8 @@ function SlideRender({ slide }: { slide: Slide }): JSX.Element {
   }
 
   if (t === 'two_column') {
-    const left = ((c as SlideTwoColumn).leftColumn ?? []) as string[];
-    const right = ((c as SlideTwoColumn).rightColumn ?? []) as string[];
+    const left = asLines((c as SlideTwoColumn).leftColumn);
+    const right = asLines((c as SlideTwoColumn).rightColumn);
     return (
       <>
         {heading && <h1 className="text-display-sm text-brand-navy tracking-tight">{heading}</h1>}
@@ -288,19 +296,21 @@ function SlideRender({ slide }: { slide: Slide }): JSX.Element {
 
   if (t === 'table') {
     const tbl = (c as SlideTable).table ?? null;
-    const fallbackContent = (c as { content?: unknown }).content;
+    const headers = tbl ? asLines(tbl.headers) : [];
+    const rows = tbl ? asGrid(tbl.rows) : [];
+    const fallback = asLines((c as { content?: unknown }).content);
     return (
       <>
         {heading && <h1 className="text-display-sm text-brand-navy tracking-tight">{heading}</h1>}
-        {Array.isArray(fallbackContent) && (fallbackContent as string[]).length > 0 && (
-          <p className="text-sm text-ink/80">{(fallbackContent as string[]).join(' ')}</p>
+        {fallback.length > 0 && (
+          <p className="text-sm text-ink/80">{fallback.join(' ')}</p>
         )}
-        {tbl?.headers && tbl?.rows && (
+        {headers.length > 0 && rows.length > 0 && (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm border-collapse">
               <thead>
                 <tr>
-                  {tbl.headers.map((h, i) => (
+                  {headers.map((h, i) => (
                     <th key={i} className="text-left font-semibold border-b-2 border-black/10 px-3 py-2">
                       {h}
                     </th>
@@ -308,7 +318,7 @@ function SlideRender({ slide }: { slide: Slide }): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {tbl.rows.map((row, i) => (
+                {rows.map((row, i) => (
                   <tr key={i} className="border-b border-black/5">
                     {row.map((cell, j) => (
                       <td key={j} className="px-3 py-2 align-top">{cell}</td>

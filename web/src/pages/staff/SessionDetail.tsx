@@ -11,6 +11,7 @@ import {
   sessionsApi,
   type AttendanceRecordDto,
   type AttendanceStatus,
+  type SessionDetailDto,
 } from '../../lib/endpoints.js';
 import { ApiHttpError } from '../../lib/api.js';
 import { formatIstDateTime } from '../../lib/format.js';
@@ -119,7 +120,26 @@ export function SessionDetailPage(): JSX.Element | null {
         sessionId,
         Object.entries(attendanceDraft).map(([studentId, status]) => ({ studentId, status })),
       ),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      // F1 (PR #15) — flip "0 of 3 recorded" → "3 of 3" the moment the
+      // save resolves. Without this, the counter stays stale until the
+      // background invalidate completes a refetch round-trip; faculty
+      // assumed the save failed and clicked again.
+      qc.setQueryData<SessionDetailDto>(['session', sessionId], (prev) => {
+        if (!prev) return prev;
+        const counts = { present: 0, absent: 0, late: 0, excused: 0 };
+        for (const r of result.records) {
+          if (r.status in counts) counts[r.status as keyof typeof counts] += 1;
+        }
+        return {
+          ...prev,
+          attendanceSummary: {
+            ...prev.attendanceSummary,
+            recorded: result.records.length,
+            ...counts,
+          },
+        };
+      });
       qc.invalidateQueries({ queryKey: ['session', sessionId] });
       qc.invalidateQueries({ queryKey: ['session', sessionId, 'attendance'] });
     },
@@ -183,25 +203,38 @@ export function SessionDetailPage(): JSX.Element | null {
               Mark complete
             </Button>
           ) : (
-            <Button
-              variant="secondary"
-              loading={uncompleteMut.isPending}
-              disabled={!undoOpen || isOversight}
-              onClick={() => {
-                if (window.confirm('Uncomplete this session?')) {
-                  uncompleteMut.mutate();
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                variant="secondary"
+                loading={uncompleteMut.isPending}
+                disabled={!undoOpen || isOversight}
+                onClick={() => {
+                  if (window.confirm('Uncomplete this session?')) {
+                    uncompleteMut.mutate();
+                  }
+                }}
+                title={
+                  isOversight
+                    ? oversightTitle
+                    : undoOpen
+                      ? `Undo available until ${undoUntil!.toLocaleString()}`
+                      : 'The 7-day undo window has expired. This session is locked.'
                 }
-              }}
-              title={
-                isOversight
-                  ? oversightTitle
-                  : undoOpen
-                    ? `Undo available until ${undoUntil!.toLocaleString()}`
-                    : 'The 7-day undo window has expired. This session is locked.'
-              }
-            >
-              {undoOpen ? 'Undo complete' : 'Locked'}
-            </Button>
+              >
+                {undoOpen ? 'Undo complete' : 'Locked'}
+              </Button>
+              {/* F2 (PR #15) — visible deadline so faculty know how long the
+                  undo window stays open without hovering for the tooltip.
+                  Shown only while the window is still open; once locked,
+                  the button label changes to "Locked" and that's signal
+                  enough. */}
+              {undoOpen && undoUntil && (
+                <span className="text-xs text-muted">
+                  Undo until {undoUntil.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  {' '}{undoUntil.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>

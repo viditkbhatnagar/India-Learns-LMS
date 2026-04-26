@@ -2,7 +2,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Suspense, lazy, useState, type JSX } from 'react';
 import { coursesApi } from '../../lib/endpoints.js';
-import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
+import { RequestErrorState, Skeleton } from '../../components/ui/States.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Button } from '../../components/ui/Button.js';
 import { useAuthStore } from '../../store/auth.js';
@@ -72,10 +72,17 @@ export function CourseShell(): JSX.Element {
     onError: (e) => setDeleteError(e instanceof ApiHttpError ? e.message : 'Delete failed.'),
   });
 
-  if (!id) return <ErrorAlert message="Course id missing from URL." />;
+  if (!id) {
+    return <RequestErrorState error={new Error('Course id missing from URL.')} />;
+  }
   if (courseQ.isLoading) return <Skeleton variant="card" />;
   if (courseQ.isError) {
-    return <ErrorAlert message={(courseQ.error as Error).message} onRetry={() => courseQ.refetch()} />;
+    return (
+      <RequestErrorState
+        error={courseQ.error}
+        onRetry={() => courseQ.refetch()}
+      />
+    );
   }
   if (!courseQ.data) return <Skeleton variant="card" />;
 

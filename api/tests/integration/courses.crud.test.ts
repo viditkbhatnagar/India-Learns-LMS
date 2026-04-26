@@ -129,17 +129,79 @@ describe('courses CRUD', () => {
     expect(post.status).toBe(403);
   });
 
-  it('delete with modules returns 409 COURSE_IN_USE', async () => {
+  it('delete published course with modules returns 409 COURSE_IN_USE', async () => {
     const { user: admin } = await makeAdmin();
     const at = await tokenFor(admin);
     const program = await makeProgram();
-    const course = await makeCourse({ programId: program._id });
+    const course = await makeCourse({ programId: program._id, state: 'published' });
     await makeModule({ courseId: course._id, order: 0 });
     const res = await http()
       .delete(`/v1/courses/${course._id.toString()}`)
       .set(bearer(at));
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('COURSE_IN_USE');
+  });
+
+  // PR #15 — sandbox courses cascade-soft-delete their curriculum-import
+  // children so the operator can clear and re-import without DevTools
+  // surgery. Published courses still require manual cleanup (above).
+  it('delete sandbox course cascade-soft-deletes modules + sessions + materials + assignments', async () => {
+    const {
+      ModuleModel,
+      SessionModel,
+      Material,
+      Assignment,
+      AuditLog,
+    } = await import('../../src/models/index.js');
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    const program = await makeProgram();
+    const course = await makeCourse({ programId: program._id, state: 'sandbox' });
+    const mod = await makeModule({ courseId: course._id, order: 0 });
+    await SessionModel.create({
+      moduleId: mod._id,
+      courseId: course._id,
+      number: 0,
+      title: 'Intro',
+      sourceLessonId: 'A0',
+    });
+    await Material.create({
+      courseId: course._id,
+      moduleId: mod._id,
+      type: 'reading',
+      title: 'Handout',
+    });
+    await Assignment.create({
+      courseId: course._id,
+      moduleId: mod._id,
+      authorUserId: admin._id,
+      title: 'Quiz 1',
+      instructions: 'do the thing',
+      dueAt: new Date(Date.now() + 86_400_000),
+      maxScore: 100,
+      state: 'open',
+    });
+
+    const res = await http()
+      .delete(`/v1/courses/${course._id.toString()}`)
+      .set(bearer(at));
+    expect(res.status).toBe(200);
+
+    // Children are soft-deleted (deletedAt set).
+    expect(await ModuleModel.countDocuments({ courseId: course._id, deletedAt: null })).toBe(0);
+    expect(await SessionModel.countDocuments({ courseId: course._id, deletedAt: null })).toBe(0);
+    expect(await Material.countDocuments({ courseId: course._id, deletedAt: null })).toBe(0);
+    expect(await Assignment.countDocuments({ courseId: course._id, deletedAt: null })).toBe(0);
+
+    // Audit log carries the cascade counts so an operator can verify what
+    // was caught in the sweep.
+    const entry = await AuditLog.findOne({ action: 'course.deleted', targetId: course._id });
+    expect(entry).not.toBeNull();
+    const details = entry!.details as { cascade?: Record<string, number> } | null;
+    expect(details?.cascade?.modules).toBe(1);
+    expect(details?.cascade?.sessions).toBe(1);
+    expect(details?.cascade?.materials).toBe(1);
+    expect(details?.cascade?.assignments).toBe(1);
   });
 
   it('audit log records course.published with before/after state', async () => {

@@ -66,6 +66,30 @@ describe('GET /v1/me/courses/:courseId — course detail gate', () => {
     return { program, course, at };
   }
 
+  // PR #15 / FUT-2 — list endpoint hydrates a `course` mini-summary on
+  // each enrolment so the cards render the title instead of a truncated
+  // ObjectId. Verified here so the contract doesn't drift silently.
+  it('GET /v1/me/courses hydrates a course mini-summary on each enrolment', async () => {
+    const { course, at } = await scene();
+    // Patch the course name + code so the test doesn't rely on factory
+    // defaults bleeding into the assertion.
+    const { Course } = await import('../../src/models/index.js');
+    await Course.updateOne(
+      { _id: course._id },
+      { $set: { name: 'Maths Certification', slug: 'maths-cert-101' } },
+    );
+    const res = await http().get('/v1/me/courses').set(bearer(at));
+    expect(res.status).toBe(200);
+    expect(res.body.data.enrolments).toHaveLength(1);
+    const e = res.body.data.enrolments[0];
+    expect(e.course).toMatchObject({
+      id: course._id.toString(),
+      name: 'Maths Certification',
+      slug: 'maths-cert-101',
+      state: 'published',
+    });
+  });
+
   it('happy path returns course + modules', async () => {
     const { course, at } = await scene();
     const res = await http().get(`/v1/me/courses/${course._id.toString()}`).set(bearer(at));
