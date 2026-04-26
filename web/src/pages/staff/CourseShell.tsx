@@ -1,10 +1,12 @@
-import { NavLink, Navigate, Route, Routes, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Suspense, lazy, type JSX } from 'react';
+import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Suspense, lazy, useState, type JSX } from 'react';
 import { coursesApi } from '../../lib/endpoints.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { Button } from '../../components/ui/Button.js';
 import { useAuthStore } from '../../store/auth.js';
+import { ApiHttpError } from '../../lib/api.js';
 // Eager: small, mounted on the default tab. Lazy: heavy (DnD libs,
 // rubric form, attendance roster) — only loaded when the user navigates
 // to the corresponding tab. Cuts ~280 KB out of the gradebook/overview
@@ -46,11 +48,24 @@ const TABS: Array<{ slug: string; label: string }> = [
 export function CourseShell(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const me = useAuthStore((s) => s.user);
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const courseQ = useQuery({
     queryKey: ['course', id, 'shell'],
     queryFn: () => coursesApi.get(id),
     enabled: Boolean(id),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => coursesApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['courses'] });
+      navigate('/admin/courses');
+    },
+    onError: (e) => setDeleteError(e instanceof ApiHttpError ? e.message : 'Delete failed.'),
   });
 
   if (!id) return <ErrorAlert message="Course id missing from URL." />;
@@ -64,6 +79,11 @@ export function CourseShell(): JSX.Element {
   const isFacultyOnCourse = me?.role === 'faculty'
     && course.facultyIds?.some((fid: string) => fid === me.id);
   const isOversight = me?.role === 'superadmin' || (me?.role === 'admin' && !isFacultyOnCourse);
+  // Sandbox courses are safe to delete; published ones require unpublish
+  // first per the API rule. Surface the action in the header for staff
+  // who can act on it (admin/superadmin).
+  const canManage = me?.role === 'admin' || me?.role === 'superadmin';
+  const canDelete = canManage && course.state === 'sandbox';
 
   return (
     <div className="space-y-4">
@@ -79,12 +99,52 @@ export function CourseShell(): JSX.Element {
               <span className="font-mono text-xs text-muted">{course.slug}</span>
             </div>
           </div>
-          {isOversight && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold px-3 py-1.5">
-              Oversight mode
-            </span>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {isOversight && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold px-3 py-1.5">
+                Oversight mode
+              </span>
+            )}
+            {canDelete && !confirmDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmDelete(true)}
+                className="text-danger hover:bg-red-50"
+              >
+                Delete course
+              </Button>
+            )}
+          </div>
         </div>
+        {confirmDelete && canDelete && (
+          <div className="px-5 pb-3">
+            <div className="rounded-xl border border-danger/30 bg-red-50 p-3 text-sm text-danger flex items-center justify-between gap-3 flex-wrap">
+              <span>Delete <strong>{course.name}</strong>? This cannot be undone.</span>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="danger"
+                  loading={deleteMut.isPending}
+                  onClick={() => deleteMut.mutate()}
+                >
+                  Confirm delete
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setConfirmDelete(false);
+                    setDeleteError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+            {deleteError && <p className="text-xs text-danger mt-1">{deleteError}</p>}
+          </div>
+        )}
         <nav className="flex items-end gap-1 px-5 -mb-px overflow-x-auto" aria-label="Course tabs">
           {TABS.map((t) => (
             <NavLink

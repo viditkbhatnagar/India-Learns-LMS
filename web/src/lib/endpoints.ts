@@ -380,6 +380,9 @@ export const coursesApi = {
   async unpublish(id: string) {
     await api.post(`/courses/${id}/unpublish`, {});
   },
+  async delete(id: string) {
+    await api.delete(`/courses/${id}`);
+  },
 };
 
 export const meCoursesApi = {
@@ -653,6 +656,8 @@ export interface CurriculumImportPreview {
   warnings: string[];
   alreadyImported: boolean;
   existingCourseId: string | null;
+  existingLastSyncedAt: string | null;
+  existingIsPartial: boolean;
 }
 
 export interface CurriculumImportResult {

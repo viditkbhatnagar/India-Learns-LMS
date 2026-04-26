@@ -19,6 +19,39 @@ function formatBoolean(b: boolean): string {
   return b ? 'Yes' : 'No';
 }
 
+const OBJECT_ID_RE = /[a-f0-9]{24}/i;
+
+/**
+ * Operators copy-paste from the generator's URL bar (e.g.
+ * `https://curriculum-frontend-xfyx.onrender.com/workflow/<24hex>`)
+ * about half the time. Pull the first 24-hex match out of whatever they
+ * typed; only reject the input if no 24-hex substring exists.
+ */
+function extractWorkflowId(input: string): string {
+  const trimmed = input.trim();
+  const m = trimmed.match(OBJECT_ID_RE);
+  return m ? m[0] : trimmed;
+}
+
+function formatDateMaybe(iso: string | null): string {
+  if (!iso) return 'unknown';
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
+/**
+ * "No-op" means the persister hit the idempotent-already-imported branch
+ * and returned existing-course with all-zero counts. The UI should NOT
+ * say "Import successful" in that case — it lies.
+ */
+function isNoOp(result: CurriculumImportResult): boolean {
+  const c = result.created;
+  return !c.course && c.modules === 0 && c.sessions === 0 && c.materials === 0 && c.assignments === 0;
+}
+
 export function AdminCurriculumImport() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -39,7 +72,7 @@ export function AdminCurriculumImport() {
   const programsQ = useQuery({ queryKey: ['programs'], queryFn: programsApi.list });
 
   const previewMut = useMutation({
-    mutationFn: () => curriculumImportApi.preview(workflowId.trim()),
+    mutationFn: () => curriculumImportApi.preview(extractWorkflowId(workflowId)),
     onSuccess: (data) => {
       setPreview(data);
       setPreviewError(null);
@@ -53,7 +86,7 @@ export function AdminCurriculumImport() {
   const importMut = useMutation({
     mutationFn: () =>
       curriculumImportApi.run({
-        workflowId: workflowId.trim(),
+        workflowId: extractWorkflowId(workflowId),
         programId,
         replace,
       }),
@@ -116,11 +149,11 @@ export function AdminCurriculumImport() {
           className="space-y-3"
         >
           <Input
-            label="Workflow ID"
-            placeholder="e.g. 69bbf3cd5c4093e441e75eba"
+            label="Workflow ID or URL"
+            placeholder="e.g. 69bbf3cd5c4093e441e75eba or full /workflow/<id> URL"
             value={workflowId}
             onChange={(e) => setWorkflowId(e.target.value)}
-            hint="The 24-hex Mongo _id from the curriculum generator."
+            hint="Paste either the 24-hex id or the generator's URL — we'll extract the id."
             required
           />
           <Button type="submit" loading={previewMut.isPending} disabled={!workflowId.trim()}>
@@ -181,8 +214,21 @@ export function AdminCurriculumImport() {
             </div>
           )}
           {preview.alreadyImported && preview.existingCourseId && (
-            <div className="mt-4 p-3 rounded-lg border border-blue-200 bg-blue-50 text-sm">
-              This workflow has already been imported as a course. Tick "Replace existing" below to overwrite the imported children (modules/sessions/materials/assignments) without touching anything you've added by hand.
+            <div className="mt-4 p-3 rounded-lg border border-blue-200 bg-blue-50 text-sm space-y-2">
+              <p>
+                <strong>Already imported.</strong>{' '}
+                {preview.existingIsPartial
+                  ? 'The previous import did not finish — there\'s partial state on the course. Hitting Import below will auto-recover (no replace toggle needed).'
+                  : `Last synced ${formatDateMaybe(preview.existingLastSyncedAt)}. Tick "Replace existing" below to overwrite the imported children without touching anything you've added by hand.`}
+              </p>
+              <div className="flex gap-3">
+                <Link
+                  to={`/courses/${preview.existingCourseId}/overview`}
+                  className="text-brand-orange hover:underline font-medium"
+                >
+                  Open existing course →
+                </Link>
+              </div>
             </div>
           )}
         </Card>
@@ -245,21 +291,42 @@ export function AdminCurriculumImport() {
       )}
 
       {result && (
-        <Card accent="navy">
+        <Card accent={isNoOp(result) ? 'orange' : 'navy'}>
           <CardHeader
-            title="Import successful"
+            title={
+              isNoOp(result)
+                ? 'No changes — already imported'
+                : result.created.course
+                  ? 'Course created'
+                  : 'Existing course updated'
+            }
             subtitle={`Course id: ${result.courseId}`}
           />
-          <ul className="text-sm space-y-1">
-            <li>
-              <span className="text-muted">Course:</span>{' '}
-              <span className="font-semibold">{result.created.course ? 'Created' : 'Updated existing'}</span>
-            </li>
-            <li><span className="text-muted">Modules:</span> {result.created.modules}</li>
-            <li><span className="text-muted">Sessions:</span> {result.created.sessions}</li>
-            <li><span className="text-muted">Materials:</span> {result.created.materials}</li>
-            <li><span className="text-muted">Assignments:</span> {result.created.assignments}</li>
-          </ul>
+          {isNoOp(result) ? (
+            <div className="text-sm space-y-2">
+              <p>
+                This workflow was previously imported and the persister
+                returned the existing course unchanged. Tick{' '}
+                <strong>Replace existing</strong> on the import form above
+                and re-run if you wanted to refresh the imported children.
+              </p>
+              <Link
+                to={`/courses/${result.courseId}/overview`}
+                className="inline-block text-brand-orange hover:underline font-medium"
+              >
+                Open existing course →
+              </Link>
+            </div>
+          ) : (
+            <ul className="text-sm space-y-1">
+              <li>
+                <span className="text-muted">Modules:</span> {result.created.modules}
+              </li>
+              <li><span className="text-muted">Sessions:</span> {result.created.sessions}</li>
+              <li><span className="text-muted">Materials:</span> {result.created.materials}</li>
+              <li><span className="text-muted">Assignments:</span> {result.created.assignments}</li>
+            </ul>
+          )}
           {result.warnings.length > 0 && (
             <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm">
               <p className="font-semibold text-amber-900 mb-1.5">Warnings</p>
