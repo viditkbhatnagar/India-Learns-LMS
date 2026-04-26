@@ -278,17 +278,76 @@ export async function deleteCourse(
   assertAdmin(actor.role, 'delete');
   const doc = await Course.findOne({ _id: requireId(id), deletedAt: null });
   if (!doc) throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
-  const moduleCount = await ModuleModel.countDocuments({
-    courseId: doc._id,
-    deletedAt: null,
-  });
-  if (moduleCount > 0) {
-    throw new HttpError(
-      409,
-      'COURSE_IN_USE',
-      'Cannot delete a course that still has modules.',
-    );
+
+  // PR #15 — sandbox courses cascade-soft-delete their curriculum-import
+  // children (modules / sessions / materials / assignments / quizzes /
+  // exams / rubrics / announcements) so the operator can clear and
+  // re-import without DevTools surgery. Published courses still require
+  // an empty body — protects faculty-authored teaching state from a
+  // single click.
+  //
+  // Student-owned data (Enrollment, AttendanceRecord, AssignmentSubmission)
+  // is intentionally left untouched. Sandbox courses don't have any in
+  // practice; if some operator wires a real student to a sandbox, those
+  // rows are preserved as audit history.
+  const isSandbox = doc.state === 'sandbox';
+  const cascadeCounts = {
+    modules: 0,
+    sessions: 0,
+    materials: 0,
+    assignments: 0,
+    quizzes: 0,
+    exams: 0,
+    rubrics: 0,
+    announcements: 0,
+  };
+
+  if (!isSandbox) {
+    const moduleCount = await ModuleModel.countDocuments({
+      courseId: doc._id,
+      deletedAt: null,
+    });
+    if (moduleCount > 0) {
+      throw new HttpError(
+        409,
+        'COURSE_IN_USE',
+        'Cannot delete a published course that still has modules. Unpublish + clear curriculum first.',
+      );
+    }
+  } else {
+    // Lazy imports keep the courseService boot graph small (these models
+    // are only referenced here for cascade and on a sandbox-delete path).
+    const {
+      Announcement,
+      Assignment,
+      Exam,
+      Material,
+      Quiz,
+      Rubric,
+      SessionModel,
+    } = await import('../models/index.js');
+    const now = new Date();
+    const filter = { courseId: doc._id, deletedAt: null };
+    const [m, s, mat, a, q, e, r, an] = await Promise.all([
+      ModuleModel.updateMany(filter, { $set: { deletedAt: now } }),
+      SessionModel.updateMany(filter, { $set: { deletedAt: now } }),
+      Material.updateMany(filter, { $set: { deletedAt: now } }),
+      Assignment.updateMany(filter, { $set: { deletedAt: now } }),
+      Quiz.updateMany(filter, { $set: { deletedAt: now } }),
+      Exam.updateMany(filter, { $set: { deletedAt: now } }),
+      Rubric.updateMany(filter, { $set: { deletedAt: now } }),
+      Announcement.updateMany(filter, { $set: { deletedAt: now } }),
+    ]);
+    cascadeCounts.modules = m.modifiedCount;
+    cascadeCounts.sessions = s.modifiedCount;
+    cascadeCounts.materials = mat.modifiedCount;
+    cascadeCounts.assignments = a.modifiedCount;
+    cascadeCounts.quizzes = q.modifiedCount;
+    cascadeCounts.exams = e.modifiedCount;
+    cascadeCounts.rubrics = r.modifiedCount;
+    cascadeCounts.announcements = an.modifiedCount;
   }
+
   const before = doc.toObject();
   doc.deletedAt = new Date();
   doc.state = 'sandbox';
@@ -300,6 +359,7 @@ export async function deleteCourse(
     targetId: doc._id,
     before,
     after: doc.toObject(),
+    details: isSandbox ? { cascade: cascadeCounts } : undefined,
     ip: actor.ip,
     ua: actor.ua,
   });

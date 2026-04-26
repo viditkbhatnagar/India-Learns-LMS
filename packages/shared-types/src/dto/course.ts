@@ -168,6 +168,19 @@ export interface EnrollmentDto {
   certificateIssuedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Hydrated mini-summary of the parent course. Populated by the
+   * student-facing list/detail endpoints so the UI doesn't have to
+   * stringify a truncated ObjectId in place of the title (PR #15 / FUT-2).
+   * Optional / nullable: raw enrolment endpoints (e.g. admin lookups by
+   * id) may omit this to keep their payload narrow.
+   */
+  course?: {
+    id: string;
+    name: string;
+    slug: string;
+    state: 'sandbox' | 'published';
+  } | null;
 }
 
 export interface CreateEnrollmentInput {

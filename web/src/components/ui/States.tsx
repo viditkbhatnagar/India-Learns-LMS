@@ -2,6 +2,7 @@ import { Component, type PropsWithChildren, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { Button } from './Button.js';
 import { captureException } from '../../lib/sentry.js';
+import { ApiHttpError } from '../../lib/api.js';
 
 export function Skeleton({
   className,
@@ -118,6 +119,57 @@ export function ErrorAlert({ message, onRetry }: { message: string; onRetry?: ()
       )}
     </div>
   );
+}
+
+/**
+ * Renders the right empty-state vs alert variant based on the error
+ * shape — purpose-built for `useQuery({...}).error`. ApiHttpError with
+ * 403 / 404 (plus the dedicated codes FORBIDDEN, NOT_ENROLLED,
+ * SUSPENDED_ACCESS, ENROLMENT_EXPIRED, OVERSIGHT_READONLY) renders the
+ * calm `EmptyState` so users aren't alarmed by what is usually a
+ * permissions or lifecycle thing. 5xx and other failures fall back to
+ * the red `ErrorAlert` banner.
+ *
+ * Usage:
+ *   if (q.isError) {
+ *     return <RequestErrorState error={q.error} onRetry={() => q.refetch()} />;
+ *   }
+ */
+export function RequestErrorState({
+  error,
+  onRetry,
+  title,
+  action,
+}: {
+  error: unknown;
+  onRetry?: () => void;
+  /** Override title when the default is too generic for context. */
+  title?: string;
+  /** Custom CTA shown next to the empty-state message (e.g. a back link). */
+  action?: ReactNode;
+}) {
+  if (error instanceof ApiHttpError) {
+    const isClientError = error.status >= 400 && error.status < 500;
+    const isPermissionish = error.status === 403 || error.status === 404
+      || error.code === 'FORBIDDEN'
+      || error.code === 'NOT_ENROLLED'
+      || error.code === 'NOT_FOUND'
+      || error.code === 'SUSPENDED_ACCESS'
+      || error.code === 'ENROLMENT_EXPIRED'
+      || error.code === 'OVERSIGHT_READONLY';
+    if (isClientError && isPermissionish) {
+      const headline = title ?? (error.status === 404 ? 'Not available' : 'Access paused');
+      return (
+        <EmptyState
+          title={headline}
+          message={error.message || 'You don\'t have access to this resource right now.'}
+          action={action}
+        />
+      );
+    }
+  }
+  const message = error instanceof Error ? error.message : 'Request failed.';
+  return <ErrorAlert message={message} onRetry={onRetry} />;
 }
 
 export function Placeholder({ title, children }: PropsWithChildren<{ title: string }>) {

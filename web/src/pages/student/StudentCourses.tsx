@@ -9,7 +9,7 @@ import {
 } from '../../lib/endpoints.js';
 import { ApiHttpError } from '../../lib/api.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
-import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
+import { Skeleton, ErrorAlert, EmptyState, RequestErrorState } from '../../components/ui/States.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input, TextArea } from '../../components/ui/Input.js';
@@ -64,12 +64,19 @@ export function StudentCourses() {
               to={`/student/courses/${e.courseId}`}
               className="group block rounded-2xl overflow-hidden bg-white shadow-elev-1 hover:shadow-elev-3 hover:-translate-y-0.5 transition-all duration-200 ease-decel border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/30 focus-visible:ring-offset-2"
             >
-              {/* Top brand strip with course initials. */}
+              {/* Top brand strip — shows the real course title once the
+                  list endpoint hydrates `course` (PR #15 / FUT-2). The
+                  truncated ObjectId fallback only appears if the hydration
+                  failed (course soft-deleted while the enrolment row is
+                  still active). */}
               <div className="relative h-24 bg-brand-gradient overflow-hidden">
                 <div className="absolute inset-0 bg-hero-radial opacity-60" />
                 <div className="relative h-full flex items-end p-4">
-                  <span className="text-white/90 text-xs uppercase tracking-widest font-bold">
-                    Course {e.courseId.slice(-6)}
+                  <span
+                    className="text-white text-base font-semibold leading-tight line-clamp-2"
+                    title={e.course?.name ?? `Course ${e.courseId.slice(-6)}`}
+                  >
+                    {e.course?.name ?? `Course ${e.courseId.slice(-6)}`}
                   </span>
                 </div>
               </div>
@@ -89,6 +96,9 @@ export function StudentCourses() {
                   </Badge>
                   <Badge tone="info">{e.status}</Badge>
                   {e.completed && <Badge tone="accent">completed</Badge>}
+                  {e.course?.slug && (
+                    <span className="font-mono text-xs text-muted">{e.course.slug}</span>
+                  )}
                 </div>
                 <p className="text-sm text-muted">
                   Valid {new Date(e.validFrom).toLocaleDateString()} –{' '}
@@ -131,36 +141,15 @@ export function StudentCourseDetail() {
 
   if (query.isLoading) return <Skeleton lines={6} />;
   if (query.isError) {
-    const err = query.error;
-    if (err instanceof ApiHttpError) {
-      // 404 → course not found / not yet published. 403 → enrolment not active,
-      // expired, or fees-suspended. Render a calm empty state rather than
-      // the generic red error banner so the student isn't alarmed by what is
-      // usually a transient state (admin still finalising the enrolment, etc.).
-      if (err.status === 404) {
-        return (
-          <Card>
-            <EmptyState
-              title="Course unavailable"
-              message="This course isn't open to you right now. If you were expecting access, ask your admin to confirm your enrolment."
-              action={<Link to="/student/courses" className="text-brand-orange font-semibold hover:underline">← Back to my courses</Link>}
-            />
-          </Card>
-        );
-      }
-      if (err.status === 403) {
-        return (
-          <Card>
-            <EmptyState
-              title="Access paused"
-              message={err.message || 'Your access to this course is paused. Contact Finance or your admin if you believe this is in error.'}
-              action={<Link to="/student/courses" className="text-brand-orange font-semibold hover:underline">← Back to my courses</Link>}
-            />
-          </Card>
-        );
-      }
-    }
-    return <ErrorAlert message={(err as Error).message} onRetry={() => query.refetch()} />;
+    return (
+      <Card>
+        <RequestErrorState
+          error={query.error}
+          onRetry={() => query.refetch()}
+          action={<Link to="/student/courses" className="text-brand-orange font-semibold hover:underline">← Back to my courses</Link>}
+        />
+      </Card>
+    );
   }
   if (!query.data) return <Skeleton lines={6} />;
   const { course, modules } = query.data;
@@ -273,21 +262,16 @@ export function StudentModuleView() {
   });
   if (query.isLoading) return <Skeleton lines={6} />;
   if (query.isError) {
-    const err = query.error;
-    if (err instanceof ApiHttpError && (err.status === 403 || err.status === 404)) {
-      return (
-        <Card>
-          <EmptyState
-            title="Session unavailable"
-            message={err.status === 404
-              ? 'This session may not be published or you may not have access.'
-              : (err.message || 'Your access to this course is paused.')}
-            action={<Link to="/student/courses" className="text-brand-orange font-semibold hover:underline">← Back to my courses</Link>}
-          />
-        </Card>
-      );
-    }
-    return <ErrorAlert message={(err as Error).message} onRetry={() => query.refetch()} />;
+    return (
+      <Card>
+        <RequestErrorState
+          error={query.error}
+          onRetry={() => query.refetch()}
+          title="Session unavailable"
+          action={<Link to="/student/courses" className="text-brand-orange font-semibold hover:underline">← Back to my courses</Link>}
+        />
+      </Card>
+    );
   }
   if (!query.data) return <Skeleton lines={6} />;
   const module = query.data.modules.find((m) => m.id === moduleId);

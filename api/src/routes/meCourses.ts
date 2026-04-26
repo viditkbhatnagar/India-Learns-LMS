@@ -6,6 +6,7 @@ import { HttpError } from '../middleware/error.js';
 import {
   Assignment,
   AssignmentSubmission,
+  Course,
   SessionModel,
   type HydratedAssignment,
   type HydratedSession,
@@ -84,13 +85,41 @@ export function meCoursesRouter(): Router {
   router.use(requireAuth);
   router.use(requireRole('student'));
 
-  // Alias of /v1/enrollments/me per D-031.
+  // Alias of /v1/enrollments/me per D-031. PR #15 hydrates a mini course
+  // summary on each enrolment so the list cards render the real title
+  // ("Maths Certification") instead of `Course 571DBB` (FUT-2).
   router.get(
     '/',
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const docs = await listEnrollmentsForStudent(req.auth!.userId);
-        res.status(200).json({ data: { enrolments: docs.map(toEnrollmentDto) } });
+        const courseIds = Array.from(
+          new Set(docs.map((d) => d.courseId.toString())),
+        ).map((id) => new Types.ObjectId(id));
+        const courses = courseIds.length
+          ? await Course.find({ _id: { $in: courseIds }, deletedAt: null })
+            .select('_id name slug state')
+            .lean()
+          : [];
+        const courseById = new Map(
+          courses.map((c) => [String(c._id), c]),
+        );
+        const enrolments = docs.map((d) => {
+          const dto = toEnrollmentDto(d);
+          const c = courseById.get(d.courseId.toString());
+          if (c) {
+            dto.course = {
+              id: String(c._id),
+              name: c.name as string,
+              slug: c.slug as string,
+              state: c.state as 'sandbox' | 'published',
+            };
+          } else {
+            dto.course = null;
+          }
+          return dto;
+        });
+        res.status(200).json({ data: { enrolments } });
       } catch (err) {
         next(err);
       }
