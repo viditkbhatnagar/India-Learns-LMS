@@ -233,22 +233,22 @@ export function SessionDetailPage(): JSX.Element | null {
             ) : (
               <ul className="divide-y divide-black/5">
                 {materials.map((m) => (
-                  <li key={m.id} className="py-2 flex items-center gap-3 text-sm">
-                    <span className="text-xs uppercase tracking-wider font-bold text-muted w-16">
-                      {m.type}
-                    </span>
-                    <span className="font-medium text-brand-navy flex-1 truncate">{m.title}</span>
-                    {m.slideCount && <span className="text-xs text-muted">{m.slideCount} slides</span>}
-                    {m.url && (
-                      <a
-                        href={m.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-brand-orange hover:underline"
-                      >
-                        Open ↗
-                      </a>
-                    )}
+                  <li key={m.id}>
+                    <Link
+                      to={`/courses/${courseId}/sessions/${sessionId}/materials/${m.id}`}
+                      className="py-2 flex items-center gap-3 text-sm hover:bg-surface-muted/60 -mx-2 px-2 rounded-lg transition-colors"
+                    >
+                      <span className="text-xs uppercase tracking-wider font-bold text-muted w-16">
+                        {m.type}
+                      </span>
+                      <span className="font-medium text-brand-navy flex-1 truncate hover:text-brand-orange">
+                        {m.title}
+                      </span>
+                      {m.slideCount && <span className="text-xs text-muted">{m.slideCount} slides</span>}
+                      {m.type === 'slides' && (
+                        <span className="text-xs text-brand-orange font-medium">Open viewer →</span>
+                      )}
+                    </Link>
                   </li>
                 ))}
               </ul>
