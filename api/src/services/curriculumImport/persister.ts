@@ -60,7 +60,15 @@ export async function persistImport(
     deletedAt: null,
   });
 
-  if (existing && !opts.replace) {
+  // Partial-state detection: a course with lastSyncedAt=null left behind
+  // by a prior import that threw mid-flight. Re-run as if replace=true so
+  // the operator doesn't have to know about an internal flag — they just
+  // want their import to land. Surface the auto-recovery in warnings so
+  // the audit trail is honest.
+  const autoRepair = Boolean(existing && existing.lastSyncedAt === null);
+  const effectiveReplace = opts.replace || autoRepair;
+
+  if (existing && !effectiveReplace) {
     return {
       courseId: existing._id,
       created: { course: false, modules: 0, sessions: 0, materials: 0, assignments: 0 },
@@ -73,7 +81,17 @@ export async function persistImport(
 
   let courseDoc;
   let createdCourse = false;
+  const recoveryWarnings: string[] = [];
   if (existing) {
+    if (autoRepair) {
+      recoveryWarnings.push(
+        'Detected a prior import on this workflow that did not finish (lastSyncedAt was null). Auto-recovering by wiping the partial children and re-running the import — no replace=true required.',
+      );
+      logger.warn(
+        { courseId: String(existing._id), workflowId: data.course.sourceWorkflowId },
+        'curriculum.import.auto_repair',
+      );
+    }
     // Wipe imported children. Manually-created (no source*Id) children are
     // preserved so faculty edits aren't lost.
     await Material.deleteMany({
@@ -119,7 +137,13 @@ export async function persistImport(
     createdCourse = true;
   }
 
-  // 2. Modules.
+  // 2. Modules. Each step records its actual persisted count + logs at
+  // INFO so the operator (and the audit row) sees exactly how many rows
+  // landed. If an insert throws mid-batch (typically a unique-index
+  // collision), the prefix that succeeded is preserved on the course
+  // (lastSyncedAt remains null marking partial), and the next import
+  // call auto-recovers via the autoRepair branch above.
+  const persistedCounts = { modules: 0, sessions: 0, materials: 0, assignments: 0 };
   const moduleKeyToId = new Map<string, Types.ObjectId>();
   if (data.modules.length > 0) {
     const moduleDocs = await ModuleModel.insertMany(
@@ -144,6 +168,11 @@ export async function persistImport(
       const original = data.modules[i]!;
       moduleKeyToId.set(original.key, doc._id);
     });
+    persistedCounts.modules = moduleDocs.length;
+    logger.info(
+      { courseId: String(courseDoc._id), planned: data.modules.length, persisted: moduleDocs.length },
+      'curriculum.import.modules',
+    );
   }
 
   // 3. Sessions.
@@ -184,6 +213,11 @@ export async function persistImport(
       const original = data.sessions[i]!;
       sessionKeyToId.set(original.sessionKey, doc._id);
     });
+    persistedCounts.sessions = sessionDocs.length;
+    logger.info(
+      { courseId: String(courseDoc._id), planned: data.sessions.length, persisted: sessionDocs.length },
+      'curriculum.import.sessions',
+    );
   }
 
   // 4. Materials (slides per session) — chunked, since this is the heavy
@@ -229,14 +263,22 @@ export async function persistImport(
       throw new HttpError(500, 'IMPORT_FAILED', 'Unknown material scope.');
     });
     const CHUNK = 25;
+    let materialsPersisted = 0;
     for (let i = 0; i < docs.length; i += CHUNK) {
-      await Material.insertMany(docs.slice(i, i + CHUNK), { ordered: true });
+      const slice = docs.slice(i, i + CHUNK);
+      const written = await Material.insertMany(slice, { ordered: true });
+      materialsPersisted += written.length;
     }
+    persistedCounts.materials = materialsPersisted;
+    logger.info(
+      { courseId: String(courseDoc._id), planned: data.materials.length, persisted: materialsPersisted },
+      'curriculum.import.materials',
+    );
   }
 
   // 5. Assignments.
   if (data.assignments.length > 0) {
-    await Assignment.insertMany(
+    const assignmentDocs = await Assignment.insertMany(
       data.assignments.map((a) => {
         const sid = sessionKeyToId.get(a.sessionKey);
         if (!sid) {
@@ -269,22 +311,45 @@ export async function persistImport(
       }),
       { ordered: true },
     );
+    persistedCounts.assignments = assignmentDocs.length;
+    logger.info(
+      { courseId: String(courseDoc._id), planned: data.assignments.length, persisted: assignmentDocs.length },
+      'curriculum.import.assignments',
+    );
   }
 
   // 6. Mark course consistent. This is the only "lastSyncedAt" write — if
   // any earlier step threw, the course is left with lastSyncedAt=null and
-  // the operator can re-run with replace=true to clean up.
+  // the operator's next import call hits the autoRepair branch above.
   courseDoc.lastSyncedAt = now;
   await courseDoc.save();
+
+  // Surface a planned-vs-persisted gap in the warnings so the UI can
+  // display "X modules, Y sessions, Z materials, W assignments persisted"
+  // and the operator sees if anything fell off (shouldn't happen with
+  // ordered:true semantics — that throws — but a gap would be a real
+  // signal worth flagging if the bulk-write semantics ever change).
+  const gap: string[] = [];
+  if (persistedCounts.modules !== data.modules.length) {
+    gap.push(`modules: planned ${data.modules.length}, persisted ${persistedCounts.modules}`);
+  }
+  if (persistedCounts.sessions !== data.sessions.length) {
+    gap.push(`sessions: planned ${data.sessions.length}, persisted ${persistedCounts.sessions}`);
+  }
+  if (persistedCounts.materials !== data.materials.length) {
+    gap.push(`materials: planned ${data.materials.length}, persisted ${persistedCounts.materials}`);
+  }
+  if (persistedCounts.assignments !== data.assignments.length) {
+    gap.push(`assignments: planned ${data.assignments.length}, persisted ${persistedCounts.assignments}`);
+  }
+  const gapWarnings = gap.length > 0 ? [`Persisted-vs-planned gap detected: ${gap.join('; ')}`] : [];
 
   logger.info(
     {
       courseId: String(courseDoc._id),
       created: createdCourse,
-      modules: data.modules.length,
-      sessions: data.sessions.length,
-      materials: data.materials.length,
-      assignments: data.assignments.length,
+      autoRepair,
+      ...persistedCounts,
     },
     'curriculum.import.persisted',
   );
@@ -293,11 +358,11 @@ export async function persistImport(
     courseId: courseDoc._id,
     created: {
       course: createdCourse,
-      modules: data.modules.length,
-      sessions: data.sessions.length,
-      materials: data.materials.length,
-      assignments: data.assignments.length,
+      modules: persistedCounts.modules,
+      sessions: persistedCounts.sessions,
+      materials: persistedCounts.materials,
+      assignments: persistedCounts.assignments,
     },
-    warnings: data.warnings,
+    warnings: [...recoveryWarnings, ...data.warnings, ...gapWarnings],
   };
 }

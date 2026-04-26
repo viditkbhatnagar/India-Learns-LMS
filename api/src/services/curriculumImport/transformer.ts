@@ -502,10 +502,24 @@ export function transformWorkflow(w: Workflow): TransformedImport {
   const modules: TransformedModule[] = generatorModules.map(transformModule);
 
   // Lesson → Session.
+  // The CHRP workflow surfaced two real-world gotchas the original
+  // transformer didn't guard against:
+  //   1. step10.moduleLessonPlans can have DUPLICATE entries for the same
+  //      moduleId (the generator emitted two plan groups for mod5 and
+  //      mod6, each with the same 9 lessons). Inserting the dupes hits
+  //      the unique sparse index on (courseId, sourceLessonId) on the
+  //      second pass, throwing mid-batch and silently dropping every
+  //      session after the failure point.
+  //   2. Even within a single plan, a lessonId can repeat. We dedup at
+  //      the (lessonId) granularity to guarantee at most one Session per
+  //      generator lesson.
+  // First-occurrence wins; later duplicates are warned about.
   const lessonPlans = w.step10?.moduleLessonPlans ?? [];
   const sessions: TransformedSession[] = [];
   const lessonIdToModuleKey = new Map<string, string>();
   const highestLessonNumberByModule = new Map<string, number>();
+  const seenPlanModules = new Set<string>();
+  const seenLessonIds = new Set<string>();
 
   for (const plan of lessonPlans) {
     if (!moduleByKey.has(plan.moduleId)) {
@@ -514,8 +528,22 @@ export function transformWorkflow(w: Workflow): TransformedImport {
       );
       continue;
     }
+    if (seenPlanModules.has(plan.moduleId)) {
+      warnings.push(
+        `Duplicate lesson-plan group for module ${plan.moduleId} (${plan.moduleCode}) in step10 — keeping the first occurrence (${plan.lessons.length} lessons skipped).`,
+      );
+      continue;
+    }
+    seenPlanModules.add(plan.moduleId);
     let high = 0;
     for (const lesson of plan.lessons) {
+      if (seenLessonIds.has(lesson.lessonId)) {
+        warnings.push(
+          `Duplicate lessonId ${lesson.lessonId} in module ${plan.moduleId} — skipped.`,
+        );
+        continue;
+      }
+      seenLessonIds.add(lesson.lessonId);
       sessions.push(transformSession(lesson, plan.moduleId, warnings));
       lessonIdToModuleKey.set(lesson.lessonId, plan.moduleId);
       if (lesson.lessonNumber > high) high = lesson.lessonNumber;
@@ -523,15 +551,32 @@ export function transformWorkflow(w: Workflow): TransformedImport {
     highestLessonNumberByModule.set(plan.moduleId, high);
   }
 
-  // PPT decks → Materials (slides) attached per session.
+  // PPT decks → Materials (slides) attached per session. Defensive
+  // dedup by deckId — the unique sparse index on (courseId, sourceDeckId)
+  // would silently throw mid-batch if the generator ever emits the same
+  // deckId twice.
+  const seenDeckIds = new Set<string>();
   const materials: TransformedMaterial[] = [];
   for (const group of w.step11?.modulePPTDecks ?? []) {
-    materials.push(...transformPPTMaterials(group, lessonIdToModuleKey, warnings));
+    for (const m of transformPPTMaterials(group, lessonIdToModuleKey, warnings)) {
+      const deckId = m.sourceDeckId;
+      if (deckId && seenDeckIds.has(deckId)) {
+        warnings.push(
+          `Duplicate PPT deckId ${deckId} in step11 — skipped.`,
+        );
+        continue;
+      }
+      if (deckId) seenDeckIds.add(deckId);
+      materials.push(m);
+    }
   }
 
   // Assignment packs → synthesized assessment session per module + 1..3
-  // assignments per pack.
+  // assignments per pack. Defensive dedup at module + assignment-id
+  // granularity for the same reason as step10/step11.
   const assignments: TransformedAssignment[] = [];
+  const seenPackModules = new Set<string>();
+  const seenAssignmentKeys = new Set<string>();
   for (const pack of w.step12?.moduleAssignmentPacks ?? []) {
     if (!moduleByKey.has(pack.moduleId)) {
       warnings.push(
@@ -539,6 +584,13 @@ export function transformWorkflow(w: Workflow): TransformedImport {
       );
       continue;
     }
+    if (seenPackModules.has(pack.moduleId)) {
+      warnings.push(
+        `Duplicate assignment-pack group for module ${pack.moduleId} in step12 — skipped.`,
+      );
+      continue;
+    }
+    seenPackModules.add(pack.moduleId);
     const high = highestLessonNumberByModule.get(pack.moduleId) ?? 0;
     const assessSession = buildModuleAssessmentSession(
       pack,
@@ -554,14 +606,20 @@ export function transformWorkflow(w: Workflow): TransformedImport {
     if (variants.in_person) variantList.push(variants.in_person);
 
     for (const v of variantList) {
-      assignments.push(
-        transformAssignmentVariant(
-          v,
-          pack,
-          moduleByKey.get(pack.moduleId),
-          assessSession.sessionKey,
-        ),
+      const transformed = transformAssignmentVariant(
+        v,
+        pack,
+        moduleByKey.get(pack.moduleId),
+        assessSession.sessionKey,
       );
+      if (seenAssignmentKeys.has(transformed.assignmentKey)) {
+        warnings.push(
+          `Duplicate assignmentKey ${transformed.assignmentKey} (after fallback) — skipped.`,
+        );
+        continue;
+      }
+      seenAssignmentKeys.add(transformed.assignmentKey);
+      assignments.push(transformed);
     }
   }
 
