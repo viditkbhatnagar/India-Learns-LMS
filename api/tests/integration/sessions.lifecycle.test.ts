@@ -224,8 +224,22 @@ describe('Phase B-2 — session lifecycle', () => {
         .set(bearer(tB));
       expect(tryB.status).toBe(403);
 
+      // Per PR #12 (B2 blocker): oversight is read-only at the API. A
+      // superadmin who is *not* on facultyIds cannot uncomplete — the
+      // escape hatch is to add themselves to the roster first.
       const sa = await makeUser({ role: 'superadmin', password: 'Super#12345' });
       const tSA = await tokenFor(sa);
+      const blocked = await http()
+        .post(`/v1/sessions/${sessions.sA0._id.toString()}/uncomplete`)
+        .set(bearer(tSA));
+      expect(blocked.status).toBe(403);
+      expect(blocked.body.error.code).toBe('OVERSIGHT_READONLY');
+
+      // Superadmin on the roster *can* uncomplete (still subject to the
+      // marker check — which they pass because superadmin gets the
+      // existing marker-bypass once the roster check is satisfied).
+      const { Course: Course2 } = await import('../../src/models/index.js');
+      await Course2.updateOne({ _id: course._id }, { $addToSet: { facultyIds: sa._id } });
       const trySA = await http()
         .post(`/v1/sessions/${sessions.sA0._id.toString()}/uncomplete`)
         .set(bearer(tSA));

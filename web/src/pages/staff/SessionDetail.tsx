@@ -14,6 +14,7 @@ import {
 } from '../../lib/endpoints.js';
 import { ApiHttpError } from '../../lib/api.js';
 import { formatIstDateTime } from '../../lib/format.js';
+import { useCourseOversight } from '../../hooks/useCourseOversight.js';
 
 type ChosenStatus = AttendanceStatus;
 
@@ -33,6 +34,8 @@ export function SessionDetailPage(): JSX.Element | null {
   const { id: courseId = '', sessionId = '' } = useParams<{ id: string; sessionId: string }>();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { isOversight } = useCourseOversight(courseId);
+  const oversightTitle = 'Read-only in oversight mode. Add yourself to the course\'s faculty roster to make changes.';
 
   const detailQ = useQuery({
     queryKey: ['session', sessionId],
@@ -166,11 +169,13 @@ export function SessionDetailPage(): JSX.Element | null {
             <Button
               loading={completeMut.isPending}
               onClick={() => completeMut.mutate()}
-              disabled={attendanceSummary.recorded === 0}
+              disabled={attendanceSummary.recorded === 0 || isOversight}
               title={
-                attendanceSummary.recorded === 0
-                  ? 'Take attendance for at least one student before marking complete.'
-                  : 'Mark this session complete.'
+                isOversight
+                  ? oversightTitle
+                  : attendanceSummary.recorded === 0
+                    ? 'Take attendance for at least one student before marking complete.'
+                    : 'Mark this session complete.'
               }
             >
               Mark complete
@@ -179,16 +184,18 @@ export function SessionDetailPage(): JSX.Element | null {
             <Button
               variant="secondary"
               loading={uncompleteMut.isPending}
-              disabled={!undoOpen}
+              disabled={!undoOpen || isOversight}
               onClick={() => {
                 if (window.confirm('Uncomplete this session?')) {
                   uncompleteMut.mutate();
                 }
               }}
               title={
-                undoOpen
-                  ? `Undo available until ${undoUntil!.toLocaleString()}`
-                  : 'The 7-day undo window has expired. This session is locked.'
+                isOversight
+                  ? oversightTitle
+                  : undoOpen
+                    ? `Undo available until ${undoUntil!.toLocaleString()}`
+                    : 'The 7-day undo window has expired. This session is locked.'
               }
             >
               {undoOpen ? 'Undo complete' : 'Locked'}
@@ -307,7 +314,8 @@ export function SessionDetailPage(): JSX.Element | null {
                               [stu.id]: e.target.value as ChosenStatus,
                             }))
                           }
-                          className="h-8 px-2 text-xs rounded-md border border-black/10 bg-white"
+                          disabled={isOversight}
+                          className="h-8 px-2 text-xs rounded-md border border-black/10 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {STATUS_OPTIONS.map((s) => (
                             <option key={s} value={s}>{s}</option>
@@ -322,6 +330,8 @@ export function SessionDetailPage(): JSX.Element | null {
                     size="sm"
                     loading={recordAttendanceMut.isPending}
                     onClick={() => recordAttendanceMut.mutate()}
+                    disabled={isOversight}
+                    title={isOversight ? oversightTitle : undefined}
                   >
                     Save attendance
                   </Button>
@@ -348,6 +358,7 @@ export function SessionDetailPage(): JSX.Element | null {
               value={notesDraft ?? ''}
               onChange={(e) => setNotesDraft(e.target.value)}
               placeholder="Pacing notes, common misconceptions, follow-up reminders…"
+              disabled={isOversight}
             />
             <div className="mt-2 flex items-center gap-2">
               <Button
@@ -357,7 +368,8 @@ export function SessionDetailPage(): JSX.Element | null {
                 onClick={() => {
                   if (notesDraft !== null) notesMut.mutate(notesDraft);
                 }}
-                disabled={notesDraft === serverNotes}
+                disabled={notesDraft === serverNotes || isOversight}
+                title={isOversight ? oversightTitle : undefined}
               >
                 Save notes
               </Button>

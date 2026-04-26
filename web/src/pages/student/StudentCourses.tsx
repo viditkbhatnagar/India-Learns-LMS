@@ -7,6 +7,7 @@ import {
   meCoursesApi,
   type AssignmentWithMine,
 } from '../../lib/endpoints.js';
+import { ApiHttpError } from '../../lib/api.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -111,6 +112,15 @@ export function StudentCourseDetail() {
     queryKey: ['me', 'courses', courseId],
     queryFn: () => meCoursesApi.get(courseId!),
     enabled: Boolean(courseId),
+    // 4xx responses should not trigger retry — they're the canonical "not
+    // found / not enrolled / suspended" signals and re-fetching changes
+    // nothing.
+    retry: (failureCount, err) => {
+      if (err instanceof ApiHttpError && err.status >= 400 && err.status < 500) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
   const annQ = useQuery({
     queryKey: ['course', courseId, 'announcements'],
@@ -121,9 +131,39 @@ export function StudentCourseDetail() {
 
   if (query.isLoading) return <Skeleton lines={6} />;
   if (query.isError) {
-    return <ErrorAlert message={(query.error as Error).message} onRetry={() => query.refetch()} />;
+    const err = query.error;
+    if (err instanceof ApiHttpError) {
+      // 404 → course not found / not yet published. 403 → enrolment not active,
+      // expired, or fees-suspended. Render a calm empty state rather than
+      // the generic red error banner so the student isn't alarmed by what is
+      // usually a transient state (admin still finalising the enrolment, etc.).
+      if (err.status === 404) {
+        return (
+          <Card>
+            <EmptyState
+              title="Course unavailable"
+              message="This course isn't open to you right now. If you were expecting access, ask your admin to confirm your enrolment."
+              action={<Link to="/student/courses" className="text-brand-orange font-semibold hover:underline">← Back to my courses</Link>}
+            />
+          </Card>
+        );
+      }
+      if (err.status === 403) {
+        return (
+          <Card>
+            <EmptyState
+              title="Access paused"
+              message={err.message || 'Your access to this course is paused. Contact Finance or your admin if you believe this is in error.'}
+              action={<Link to="/student/courses" className="text-brand-orange font-semibold hover:underline">← Back to my courses</Link>}
+            />
+          </Card>
+        );
+      }
+    }
+    return <ErrorAlert message={(err as Error).message} onRetry={() => query.refetch()} />;
   }
-  const { course, modules } = query.data!;
+  if (!query.data) return <Skeleton lines={6} />;
+  const { course, modules } = query.data;
 
   return (
     <div className="space-y-6">
@@ -224,12 +264,33 @@ export function StudentModuleView() {
     queryKey: ['me', 'courses', courseId],
     queryFn: () => meCoursesApi.get(courseId!),
     enabled: Boolean(courseId),
+    retry: (failureCount, err) => {
+      if (err instanceof ApiHttpError && err.status >= 400 && err.status < 500) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
   if (query.isLoading) return <Skeleton lines={6} />;
   if (query.isError) {
-    return <ErrorAlert message={(query.error as Error).message} onRetry={() => query.refetch()} />;
+    const err = query.error;
+    if (err instanceof ApiHttpError && (err.status === 403 || err.status === 404)) {
+      return (
+        <Card>
+          <EmptyState
+            title="Session unavailable"
+            message={err.status === 404
+              ? 'This session may not be published or you may not have access.'
+              : (err.message || 'Your access to this course is paused.')}
+            action={<Link to="/student/courses" className="text-brand-orange font-semibold hover:underline">← Back to my courses</Link>}
+          />
+        </Card>
+      );
+    }
+    return <ErrorAlert message={(err as Error).message} onRetry={() => query.refetch()} />;
   }
-  const module = query.data!.modules.find((m) => m.id === moduleId);
+  if (!query.data) return <Skeleton lines={6} />;
+  const module = query.data.modules.find((m) => m.id === moduleId);
   if (!module) {
     return (
       <Card>
