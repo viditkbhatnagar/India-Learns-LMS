@@ -174,13 +174,25 @@ describe('GET /v1/me/courses/:courseId — course detail gate', () => {
     expect(res.body.data.assignments[0]).toHaveProperty('mySubmission', null);
   });
 
-  it('404 when course is sandbox', async () => {
+  // PR #14 — sandbox visibility flipped: enrolment is the access truth.
+  // Enrolled students see sandbox courses (UAT staging seeds enrolments
+  // against sandbox courses spun up by the curriculum-import flow).
+  // Non-enrolled students still see 404 for sandbox so the ID doesn't leak.
+  it('200 when course is sandbox AND student is actively enrolled', async () => {
     const { course, at } = await scene({ state: 'sandbox' });
     const res = await http().get(`/v1/me/courses/${course._id.toString()}`).set(bearer(at));
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body.data.course.id).toBe(course._id.toString());
   });
 
-  it('403 NOT_ENROLLED when student has no active enrolment', async () => {
+  it('404 NOT_FOUND when course is sandbox AND student is NOT enrolled', async () => {
+    const { course, at } = await scene({ state: 'sandbox', skipEnrolment: true });
+    const res = await http().get(`/v1/me/courses/${course._id.toString()}`).set(bearer(at));
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('403 NOT_ENROLLED when course is published AND student has no active enrolment', async () => {
     const { course, at } = await scene({ skipEnrolment: true });
     const res = await http().get(`/v1/me/courses/${course._id.toString()}`).set(bearer(at));
     expect(res.status).toBe(403);
