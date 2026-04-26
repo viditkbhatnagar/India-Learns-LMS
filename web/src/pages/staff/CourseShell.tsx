@@ -79,14 +79,20 @@ export function CourseShell(): JSX.Element {
   if (!courseQ.data) return <Skeleton variant="card" />;
 
   const { course } = courseQ.data;
-  const isFacultyOnCourse = me?.role === 'faculty'
-    && course.facultyIds?.some((fid: string) => fid === me.id);
-  const isOversight = me?.role === 'superadmin' || (me?.role === 'admin' && !isFacultyOnCourse);
+  const onRoster = Array.isArray(course.facultyIds)
+    && course.facultyIds.some((fid: string) => fid === me?.id);
+  // Oversight = admin/superadmin who isn't on this course's faculty roster.
+  // Server enforces the same rule in `assertFacultyCanWriteCourse`; the UI
+  // mirrors it so users don't waste a click discovering that Save is
+  // forbidden. Faculty role never lands in oversight — they either own the
+  // course or get a hard 403 upstream.
+  const isOversight = (me?.role === 'admin' || me?.role === 'superadmin') && !onRoster;
   // Sandbox courses are safe to delete; published ones require unpublish
   // first per the API rule. Surface the action in the header for staff
-  // who can act on it (admin/superadmin).
+  // who can act on it (admin/superadmin) AND who are on the roster — the
+  // delete UI is hidden in oversight mode (FUT-3).
   const canManage = me?.role === 'admin' || me?.role === 'superadmin';
-  const canDelete = canManage && course.state === 'sandbox';
+  const canDelete = canManage && course.state === 'sandbox' && !isOversight;
 
   return (
     <div className="space-y-4">
@@ -103,11 +109,6 @@ export function CourseShell(): JSX.Element {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {isOversight && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold px-3 py-1.5">
-                Oversight mode
-              </span>
-            )}
             {canDelete && !confirmDelete && (
               <Button
                 size="sm"
@@ -146,6 +147,31 @@ export function CourseShell(): JSX.Element {
               </div>
             </div>
             {deleteError && <p className="text-xs text-danger mt-1">{deleteError}</p>}
+          </div>
+        )}
+        {isOversight && (
+          <div className="mx-5 mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 flex items-start gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              className="h-5 w-5 mt-0.5 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+            </svg>
+            <div>
+              <strong>Oversight mode.</strong>{' '}
+              You're viewing this course as a {me?.role === 'superadmin' ? 'super admin' : 'admin'} but
+              you aren't on its faculty roster. Edits are disabled. To make changes, ask another admin
+              to add you to the course's faculty list.
+            </div>
           </div>
         )}
         <nav className="flex items-end gap-1 px-5 -mb-px overflow-x-auto" aria-label="Course tabs">

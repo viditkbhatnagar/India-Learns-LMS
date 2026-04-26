@@ -15,7 +15,7 @@ import {
 } from '../models/index.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { recordAudit } from './auditService.js';
-import { assertFacultyOwnsCourse } from './authzService.js';
+import { assertFacultyCanWriteCourse, assertFacultyOwnsCourse } from './authzService.js';
 
 // Phase B-2 session lifecycle.
 //
@@ -227,6 +227,7 @@ export async function markSessionComplete(
   ctx: ActorCtx,
 ): Promise<HydratedSession> {
   const session = await loadSessionForStaff(actor, sessionId);
+  await assertFacultyCanWriteCourse(actor.userId, actor.role, session.courseId);
   if (session.status === 'completed') {
     return session; // idempotent
   }
@@ -273,6 +274,7 @@ export async function markSessionIncomplete(
   ctx: ActorCtx,
 ): Promise<HydratedSession> {
   const session = await loadSessionForStaff(actor, sessionId);
+  await assertFacultyCanWriteCourse(actor.userId, actor.role, session.courseId);
   if (session.status !== 'completed') {
     throw new HttpError(
       409,
@@ -343,6 +345,7 @@ export async function updateSession(
   ctx: ActorCtx,
 ): Promise<HydratedSession> {
   const session = await loadSessionForStaff(actor, sessionId);
+  await assertFacultyCanWriteCourse(actor.userId, actor.role, session.courseId);
   const before = session.toObject();
 
   // Auto-generated sessions: title is read-only; reorder is blocked.

@@ -9,7 +9,7 @@ import {
 } from '../models/index.js';
 import type { AuthContext } from '../middleware/auth.js';
 import { recordAudit } from './auditService.js';
-import { assertFacultyOwnsCourse } from './authzService.js';
+import { assertFacultyCanWriteCourse, assertFacultyOwnsCourse } from './authzService.js';
 
 // Phase B-2 attendance:
 //   - One AttendanceRecord per (sessionId, studentId).
@@ -81,6 +81,9 @@ export async function recordAttendance(
   ctx: ActorCtx,
 ): Promise<{ records: AttendanceRecordDto[]; skipped: string[] }> {
   const { sessionId, courseId } = await loadSessionForStaff(actor, sessionIdStr);
+  // Oversight-mode admins/superadmins can read this session but cannot
+  // record attendance unless they're on the course's faculty roster.
+  await assertFacultyCanWriteCourse(actor.userId, actor.role, courseId);
 
   // Resolve enrolled students once so we can filter unknown ids.
   const enrolledIds = new Set(
