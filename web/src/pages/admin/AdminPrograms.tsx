@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import type { CourseDto } from 'india-learns-shared-types';
 import { programsApi, coursesApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
@@ -128,31 +130,144 @@ export function AdminCourses() {
         <ErrorAlert message={(query.error as Error).message} onRetry={() => query.refetch()} />
       )}
       {query.data && (
-        <Card accent="navy">
+        <Card accent="navy" className="p-0 overflow-hidden">
           {query.data.length === 0 ? (
-            <EmptyState title="No courses yet" />
+            <div className="p-6"><EmptyState title="No courses yet" /></div>
           ) : (
             <ul className="divide-y divide-black/5">
               {query.data.map((c) => (
-                <li
-                  key={c.id}
-                  className="py-3 flex items-center justify-between gap-4 hover:bg-surface-muted/50 transition-colors -mx-2 px-2 rounded-lg"
-                >
-                  <div className="min-w-0">
-                    <p className="font-semibold text-brand-navy truncate">{c.name}</p>
-                    <p className="text-xs text-muted font-mono mt-0.5">
-                      {c.slug} · {c.state}
-                    </p>
-                  </div>
-                  <Badge tone={c.state === 'published' ? 'success' : 'warning'} dot>
-                    {c.state}
-                  </Badge>
-                </li>
+                <CourseRow key={c.id} course={c} />
               ))}
             </ul>
           )}
         </Card>
       )}
     </div>
+  );
+}
+
+function CourseRow({ course }: { course: CourseDto }) {
+  const qc = useQueryClient();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Close the overflow menu when clicking outside.
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    function onDoc(e: MouseEvent): void {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [menuOpen]);
+
+  const del = useMutation({
+    mutationFn: () => coursesApi.delete(course.id),
+    onSuccess: () => {
+      setConfirmDelete(false);
+      qc.invalidateQueries({ queryKey: ['courses'] });
+    },
+    onError: (e) => setError(e instanceof ApiHttpError ? e.message : 'Delete failed.'),
+  });
+
+  // Sandbox courses are safe to delete; published ones need an unpublish
+  // first per the API rule. Show Delete only for sandbox.
+  const canDelete = course.state === 'sandbox';
+
+  return (
+    <li className="relative">
+      <Link
+        to={`/courses/${course.id}/overview`}
+        className="flex items-center justify-between gap-4 px-5 py-3 hover:bg-surface-muted/70 transition-colors group"
+      >
+        <div className="min-w-0">
+          <p className="font-semibold text-brand-navy truncate group-hover:text-brand-orange transition-colors">
+            {course.name}
+          </p>
+          <p className="text-xs text-muted font-mono mt-0.5">
+            {course.slug} · {course.state}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge tone={course.state === 'published' ? 'success' : 'warning'} dot>
+            {course.state}
+          </Badge>
+          <button
+            type="button"
+            aria-label={`Actions for ${course.name}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setMenuOpen((v) => !v);
+            }}
+            className="h-8 w-8 grid place-items-center rounded-md text-muted hover:bg-black/5 hover:text-brand-navy"
+          >
+            <span aria-hidden className="text-lg leading-none">⋯</span>
+          </button>
+        </div>
+      </Link>
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          className="absolute right-4 top-12 z-20 min-w-[160px] rounded-xl border border-black/10 bg-white shadow-lg p-1.5"
+        >
+          <Link
+            to={`/courses/${course.id}/overview`}
+            className="block px-3 py-1.5 text-sm rounded-md hover:bg-surface-muted text-brand-navy"
+            onClick={() => setMenuOpen(false)}
+          >
+            Open
+          </Link>
+          <button
+            type="button"
+            disabled={!canDelete}
+            onClick={() => {
+              setMenuOpen(false);
+              setConfirmDelete(true);
+            }}
+            className={`block w-full text-left px-3 py-1.5 text-sm rounded-md ${
+              canDelete
+                ? 'text-danger hover:bg-red-50'
+                : 'text-muted/60 cursor-not-allowed'
+            }`}
+            title={canDelete ? '' : 'Unpublish the course first to enable Delete.'}
+          >
+            Delete
+          </button>
+        </div>
+      )}
+      {confirmDelete && (
+        <div className="px-5 pb-3">
+          <div className="rounded-xl border border-danger/30 bg-red-50 p-3 text-sm text-danger flex items-center justify-between gap-3 flex-wrap">
+            <span>Delete <strong>{course.name}</strong>? This cannot be undone.</span>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="danger"
+                loading={del.isPending}
+                onClick={() => del.mutate()}
+              >
+                Confirm delete
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setConfirmDelete(false);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+          {error && <p className="text-xs text-danger mt-1">{error}</p>}
+        </div>
+      )}
+    </li>
   );
 }

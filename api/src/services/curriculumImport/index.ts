@@ -25,6 +25,11 @@ export interface PreviewResult {
   warnings: string[];
   alreadyImported: boolean;
   existingCourseId: string | null;
+  existingLastSyncedAt: string | null;
+  // True when the previous import landed partial state (lastSyncedAt is
+  // null on the existing course). The UI surfaces this as a different
+  // call-to-action: "Resume import" rather than "Replace existing".
+  existingIsPartial: boolean;
 }
 
 export async function previewImport(
@@ -48,7 +53,7 @@ export async function previewImport(
   const existing = await Course.findOne({
     sourceWorkflowId: wf._id,
     deletedAt: null,
-  }).select('_id');
+  }).select('_id lastSyncedAt');
 
   return {
     workflowId: wf._id,
@@ -69,6 +74,8 @@ export async function previewImport(
     warnings: transformed.warnings,
     alreadyImported: Boolean(existing),
     existingCourseId: existing ? String(existing._id) : null,
+    existingLastSyncedAt: existing?.lastSyncedAt ? existing.lastSyncedAt.toISOString() : null,
+    existingIsPartial: Boolean(existing) && !existing?.lastSyncedAt,
   };
 }
 
