@@ -56,13 +56,22 @@ describe('GET /v1/modules/:id — student access gate', () => {
     expect(audit!.targetId!.equals(mod._id)).toBe(true);
   });
 
-  it('404 when course is sandbox', async () => {
+  // PR #14 — enrolment is the access truth. Enrolled students reach
+  // sandbox courses; non-enrolled still see 404 (no ID leak).
+  it('200 when course is sandbox AND student is enrolled', async () => {
     const { mod, at } = await scene({ state: 'sandbox' });
+    const res = await http().get(`/v1/modules/${mod._id.toString()}`).set(bearer(at));
+    expect(res.status).toBe(200);
+    expect(res.body.data.module.id).toBe(mod._id.toString());
+  });
+
+  it('404 NOT_FOUND when course is sandbox AND student is not enrolled', async () => {
+    const { mod, at } = await scene({ state: 'sandbox', skipEnrolment: true });
     const res = await http().get(`/v1/modules/${mod._id.toString()}`).set(bearer(at));
     expect(res.status).toBe(404);
   });
 
-  it('403 NOT_ENROLLED when student has no active enrolment', async () => {
+  it('403 NOT_ENROLLED when published AND student has no active enrolment', async () => {
     const { mod, at } = await scene({ skipEnrolment: true });
     const res = await http().get(`/v1/modules/${mod._id.toString()}`).set(bearer(at));
     expect(res.status).toBe(403);

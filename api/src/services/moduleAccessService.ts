@@ -15,27 +15,32 @@ export interface CourseAccessContext {
 }
 
 /**
- * Gate a student's right to see a published course's content surface (modules,
+ * Gate a student's right to see a course's content surface (modules,
  * videos, PDFs). Used both for the per-module GET and for any catalog-style
  * endpoint that exposes module URLs (e.g. GET /v1/me/courses/:courseId).
  *
- * Ordering:
+ * Ordering (PR #14 — sandbox visibility for enrolled students):
  *   1. Course exists and not soft-deleted            → else NOT_FOUND (404)
- *   2. Course is published                           → else NOT_FOUND (404) (hide sandbox)
- *   3. Student has an active enrolment on it         → else NOT_ENROLLED (403)
- *   4. Enrolment program matches course program      → else FORBIDDEN (403)
- *   5. enrolment.validTo > now                       → else ENROLMENT_EXPIRED (403)
+ *   2. Student has an active enrolment on it         → else hide sandbox
+ *      with 404 / surface published with 403 NOT_ENROLLED
+ *   3. Enrolment program matches course program      → else FORBIDDEN (403)
+ *   4. enrolment.validTo > now                       → else ENROLMENT_EXPIRED (403)
  *                                                      (also flips status='expired' so M5 cron can reconcile)
- *   6. enrolment.accessState !== 'suspended'         → else SUSPENDED_ACCESS (403)
+ *   5. enrolment.accessState !== 'suspended'         → else SUSPENDED_ACCESS (403)
+ *
+ * Note on sandbox: Phase 1 UAT seeds enrolments against sandbox courses
+ * spun up by the curriculum-import flow. Hiding sandbox from enrolled
+ * students made the staging tree unreachable (UAT round 1 Q1 failure).
+ * New rule: enrolment is the access truth; sandbox just means the
+ * faculty haven't pressed "Publish" yet — a workflow nuance, not a
+ * security fence. Non-enrolled students still see 404 (sandbox course
+ * IDs don't leak).
  */
 export async function assertStudentCanAccessCourse(
   student: HydratedUser,
   course: HydratedCourse,
 ): Promise<CourseAccessContext> {
   if (course.deletedAt) throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
-  if (course.state !== 'published') {
-    throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
-  }
 
   const enrolment = await Enrollment.findOne({
     studentId: student._id,
@@ -43,6 +48,12 @@ export async function assertStudentCanAccessCourse(
     status: 'active',
   });
   if (!enrolment) {
+    // No enrolment: hide sandbox entirely (404 to avoid leaking the ID)
+    // and surface published as 403 NOT_ENROLLED so the student can ask
+    // their admin for the missing enrolment.
+    if (course.state !== 'published') {
+      throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
+    }
     throw new HttpError(403, 'NOT_ENROLLED', 'You are not enrolled in this course.');
   }
 

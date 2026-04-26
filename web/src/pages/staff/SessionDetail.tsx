@@ -14,7 +14,7 @@ import {
 } from '../../lib/endpoints.js';
 import { ApiHttpError } from '../../lib/api.js';
 import { formatIstDateTime } from '../../lib/format.js';
-import { useCourseOversight } from '../../hooks/useCourseOversight.js';
+import { useCourseOversight } from '../../contexts/CourseOversightContext.js';
 
 type ChosenStatus = AttendanceStatus;
 
@@ -34,8 +34,10 @@ export function SessionDetailPage(): JSX.Element | null {
   const { id: courseId = '', sessionId = '' } = useParams<{ id: string; sessionId: string }>();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { isOversight } = useCourseOversight(courseId);
-  const oversightTitle = 'Read-only in oversight mode. Add yourself to the course\'s faculty roster to make changes.';
+  const { isOversight } = useCourseOversight();
+  // Short, scannable tooltip — matches the title attribute the operator
+  // greps for in the headless verification step.
+  const oversightTitle = 'Read-only in oversight mode';
 
   const detailQ = useQuery({
     queryKey: ['session', sessionId],

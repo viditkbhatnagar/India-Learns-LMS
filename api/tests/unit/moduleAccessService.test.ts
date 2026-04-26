@@ -55,8 +55,20 @@ describe('moduleAccessService.assertStudentCanViewModule', () => {
     expect(ctx.enrolment._id.equals(enrolment._id)).toBe(true);
   });
 
-  it('returns 404 NOT_FOUND if course is sandbox', async () => {
-    const { student, mod } = await buildScene({ courseState: 'sandbox' });
+  it('PR #14 — returns context if course is sandbox AND student is enrolled', async () => {
+    // Enrolment is the access truth. Sandbox courses are reachable for
+    // enrolled students (UAT round 2 — staging seeds enrolments against
+    // sandbox courses spun up by curriculum import).
+    const { student, mod, course, enrolment } = await buildScene({ courseState: 'sandbox' });
+    const ctx = await assertStudentCanViewModule(student, mod);
+    expect(ctx.course._id.equals(course._id)).toBe(true);
+    expect(ctx.enrolment._id.equals(enrolment._id)).toBe(true);
+  });
+
+  it('returns 404 NOT_FOUND if course is sandbox AND student is not enrolled', async () => {
+    const { student, mod, enrolment } = await buildScene({ courseState: 'sandbox' });
+    enrolment.status = 'revoked';
+    await enrolment.save();
     await expect(assertStudentCanViewModule(student, mod)).rejects.toMatchObject({
       status: 404,
       code: 'NOT_FOUND',

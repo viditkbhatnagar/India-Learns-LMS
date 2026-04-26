@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge.js';
 import { Button } from '../../components/ui/Button.js';
 import { useAuthStore } from '../../store/auth.js';
 import { ApiHttpError } from '../../lib/api.js';
+import { CourseOversightProvider } from '../../contexts/CourseOversightContext.js';
 // Eager: small, mounted on the default tab. Lazy: heavy (DnD libs,
 // rubric form, attendance roster) — only loaded when the user navigates
 // to the corresponding tab. Cuts ~280 KB out of the gradebook/overview
@@ -87,12 +88,18 @@ export function CourseShell(): JSX.Element {
   // forbidden. Faculty role never lands in oversight — they either own the
   // course or get a hard 403 upstream.
   const isOversight = (me?.role === 'admin' || me?.role === 'superadmin') && !onRoster;
+  // Reuse the same flag in writes from descendants via context — faculty
+  // (on roster) gets canWrite=true; oversight gets canWrite=false.
+  const canWrite = me?.role === 'faculty' ? Boolean(onRoster)
+    : (me?.role === 'admin' || me?.role === 'superadmin') ? Boolean(onRoster)
+      : false;
   // Sandbox courses are safe to delete; published ones require unpublish
   // first per the API rule. Surface the action in the header for staff
   // who can act on it (admin/superadmin) AND who are on the roster — the
-  // delete UI is hidden in oversight mode (FUT-3).
+  // delete UI is hidden in oversight mode (FUT-3 — same root cause as
+  // attendance/notes write protection).
   const canManage = me?.role === 'admin' || me?.role === 'superadmin';
-  const canDelete = canManage && course.state === 'sandbox' && !isOversight;
+  const canDelete = !isOversight && canManage && course.state === 'sandbox';
 
   return (
     <div className="space-y-4">
@@ -150,7 +157,11 @@ export function CourseShell(): JSX.Element {
           </div>
         )}
         {isOversight && (
-          <div className="mx-5 mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 flex items-start gap-2">
+          <div
+            role="alert"
+            data-testid="oversight-banner"
+            className="mx-5 mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 flex items-start gap-2"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -167,10 +178,7 @@ export function CourseShell(): JSX.Element {
               <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
             </svg>
             <div>
-              <strong>Oversight mode.</strong>{' '}
-              You're viewing this course as a {me?.role === 'superadmin' ? 'super admin' : 'admin'} but
-              you aren't on its faculty roster. Edits are disabled. To make changes, ask another admin
-              to add you to the course's faculty list.
+              You're viewing this course in oversight mode. Edits are disabled.
             </div>
           </div>
         )}
@@ -194,24 +202,26 @@ export function CourseShell(): JSX.Element {
         </nav>
       </header>
 
-      <Suspense fallback={<TabFallback />}>
-        <Routes>
-          <Route index element={<Navigate to="overview" replace />} />
-          <Route path="overview" element={<CourseOverviewTab courseId={id} />} />
-          <Route path="content" element={<CourseContentTab courseId={id} />} />
-          <Route path="gradebook" element={<CourseGradebookTab courseId={id} />} />
-          <Route path="students" element={<CourseStudentsStub />} />
-          <Route path="announcements" element={<CourseAnnouncementsStub courseId={id} />} />
-          <Route path="settings" element={<CourseSettingsStub />} />
-          <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
-          <Route
-            path="sessions/:sessionId/materials/:materialId"
-            element={<MaterialViewerPage />}
-          />
-          <Route path="assignments/:assignmentId/grading" element={<AssignmentGradingPage />} />
-          <Route path="*" element={<Navigate to="overview" replace />} />
-        </Routes>
-      </Suspense>
+      <CourseOversightProvider value={{ isOversight, canWrite, courseId: id }}>
+        <Suspense fallback={<TabFallback />}>
+          <Routes>
+            <Route index element={<Navigate to="overview" replace />} />
+            <Route path="overview" element={<CourseOverviewTab courseId={id} />} />
+            <Route path="content" element={<CourseContentTab courseId={id} />} />
+            <Route path="gradebook" element={<CourseGradebookTab courseId={id} />} />
+            <Route path="students" element={<CourseStudentsStub />} />
+            <Route path="announcements" element={<CourseAnnouncementsStub courseId={id} />} />
+            <Route path="settings" element={<CourseSettingsStub />} />
+            <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
+            <Route
+              path="sessions/:sessionId/materials/:materialId"
+              element={<MaterialViewerPage />}
+            />
+            <Route path="assignments/:assignmentId/grading" element={<AssignmentGradingPage />} />
+            <Route path="*" element={<Navigate to="overview" replace />} />
+          </Routes>
+        </Suspense>
+      </CourseOversightProvider>
     </div>
   );
 }
