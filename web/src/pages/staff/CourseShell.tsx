@@ -25,6 +25,9 @@ const SessionDetailPage = lazy(() =>
 const AssignmentGradingPage = lazy(() =>
   import('./AssignmentGrading.js').then((m) => ({ default: m.AssignmentGradingPage })),
 );
+const MaterialViewerPage = lazy(() =>
+  import('./MaterialViewer.js').then((m) => ({ default: m.MaterialViewerPage })),
+);
 
 function TabFallback(): JSX.Element {
   return <Skeleton variant="card" />;
@@ -175,6 +178,10 @@ export function CourseShell(): JSX.Element {
           <Route path="announcements" element={<CourseAnnouncementsStub courseId={id} />} />
           <Route path="settings" element={<CourseSettingsStub />} />
           <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
+          <Route
+            path="sessions/:sessionId/materials/:materialId"
+            element={<MaterialViewerPage />}
+          />
           <Route path="assignments/:assignmentId/grading" element={<AssignmentGradingPage />} />
           <Route path="*" element={<Navigate to="overview" replace />} />
         </Routes>

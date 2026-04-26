@@ -764,6 +764,44 @@ export interface AttendanceRecordDto {
   updatedAt: string;
 }
 
+export type MaterialType =
+  | 'slides'
+  | 'reading'
+  | 'pdf'
+  | 'video'
+  | 'link'
+  | 'practice'
+  | 'reflection'
+  | 'file'
+  | 'case';
+
+export interface MaterialDetailDto {
+  id: string;
+  courseId: string;
+  sessionId: string | null;
+  assignmentId: string | null;
+  moduleId: string | null;
+  type: MaterialType;
+  title: string;
+  body: unknown;
+  url: string | null;
+  sizeBytes: number | null;
+  expectedHours: number | null;
+  sourceDeckId: string | null;
+  sourceLessonId: string | null;
+  slideCount: number | null;
+  uploadedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const materialsApi = {
+  async get(id: string) {
+    const res = await api.get<{ data: { material: MaterialDetailDto } }>(`/materials/${id}`);
+    return res.data.data.material;
+  },
+};
+
 export const sessionsApi = {
   async listForCourse(courseId: string) {
     const res = await api.get<{ data: { sessions: SessionDto[] } }>(
