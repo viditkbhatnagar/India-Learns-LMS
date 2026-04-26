@@ -127,3 +127,98 @@ describe('curriculum import transformer', () => {
     expect(out.warnings).toBeInstanceOf(Array);
   });
 });
+
+// CHRP regression — found in UAT after Phase A shipped.
+//
+// The CHRP workflow surfaced two real-world generator quirks:
+//   1. step10.moduleLessonPlans had DUPLICATE entries for mod5 and mod6
+//      (each module's plan group appeared twice with the same 9 lessons).
+//      Pre-fix, the persister tried to insert duplicate sourceLessonId
+//      values, blew the unique sparse index on session #23, and silently
+//      dropped every session after that — plus all materials and
+//      assignments since they run after sessions.
+//   2. The success card showed "Import successful · 0 / 0 / 0 / 0" on
+//      the retry because the partial course existed and the persister's
+//      no-op idempotent path matched.
+//
+// The transformer now dedupes step10/step11/step12 by their respective
+// keys with a warning per skipped duplicate. Verified end-to-end against
+// the CHRP fixture below.
+describe('curriculum import transformer — CHRP regression', () => {
+  const chrpPath = resolve(here, '../../../curriculum-import/sample-workflow-chrp.json');
+  const env = JSON.parse(readFileSync(chrpPath, 'utf-8'));
+  const parsed = WorkflowEnvelopeSchema.safeParse(env);
+  if (!parsed.success) {
+    throw new Error(`CHRP fixture failed Zod parse: ${parsed.error.message}`);
+  }
+  const wf = parsed.data.data;
+  const out = transformWorkflow(wf);
+
+  it('parses cleanly + emits the CHRP course shape', () => {
+    // Course name pulls from step1.programTitle when present.
+    expect(out.course.name.length).toBeGreaterThan(0);
+    expect(out.course.sourceWorkflowId).toBe(wf._id);
+    expect(out.modules).toHaveLength(8);
+  });
+
+  it('post-dedup CHRP counts are stable', () => {
+    // 60 lessons in step10 minus 9+9 duplicate (mod5+mod6) = 42 unique
+    // lessons, plus one synthesized "Assessment" session per module (8)
+    // + one synthesized "Final Exam" = 51 total sessions.
+    expect(out.sessions).toHaveLength(51);
+    expect(out.materials).toHaveLength(35);
+    // 8 packs × 3 variants + 1 summative = 25.
+    expect(out.assignments).toHaveLength(25);
+  });
+
+  it('dedupes the duplicate step10 module groups + warns about each', () => {
+    // CHRP has mod5 and mod6 each appearing twice; we expect at least
+    // two "Duplicate lesson-plan group" warnings.
+    const dupePlanWarns = out.warnings.filter((w) =>
+      w.startsWith('Duplicate lesson-plan group for module'),
+    );
+    expect(dupePlanWarns.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('produces unique sourceLessonIds across all sessions', () => {
+    const ids = out.sessions
+      .map((s) => s.sourceLessonId)
+      .filter((id): id is string => typeof id === 'string');
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('produces unique sourceDeckIds across all materials', () => {
+    const ids = out.materials
+      .map((m) => m.sourceDeckId)
+      .filter((id): id is string => typeof id === 'string');
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('produces unique sourceAssignmentPackIds across all assignments', () => {
+    const ids = out.assignments.map((a) => a.sourceAssignmentPackId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('every session.moduleKey resolves to a real module', () => {
+    const moduleKeys = new Set(out.modules.map((m) => m.key));
+    for (const s of out.sessions) {
+      expect(moduleKeys.has(s.moduleKey)).toBe(true);
+    }
+  });
+
+  it('every material.sessionKey resolves to a real session', () => {
+    const sessionKeys = new Set(out.sessions.map((s) => s.sessionKey));
+    for (const m of out.materials) {
+      if (m.scope === 'session') {
+        expect(sessionKeys.has(m.sessionKey!)).toBe(true);
+      }
+    }
+  });
+
+  it('every assignment.sessionKey resolves to a real session', () => {
+    const sessionKeys = new Set(out.sessions.map((s) => s.sessionKey));
+    for (const a of out.assignments) {
+      expect(sessionKeys.has(a.sessionKey)).toBe(true);
+    }
+  });
+});
