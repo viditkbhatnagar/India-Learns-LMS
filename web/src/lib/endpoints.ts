@@ -19,6 +19,7 @@ import type {
   QuizAttemptDto,
   QuizDto,
   ReceiptDto,
+  StudentCourseViewDto,
   StudentDashboardDto,
   StudentFeesDto,
   TicketCommentDto,
@@ -453,6 +454,18 @@ export const meCoursesApi = {
   },
   async get(courseId: string): Promise<MeCourseDetailDto> {
     const res = await api.get<{ data: MeCourseDetailDto }>(`/me/courses/${courseId}`);
+    return res.data.data;
+  },
+  /**
+   * Aggregated student-view payload — single call, fully nested
+   * Module → Session → Assignment tree with progress rollups + a
+   * pre-sorted "needs your attention" panel. Used by the new student
+   * course page (PR #16 Phases 4–6).
+   */
+  async studentView(courseId: string): Promise<StudentCourseViewDto> {
+    const res = await api.get<{ data: StudentCourseViewDto }>(
+      `/me/courses/${courseId}/student-view`,
+    );
     return res.data.data;
   },
 };
