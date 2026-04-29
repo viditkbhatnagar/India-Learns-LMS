@@ -482,7 +482,7 @@ function SlideToolbar({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) void handleReplaceFile(f);
+          if (f) handleReplaceFile(f).catch(() => undefined);
           e.target.value = '';
         }}
       />

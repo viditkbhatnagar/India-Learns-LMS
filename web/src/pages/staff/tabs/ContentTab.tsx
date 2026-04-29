@@ -16,12 +16,12 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { ModuleDto } from 'india-learns-shared-types';
 import { Card } from '../../../components/ui/Card.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { TextArea } from '../../../components/ui/Input.js';
 import { ErrorAlert, EmptyState, Skeleton } from '../../../components/ui/States.js';
-import type { ModuleDto } from 'india-learns-shared-types';
 import {
   coursesApi,
   modulesApi,

@@ -18,7 +18,6 @@ import {
   type CourseDoc,
   type HydratedUser,
   type ModuleDoc,
-  type SessionDoc,
 } from '../models/index.js';
 import { findCourseById } from './courseService.js';
 import { assertStudentCanAccessCourse } from './moduleAccessService.js';
@@ -214,10 +213,8 @@ export async function getStudentCourseView(
 
   // SessionDoc has `description` and `notes` — `notes` are faculty-private
   // and never get included here; `description` is the safe student-facing
-  // copy and is mapped above (`subtitle`).
-  const _typeAssertions: SessionDoc['notes'] | undefined = undefined;
-  void _typeAssertions;
-
+  // copy and is mapped above (`subtitle`). Type assertion left out
+  // intentionally; `notes` is unreferenced by design.
   return {
     course: {
       id: courseDoc._id.toString(),

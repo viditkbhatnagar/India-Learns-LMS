@@ -1,4 +1,4 @@
-import { useMemo, useState, type JSX, type ReactNode } from 'react';
+import { useMemo, useState, type JSX } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
@@ -64,7 +64,7 @@ export function StudentCoursePage(): JSX.Element {
     );
   }
   if (!q.data) return <CoursePageSkeleton />;
-  const data = q.data;
+  const { data } = q;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -82,7 +82,7 @@ export function StudentCoursePage(): JSX.Element {
       )}
       <StatusCardsRow counts={data.counts} />
       {data.needsAttention.length > 0 && (
-        <NeedsAttentionPanel items={data.needsAttention} courseId={data.course.id} />
+        <NeedsAttentionPanel items={data.needsAttention} />
       )}
 
       <SectionHead
@@ -100,7 +100,7 @@ export function StudentCoursePage(): JSX.Element {
       ) : (
         <div className="space-y-6">
           {data.modules.map((m) => (
-            <ModuleSection key={m.id} module={m} courseId={data.course.id} />
+            <ModuleSection key={m.id} module={m} />
           ))}
         </div>
       )}
@@ -303,12 +303,9 @@ function StatusCard({
 
 function NeedsAttentionPanel({
   items,
-  courseId,
 }: {
   items: StudentAssignmentDto[];
-  courseId: string;
 }): JSX.Element {
-  void courseId;
   return (
     <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
       <p className="text-xs uppercase tracking-wider text-amber-800 font-bold">Needs your attention</p>
@@ -348,10 +345,8 @@ function NeedsAttentionPanel({
 
 function ModuleSection({
   module: m,
-  courseId,
 }: {
   module: StudentModuleDto;
-  courseId: string;
 }): JSX.Element {
   const isCurrent = m.state === 'in_progress';
   const stateLabel =
@@ -393,7 +388,7 @@ function ModuleSection({
       ) : (
         <div className="space-y-3">
           {m.sessions.map((s) => (
-            <SessionCard key={s.id} session={s} courseId={courseId} />
+            <SessionCard key={s.id} session={s} />
           ))}
         </div>
       )}
@@ -405,12 +400,9 @@ function ModuleSection({
 
 function SessionCard({
   session: s,
-  courseId,
 }: {
   session: StudentSessionDto;
-  courseId: string;
 }): JSX.Element {
-  void courseId;
   const isCurrent = s.state === 'in_progress';
   const isComplete = s.state === 'complete';
 
@@ -769,6 +761,3 @@ function formatShortDate(iso: string): string {
   }
 }
 
-// Suppress an unused-vars warning when building under stricter modes.
-const _typeProbes: ReactNode = null;
-void _typeProbes;

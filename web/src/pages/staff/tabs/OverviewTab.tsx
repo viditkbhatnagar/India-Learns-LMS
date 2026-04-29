@@ -25,7 +25,7 @@ export function CourseOverviewTab({ courseId }: { courseId: string }): JSX.Eleme
   if (sessionsQ.isError) return <ErrorAlert message={(sessionsQ.error as Error).message} />;
   if (gbQ.isError) return <ErrorAlert message={(gbQ.error as Error).message} />;
 
-  const course = courseQ.data!.course;
+  const { course } = courseQ.data!;
   const sessions = sessionsQ.data ?? [];
   const gradebook = gbQ.data;
   const moduleCount = new Set(sessions.map((s) => s.moduleId)).size;
