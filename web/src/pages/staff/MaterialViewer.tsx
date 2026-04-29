@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
+import { ApiHttpError } from '../../lib/api.js';
 import { materialsApi, type MaterialDetailDto } from '../../lib/endpoints.js';
 import { asGrid, asLines } from '../../lib/slideShape.js';
 import { useAuthStore } from '../../store/auth.js';
+import { useOptionalCourseOversight } from '../../contexts/CourseOversightContext.js';
 
 /**
  * Phase B-2 follow-up: render the slide JSON the curriculum import
@@ -102,6 +104,9 @@ function SlideViewer({
   onClose: () => void;
 }): JSX.Element {
   const me = useAuthStore((s) => s.user);
+  const oversight = useOptionalCourseOversight();
+  const isOversight = oversight?.isOversight ?? false;
+  const oversightTitle = 'Read-only in oversight mode';
   const { body } = material;
   // PR #15 — body can come back as either an array of slides OR an object
   // wrapper like `{ slides: [...] }` (older Maths Certification fixtures).
@@ -182,7 +187,7 @@ function SlideViewer({
             {total} slide{total === 1 ? '' : 's'} · use ← / → to navigate
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
           {me?.role !== 'student' && (
             <label className="inline-flex items-center gap-1.5 text-sm">
               <input
@@ -193,6 +198,13 @@ function SlideViewer({
               />
               <span>Speaker notes</span>
             </label>
+          )}
+          {me?.role !== 'student' && (
+            <SlideToolbar
+              material={material}
+              isOversight={isOversight}
+              oversightTitle={oversightTitle}
+            />
           )}
         </div>
       </div>
@@ -390,6 +402,104 @@ function GenericMaterialView({
           </p>
         )}
       </Card>
+    </div>
+  );
+}
+
+
+/**
+ * PR #16 Phase 2 — slide deck management. Faculty can:
+ *   - Download the current deck as a JSON file
+ *   - Replace the deck by uploading an edited JSON file
+ *
+ * Replace is gated on oversight (server enforces too). Download is
+ * always available for staff. PPTX-format upload is not supported here
+ * — the curriculum-import flow already handles that path; this is the
+ * "download → tweak → re-upload" loop.
+ */
+function SlideToolbar({
+  material,
+  isOversight,
+  oversightTitle,
+}: {
+  material: MaterialDetailDto;
+  isOversight: boolean;
+  oversightTitle: string;
+}): JSX.Element {
+  const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  const replaceMut = useMutation({
+    mutationFn: (next: unknown) => materialsApi.replaceSlides(material.id, next),
+    onSuccess: () => {
+      setErr(null);
+      setSavedAt(new Date().toISOString());
+      qc.invalidateQueries({ queryKey: ['material', material.id] });
+      qc.invalidateQueries({ queryKey: ['session', material.sessionId] });
+    },
+    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Replace failed.'),
+  });
+
+  function handleDownload(): void {
+    const slides = Array.isArray(material.body)
+      ? material.body
+      : (material.body && typeof material.body === 'object'
+          && Array.isArray((material.body as { slides?: unknown }).slides))
+        ? (material.body as { slides: unknown[] }).slides
+        : [];
+    const blob = new Blob([JSON.stringify(slides, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(material.title || 'slides').replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'slides'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleReplaceFile(file: File): Promise<void> {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as unknown;
+      replaceMut.mutate(parsed);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not parse JSON.');
+    }
+  }
+
+  return (
+    <div className="inline-flex items-center gap-2">
+      <Button size="sm" variant="ghost" onClick={handleDownload}>
+        Download deck
+      </Button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleReplaceFile(f);
+          e.target.value = '';
+        }}
+      />
+      <Button
+        size="sm"
+        variant="ghost"
+        loading={replaceMut.isPending}
+        disabled={isOversight}
+        title={isOversight ? oversightTitle : undefined}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        Replace deck
+      </Button>
+      {savedAt && !err && !replaceMut.isPending && (
+        <span className="text-xs text-success">Replaced.</span>
+      )}
+      {err && <span className="text-xs text-danger">{err}</span>}
     </div>
   );
 }

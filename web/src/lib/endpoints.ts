@@ -211,6 +211,21 @@ export const assignmentsApi = {
     );
     return res.data.data.assignment;
   },
+  async createOnSession(
+    sessionId: string,
+    input: {
+      title: string;
+      instructions: string;
+      dueAt: string;
+      maxScore: number;
+    },
+  ) {
+    const res = await api.post<{ data: { assignment: AssignmentDto } }>(
+      `/sessions/${sessionId}/assignments`,
+      input,
+    );
+    return res.data.data.assignment;
+  },
   async get(id: string) {
     const res = await api.get<{
       data: { assignment: AssignmentDto; mySubmission: AssignmentSubmissionDto | null };
@@ -841,9 +856,43 @@ export interface MaterialDetailDto {
   updatedAt: string;
 }
 
+export type AddableMaterialType = Exclude<MaterialType, 'slides'>;
+
 export const materialsApi = {
   async get(id: string) {
     const res = await api.get<{ data: { material: MaterialDetailDto } }>(`/materials/${id}`);
+    return res.data.data.material;
+  },
+  async createOnSession(
+    sessionId: string,
+    input: {
+      type: AddableMaterialType;
+      title: string;
+      url?: string | null;
+      body?: string | null;
+      sizeBytes?: number | null;
+      expectedHours?: number | null;
+    },
+  ) {
+    const res = await api.post<{ data: { material: MaterialDetailDto } }>(
+      `/sessions/${sessionId}/materials`,
+      input,
+    );
+    return res.data.data.material;
+  },
+  async delete(id: string) {
+    await api.delete(`/materials/${id}`);
+  },
+  /**
+   * Replace the JSON slide body for a `type=slides` material. Faculty
+   * can use this to upload an edited deck (downloaded → tweaked →
+   * re-uploaded) without going through the curriculum-import flow.
+   */
+  async replaceSlides(id: string, body: unknown) {
+    const res = await api.put<{ data: { material: MaterialDetailDto } }>(
+      `/materials/${id}/slides`,
+      body,
+    );
     return res.data.data.material;
   },
 };

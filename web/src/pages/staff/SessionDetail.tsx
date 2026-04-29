@@ -4,11 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Button } from '../../components/ui/Button.js';
-import { TextArea } from '../../components/ui/Input.js';
+import { Input, TextArea } from '../../components/ui/Input.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import {
   assignmentsApi,
+  materialsApi,
   sessionsApi,
+  type AddableMaterialType,
   type AttendanceRecordDto,
   type AttendanceStatus,
   type SessionDetailDto,
@@ -294,6 +296,11 @@ export function SessionDetailPage(): JSX.Element | null {
                 ))}
               </ul>
             )}
+            <AddMaterialForm
+              sessionId={sessionId}
+              isOversight={isOversight}
+              oversightTitle={oversightTitle}
+            />
           </Card>
 
           <Card>
@@ -322,6 +329,12 @@ export function SessionDetailPage(): JSX.Element | null {
                 ))}
               </ul>
             )}
+            <AddAssignmentForm
+              sessionId={sessionId}
+              courseId={courseId}
+              isOversight={isOversight}
+              oversightTitle={oversightTitle}
+            />
           </Card>
         </div>
 
@@ -485,5 +498,265 @@ function SessionDescriptionEditor({
         {errorMsg && <span className="text-xs text-danger">{errorMsg}</span>}
       </div>
     </div>
+  );
+}
+
+
+/**
+ * PR #16 Phase 2 — inline "add material" form. URL-based for now;
+ * slide decks have their own upload flow. Type defaults to "link"
+ * because that's what 90% of paste-from-Drive faculty traffic uses.
+ */
+function AddMaterialForm({
+  sessionId,
+  isOversight,
+  oversightTitle,
+}: {
+  sessionId: string;
+  isOversight: boolean;
+  oversightTitle: string;
+}): JSX.Element {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState<AddableMaterialType>('link');
+  const [title, setTitle] = useState('');
+  const [url, setUrl] = useState('');
+  const [body, setBody] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  const mut = useMutation({
+    mutationFn: () =>
+      materialsApi.createOnSession(sessionId, {
+        type,
+        title: title.trim(),
+        url: url.trim() || null,
+        body: body.trim() || null,
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setTitle('');
+      setUrl('');
+      setBody('');
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ['session', sessionId] });
+    },
+    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Add failed.'),
+  });
+
+  if (!open) {
+    return (
+      <div className="mt-3">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setOpen(true)}
+          disabled={isOversight}
+          title={isOversight ? oversightTitle : undefined}
+        >
+          + Add material
+        </Button>
+      </div>
+    );
+  }
+  // The reading variant takes a markdown body; everything else takes a URL.
+  const isReading = type === 'reading';
+  const canSubmit = title.trim().length > 0 && (isReading ? body.trim().length > 0 : url.trim().length > 0);
+  return (
+    <form
+      className="mt-3 space-y-3 border-t border-black/5 pt-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (canSubmit) mut.mutate();
+      }}
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+        <Input
+          label="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={400}
+          required
+        />
+        <label className="block">
+          <span className="block text-xs uppercase tracking-wider text-muted font-bold mb-1.5">Type</span>
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as AddableMaterialType)}
+            className="h-11 px-3.5 rounded-xl border border-black/10 bg-white"
+          >
+            <option value="link">Link</option>
+            <option value="reading">Reading (markdown)</option>
+            <option value="pdf">PDF</option>
+            <option value="video">Video</option>
+            <option value="file">File</option>
+            <option value="practice">Practice</option>
+            <option value="reflection">Reflection</option>
+            <option value="case">Case</option>
+          </select>
+        </label>
+      </div>
+      {isReading ? (
+        <TextArea
+          label="Body (markdown)"
+          rows={5}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          maxLength={16_000}
+        />
+      ) : (
+        <Input
+          label="URL"
+          type="url"
+          placeholder="https://…"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          maxLength={2048}
+        />
+      )}
+      {err && <p className="text-xs text-danger">{err}</p>}
+      <div className="flex items-center gap-2">
+        <Button type="submit" size="sm" loading={mut.isPending} disabled={!canSubmit}>
+          Add material
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setOpen(false);
+            setErr(null);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * PR #16 Phase 2 — inline "add assignment" form. Posts to
+ * /v1/sessions/:id/assignments and the new row appears in the
+ * Assignments list above (via cache invalidation).
+ */
+function AddAssignmentForm({
+  sessionId,
+  courseId,
+  isOversight,
+  oversightTitle,
+}: {
+  sessionId: string;
+  courseId: string;
+  isOversight: boolean;
+  oversightTitle: string;
+}): JSX.Element {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [instructions, setInstructions] = useState('');
+  const [dueAt, setDueAt] = useState(() =>
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+  );
+  const [maxScore, setMaxScore] = useState(100);
+  const [err, setErr] = useState<string | null>(null);
+
+  const mut = useMutation({
+    mutationFn: () =>
+      assignmentsApi.createOnSession(sessionId, {
+        title: title.trim(),
+        instructions: instructions.trim(),
+        dueAt: new Date(dueAt).toISOString(),
+        maxScore,
+      }),
+    onSuccess: () => {
+      setErr(null);
+      setTitle('');
+      setInstructions('');
+      setMaxScore(100);
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ['session', sessionId] });
+      qc.invalidateQueries({ queryKey: ['gradebook', courseId] });
+    },
+    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Add failed.'),
+  });
+
+  if (!open) {
+    return (
+      <div className="mt-3">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setOpen(true)}
+          disabled={isOversight}
+          title={isOversight ? oversightTitle : undefined}
+        >
+          + Add assignment
+        </Button>
+      </div>
+    );
+  }
+  const canSubmit = title.trim().length > 0 && instructions.trim().length > 0 && maxScore > 0;
+  return (
+    <form
+      className="mt-3 space-y-3 border-t border-black/5 pt-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (canSubmit) mut.mutate();
+      }}
+    >
+      <Input
+        label="Title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        maxLength={240}
+        required
+      />
+      <TextArea
+        label="Instructions"
+        rows={4}
+        value={instructions}
+        onChange={(e) => setInstructions(e.target.value)}
+        maxLength={8000}
+        required
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label className="block">
+          <span className="block text-xs uppercase tracking-wider text-muted font-bold mb-1.5">Due at</span>
+          <input
+            type="datetime-local"
+            value={dueAt}
+            onChange={(e) => setDueAt(e.target.value)}
+            className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white"
+            required
+          />
+        </label>
+        <Input
+          label="Max score"
+          type="number"
+          min={1}
+          max={1000}
+          value={String(maxScore)}
+          onChange={(e) => setMaxScore(Number(e.target.value) || 0)}
+          required
+        />
+      </div>
+      {err && <p className="text-xs text-danger">{err}</p>}
+      <div className="flex items-center gap-2">
+        <Button type="submit" size="sm" loading={mut.isPending} disabled={!canSubmit}>
+          Add assignment
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setOpen(false);
+            setErr(null);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
