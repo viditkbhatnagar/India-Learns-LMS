@@ -1,4 +1,4 @@
-import { useMemo, useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -18,9 +18,18 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Card } from '../../../components/ui/Card.js';
 import { Badge } from '../../../components/ui/Badge.js';
+import { Button } from '../../../components/ui/Button.js';
+import { TextArea } from '../../../components/ui/Input.js';
 import { ErrorAlert, EmptyState, Skeleton } from '../../../components/ui/States.js';
-import { coursesApi, sessionsApi, type SessionDto } from '../../../lib/endpoints.js';
+import type { ModuleDto } from 'india-learns-shared-types';
+import {
+  coursesApi,
+  modulesApi,
+  sessionsApi,
+  type SessionDto,
+} from '../../../lib/endpoints.js';
 import { ApiHttpError } from '../../../lib/api.js';
+import { useCourseOversight } from '../../../contexts/CourseOversightContext.js';
 
 /**
  * Content tab — Module → Session tree with @dnd-kit reordering.
@@ -214,6 +223,7 @@ export function CourseContentTab({ courseId }: { courseId: string }): JSX.Elemen
                   </button>
                   {!isCollapsed && (
                     <div className="border-t border-black/5">
+                      <ModuleOverviewPanel module={m} />
                       {list.length === 0 ? (
                         <p className="px-5 py-4 text-sm text-muted italic">No sessions in this module.</p>
                       ) : (
@@ -235,6 +245,145 @@ export function CourseContentTab({ courseId }: { courseId: string }): JSX.Elemen
           </ul>
         </SortableContext>
       </DndContext>
+    </div>
+  );
+}
+
+/**
+ * PR #16 — module overview panel. Renders the curriculum-import metadata
+ * that previously sat invisible on the model: aim/description, learning
+ * outcomes, prerequisites, and faculty-private notes. Description and
+ * notes are editable inline; outcomes are read-only here (admin-edit
+ * lives in the curriculum import / Settings tab).
+ *
+ * Disabled when the user is in oversight mode (admin/superadmin not on
+ * the faculty roster) — mirrors the server gate in
+ * `assertFacultyCanWriteCourse`.
+ */
+function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element {
+  const qc = useQueryClient();
+  const { isOversight } = useCourseOversight();
+  const [aimDraft, setAimDraft] = useState<string>(m.aim ?? '');
+  const [notesDraft, setNotesDraft] = useState<string>(m.facultyNotes ?? '');
+  // Re-seed when the prop changes (e.g. after a successful save invalidates
+  // the parent query and re-renders this row).
+  useEffect(() => {
+    setAimDraft(m.aim ?? '');
+  }, [m.aim]);
+  useEffect(() => {
+    setNotesDraft(m.facultyNotes ?? '');
+  }, [m.facultyNotes]);
+  const [aimSaved, setAimSaved] = useState(false);
+  const [notesSaved, setNotesSaved] = useState(false);
+
+  const updateMut = useMutation({
+    mutationFn: (patch: { aim?: string; facultyNotes?: string }) =>
+      modulesApi.update(m.id, patch),
+    onSuccess: (_doc, vars) => {
+      if (vars.aim !== undefined) {
+        setAimSaved(true);
+        window.setTimeout(() => setAimSaved(false), 2000);
+      }
+      if (vars.facultyNotes !== undefined) {
+        setNotesSaved(true);
+        window.setTimeout(() => setNotesSaved(false), 2000);
+      }
+      qc.invalidateQueries({ queryKey: ['course', m.courseId, 'shell'] });
+    },
+  });
+
+  const aimDirty = aimDraft !== (m.aim ?? '');
+  const notesDirty = notesDraft !== (m.facultyNotes ?? '');
+  const oversightTitle = 'Read-only in oversight mode';
+
+  const aimError = updateMut.error instanceof ApiHttpError ? updateMut.error.message : null;
+
+  return (
+    <div className="px-5 py-4 bg-surface-muted/40 border-b border-black/5 space-y-4">
+      <div>
+        <p className="text-xs uppercase tracking-wider text-muted font-bold mb-1.5">
+          Module overview
+        </p>
+        {m.code && (
+          <p className="text-xs text-muted mb-2 font-mono">{m.code}</p>
+        )}
+        <TextArea
+          label="Description"
+          rows={4}
+          value={aimDraft}
+          onChange={(e) => setAimDraft(e.target.value)}
+          placeholder="What is this module about? Faculty + students will see this."
+          disabled={isOversight}
+          maxLength={8000}
+        />
+        <div className="mt-2 flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={updateMut.isPending && updateMut.variables?.aim !== undefined}
+            disabled={!aimDirty || isOversight}
+            onClick={() => updateMut.mutate({ aim: aimDraft })}
+            title={isOversight ? oversightTitle : undefined}
+          >
+            Save description
+          </Button>
+          {aimSaved && <span className="text-xs text-success">Saved.</span>}
+        </div>
+      </div>
+      {m.learningOutcomes.length > 0 && (
+        <div>
+          <p className="text-xs uppercase tracking-wider text-muted font-bold mb-1.5">
+            Learning outcomes
+          </p>
+          <ul className="space-y-1.5">
+            {m.learningOutcomes.map((lo) => (
+              <li key={lo.mloId} className="flex gap-2 text-sm">
+                <Badge tone="info" size="sm">{lo.code || lo.mloId}</Badge>
+                <span className="text-ink/85 leading-relaxed max-w-[68ch]">{lo.statement}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {m.prerequisites.length > 0 && (
+        <div>
+          <p className="text-xs uppercase tracking-wider text-muted font-bold mb-1.5">
+            Prerequisites
+          </p>
+          <ul className="list-disc list-inside text-sm text-ink/85 space-y-0.5">
+            {m.prerequisites.map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div>
+        <p className="text-xs uppercase tracking-wider text-muted font-bold mb-1.5">
+          Internal notes <span className="font-normal normal-case text-muted">— faculty-only, never shown to students</span>
+        </p>
+        <TextArea
+          rows={3}
+          value={notesDraft}
+          onChange={(e) => setNotesDraft(e.target.value)}
+          placeholder="Pacing, common stumbling blocks, what to emphasize for this cohort…"
+          disabled={isOversight}
+          maxLength={8000}
+        />
+        <div className="mt-2 flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={updateMut.isPending && updateMut.variables?.facultyNotes !== undefined}
+            disabled={!notesDirty || isOversight}
+            onClick={() => updateMut.mutate({ facultyNotes: notesDraft })}
+            title={isOversight ? oversightTitle : undefined}
+          >
+            Save notes
+          </Button>
+          {notesSaved && <span className="text-xs text-success">Saved.</span>}
+        </div>
+      </div>
+      {aimError && <p className="text-xs text-danger">{aimError}</p>}
     </div>
   );
 }

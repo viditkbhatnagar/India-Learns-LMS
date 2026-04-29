@@ -51,6 +51,16 @@ function toDto(doc: HydratedCourse): CourseDto {
     sequential: Boolean(json.sequential),
     certificateTemplateId: (json.certificateTemplateId as string | null) ?? null,
     facultyIds: ids(json.facultyIds),
+    programLearningOutcomes: Array.isArray(json.programLearningOutcomes)
+      ? (json.programLearningOutcomes as Array<Record<string, unknown>>).map((p) => ({
+        outcomeId: (p.outcomeId as string) ?? '',
+        code: (p.code as string) ?? '',
+        outcomeNumber: typeof p.outcomeNumber === 'number' ? p.outcomeNumber : null,
+        statement: (p.statement as string) ?? '',
+        bloomLevel: (p.bloomLevel as string) ?? '',
+        linkedKSCs: Array.isArray(p.linkedKSCs) ? (p.linkedKSCs as string[]) : [],
+      }))
+      : [],
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),

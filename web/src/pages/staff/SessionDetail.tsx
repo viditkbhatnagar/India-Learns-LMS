@@ -256,13 +256,12 @@ export function SessionDetailPage(): JSX.Element | null {
         <div className="lg:col-span-2 space-y-4">
           <Card>
             <CardHeader title="Description" />
-            {session.description ? (
-              <p className="text-sm whitespace-pre-wrap leading-relaxed text-ink/90 max-w-[68ch]">
-                {session.description}
-              </p>
-            ) : (
-              <p className="text-sm text-muted italic">No description.</p>
-            )}
+            <SessionDescriptionEditor
+              sessionId={sessionId}
+              initialValue={session.description ?? ''}
+              isOversight={isOversight}
+              oversightTitle={oversightTitle}
+            />
           </Card>
 
           <Card>
@@ -416,6 +415,74 @@ export function SessionDetailPage(): JSX.Element | null {
             </div>
           </Card>
         </aside>
+      </div>
+    </div>
+  );
+}
+
+
+/**
+ * PR #16 — editable session description. Faculty can adapt the
+ * curriculum-import description to their cohort. Admins are unrestricted;
+ * faculty must be on the course roster (server enforces via
+ * `assertFacultyCanWriteCourse`); oversight viewers see a disabled state.
+ */
+function SessionDescriptionEditor({
+  sessionId,
+  initialValue,
+  isOversight,
+  oversightTitle,
+}: {
+  sessionId: string;
+  initialValue: string;
+  isOversight: boolean;
+  oversightTitle: string;
+}): JSX.Element {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState(initialValue);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  // Re-seed when the upstream prop changes (e.g. after invalidation).
+  useEffect(() => {
+    setDraft(initialValue);
+  }, [initialValue]);
+
+  const mut = useMutation({
+    mutationFn: (description: string) => sessionsApi.update(sessionId, { description }),
+    onSuccess: () => {
+      setSavedAt(new Date().toISOString());
+      qc.invalidateQueries({ queryKey: ["session", sessionId] });
+    },
+  });
+
+  const dirty = draft !== initialValue;
+  const errorMsg = mut.error instanceof ApiHttpError ? mut.error.message
+    : mut.error ? (mut.error as Error).message : null;
+
+  return (
+    <div className="space-y-2">
+      <TextArea
+        rows={4}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="What is this session about? Faculty + students will see this."
+        disabled={isOversight}
+        maxLength={8000}
+      />
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={mut.isPending}
+          onClick={() => mut.mutate(draft)}
+          disabled={!dirty || isOversight}
+          title={isOversight ? oversightTitle : undefined}
+        >
+          Save description
+        </Button>
+        {savedAt && !dirty && (
+          <span className="text-xs text-muted">Saved {new Date(savedAt).toLocaleTimeString()}.</span>
+        )}
+        {errorMsg && <span className="text-xs text-danger">{errorMsg}</span>}
       </div>
     </div>
   );

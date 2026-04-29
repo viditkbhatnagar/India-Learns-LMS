@@ -324,6 +324,26 @@ export const modulesApi = {
     );
     return res.data.data.module;
   },
+  async get(id: string) {
+    const res = await api.get<{ data: { module: ModuleDto } }>(`/modules/${id}`);
+    return res.data.data.module;
+  },
+  async update(
+    id: string,
+    patch: {
+      title?: string;
+      order?: number;
+      aim?: string;
+      prerequisites?: string[];
+      facultyNotes?: string;
+    },
+  ) {
+    const res = await api.patch<{ data: { module: ModuleDto } }>(
+      `/modules/${id}`,
+      patch,
+    );
+    return res.data.data.module;
+  },
 };
 
 export interface AnnouncementDto {

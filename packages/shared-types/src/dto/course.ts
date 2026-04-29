@@ -37,6 +37,20 @@ export interface UpdateProgramInput {
   isActive?: boolean;
 }
 
+/**
+ * One row in the program-learning-outcome list a course inherits from
+ * its program. Surfaced on the Overview tab so faculty can see what the
+ * course is supposed to land at the program level.
+ */
+export interface ProgramLearningOutcomeDto {
+  outcomeId: string;
+  code: string;
+  outcomeNumber: number | null;
+  statement: string;
+  bloomLevel: string;
+  linkedKSCs: string[];
+}
+
 export interface CourseDto {
   id: string;
   programId: string;
@@ -49,6 +63,11 @@ export interface CourseDto {
   sequential: boolean;
   certificateTemplateId: string | null;
   facultyIds: string[];
+  /**
+   * Course-level program-learning-outcome roll-up. Populated by the
+   * curriculum import; faculty can edit via PATCH /v1/courses/:id.
+   */
+  programLearningOutcomes: ProgramLearningOutcomeDto[];
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -85,12 +104,44 @@ export interface ModuleContentDto {
   quizId: string | null;
 }
 
+/**
+ * One row in a module's learning-outcome list (the MLOs in the
+ * curriculum-generator vocabulary). Carries Bloom level + competency
+ * links so faculty can see what each module is supposed to land.
+ */
+export interface ModuleLearningOutcomeDto {
+  mloId: string;
+  code: string;
+  statement: string;
+  bloomLevel: string;
+  verb: string;
+  linkedPLOs: string[];
+  linkedKSCs: string[];
+}
+
 export interface ModuleDto {
   id: string;
   courseId: string;
   title: string;
   order: number;
   content: ModuleContentDto[];
+  /**
+   * Curriculum-generator-derived metadata, exposed so the Content tab
+   * can render a "module overview" panel with description, outcomes,
+   * prerequisites, and faculty-private notes.
+   */
+  code: string | null;
+  aim: string;
+  prerequisites: string[];
+  learningOutcomes: ModuleLearningOutcomeDto[];
+  totalHours: number | null;
+  contactHours: number | null;
+  selfStudyHours: number | null;
+  /**
+   * Faculty-private notes — staff-only, never returned to students. Mirrors
+   * `Session.notes`. Empty string when unset.
+   */
+  facultyNotes: string;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -117,6 +168,13 @@ export interface UpdateModuleInput {
   title?: string;
   order?: number;
   content?: ModuleContentInput[];
+  /**
+   * Faculty-editable curriculum metadata (PR #16 — "module overview"
+   * panel). Each field is optional so partial PATCHes work.
+   */
+  aim?: string;
+  prerequisites?: string[];
+  facultyNotes?: string;
 }
 
 export interface BatchDto {

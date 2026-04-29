@@ -31,6 +31,12 @@ const UpdateBody = z.object({
       }),
     )
     .optional(),
+  // PR #16 — faculty-editable curriculum metadata for the "module
+  // overview" panel. Aim is the description shown to faculty + students;
+  // facultyNotes is private to staff.
+  aim: z.string().max(8000).optional(),
+  prerequisites: z.array(z.string().max(500)).max(50).optional(),
+  facultyNotes: z.string().max(8000).optional(),
 });
 
 function requestContext(req: Request) {

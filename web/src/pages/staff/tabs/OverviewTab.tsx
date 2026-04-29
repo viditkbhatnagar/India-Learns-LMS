@@ -1,11 +1,16 @@
 import type { JSX } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardHeader } from '../../../components/ui/Card.js';
+import { Badge } from '../../../components/ui/Badge.js';
 import { ErrorAlert, Skeleton } from '../../../components/ui/States.js';
-import { assignmentsApi, sessionsApi } from '../../../lib/endpoints.js';
+import { assignmentsApi, coursesApi, sessionsApi } from '../../../lib/endpoints.js';
 
 /** QA dashboard for the course shell — counts, grading backlog, attendance %. */
 export function CourseOverviewTab({ courseId }: { courseId: string }): JSX.Element {
+  const courseQ = useQuery({
+    queryKey: ['course', courseId, 'shell'],
+    queryFn: () => coursesApi.get(courseId),
+  });
   const sessionsQ = useQuery({
     queryKey: ['course', courseId, 'sessions'],
     queryFn: () => sessionsApi.listForCourse(courseId),
@@ -15,10 +20,12 @@ export function CourseOverviewTab({ courseId }: { courseId: string }): JSX.Eleme
     queryFn: () => assignmentsApi.gradebook(courseId),
   });
 
-  if (sessionsQ.isLoading || gbQ.isLoading) return <Skeleton variant="card" />;
+  if (courseQ.isLoading || sessionsQ.isLoading || gbQ.isLoading) return <Skeleton variant="card" />;
+  if (courseQ.isError) return <ErrorAlert message={(courseQ.error as Error).message} />;
   if (sessionsQ.isError) return <ErrorAlert message={(sessionsQ.error as Error).message} />;
   if (gbQ.isError) return <ErrorAlert message={(gbQ.error as Error).message} />;
 
+  const course = courseQ.data!.course;
   const sessions = sessionsQ.data ?? [];
   const gradebook = gbQ.data;
   const moduleCount = new Set(sessions.map((s) => s.moduleId)).size;
@@ -27,9 +34,25 @@ export function CourseOverviewTab({ courseId }: { courseId: string }): JSX.Eleme
   const completionPct = sessionCount > 0
     ? Math.round((completedCount / sessionCount) * 100)
     : 0;
+  const plos = course.programLearningOutcomes ?? [];
 
   return (
     <div className="space-y-4">
+      {/* PR #16 — program description (course summary) lifted to the top
+          of the Overview tab. Falls through to a neutral hint if the
+          curriculum import didn't populate one. */}
+      <Card>
+        <CardHeader title="About this course" />
+        {course.summary ? (
+          <p className="text-sm leading-relaxed text-ink/90 whitespace-pre-wrap max-w-[68ch]">
+            {course.summary}
+          </p>
+        ) : (
+          <p className="text-sm italic text-muted">
+            No course description yet — admins can add one in Settings or via the curriculum import.
+          </p>
+        )}
+      </Card>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard label="Modules" value={moduleCount} />
         <MetricCard label="Sessions" value={sessionCount} hint={`${completionPct}% complete`} />
@@ -40,6 +63,44 @@ export function CourseOverviewTab({ courseId }: { courseId: string }): JSX.Eleme
           tone={gradebook && gradebook.backlog > 0 ? 'warn' : 'neutral'}
         />
       </div>
+      {/* Program-level learning outcomes pulled from the course's parent
+          program. Read-only on this tab; admin-edit lives in Settings. */}
+      <Card>
+        <CardHeader
+          title="Learning outcomes"
+          subtitle={plos.length > 0
+            ? `${plos.length} program outcome${plos.length === 1 ? '' : 's'} this course is mapped to.`
+            : 'The curriculum import will populate these when a workflow is linked.'}
+        />
+        {plos.length === 0 ? (
+          <p className="text-sm italic text-muted">No program outcomes attached to this course yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {plos.map((p) => (
+              <li
+                key={p.outcomeId}
+                className="rounded-xl border border-black/5 bg-white p-3 flex gap-3 items-start"
+              >
+                <Badge tone="info" size="sm">{p.code || `PLO ${p.outcomeNumber ?? ''}`}</Badge>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm leading-relaxed text-ink/90 max-w-[72ch]">{p.statement}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-2 text-xs text-muted">
+                    {p.bloomLevel && (
+                      <span className="px-2 py-0.5 rounded-full bg-surface-muted">{p.bloomLevel}</span>
+                    )}
+                    {p.linkedKSCs.slice(0, 4).map((k) => (
+                      <span key={k} className="font-mono">{k}</span>
+                    ))}
+                    {p.linkedKSCs.length > 4 && (
+                      <span>+{p.linkedKSCs.length - 4} more</span>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
       <Card>
         <CardHeader
           title="Course progress"
