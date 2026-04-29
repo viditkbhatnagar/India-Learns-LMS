@@ -40,6 +40,12 @@ export interface ModuleDoc {
   totalHours: number | null;
   contactHours: number | null;
   selfStudyHours: number | null;
+  /**
+   * Phase-2 (PR #16) — faculty-private notes scoped to the module.
+   * Surfaced only on staff-side endpoints; never serialised to students.
+   * Free-text, capped at 8000 chars to mirror Session.notes.
+   */
+  facultyNotes: string;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -96,6 +102,7 @@ const ModuleSchema = new Schema<ModuleDoc>(
     totalHours: { type: Number, default: null },
     contactHours: { type: Number, default: null },
     selfStudyHours: { type: Number, default: null },
+    facultyNotes: { type: String, default: '', maxlength: 8000 },
     deletedAt: { type: Date, default: null },
   },
   {

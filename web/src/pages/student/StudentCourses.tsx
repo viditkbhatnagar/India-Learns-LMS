@@ -1,19 +1,10 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import {
-  announcementsApi,
-  assignmentsApi,
-  meCoursesApi,
-  type AssignmentWithMine,
-} from '../../lib/endpoints.js';
+import { meCoursesApi } from '../../lib/endpoints.js';
 import { ApiHttpError } from '../../lib/api.js';
-import { Card, CardHeader } from '../../components/ui/Card.js';
+import { Card } from '../../components/ui/Card.js';
 import { Skeleton, ErrorAlert, EmptyState, RequestErrorState } from '../../components/ui/States.js';
 import { Badge } from '../../components/ui/Badge.js';
-import { Button } from '../../components/ui/Button.js';
-import { Input, TextArea } from '../../components/ui/Input.js';
-import { formatIstDateTime } from '../../lib/format.js';
 
 function PageHeader({ eyebrow, title, subtitle }: { eyebrow?: string; title: string; subtitle?: string }) {
   return (
@@ -29,6 +20,11 @@ function PageHeader({ eyebrow, title, subtitle }: { eyebrow?: string; title: str
   );
 }
 
+/**
+ * The student "my courses" landing list. Detail view lives at
+ * `/student/courses/:courseId` and is rendered by `StudentCoursePage`
+ * (course-view/StudentCoursePage.tsx) since the PR #16 visual rebuild.
+ */
 export function StudentCourses() {
   const query = useQuery({
     queryKey: ['me', 'courses'],
@@ -64,11 +60,6 @@ export function StudentCourses() {
               to={`/student/courses/${e.courseId}`}
               className="group block rounded-2xl overflow-hidden bg-white shadow-elev-1 hover:shadow-elev-3 hover:-translate-y-0.5 transition-all duration-200 ease-decel border border-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/30 focus-visible:ring-offset-2"
             >
-              {/* Top brand strip — shows the real course title once the
-                  list endpoint hydrates `course` (PR #15 / FUT-2). The
-                  truncated ObjectId fallback only appears if the hydration
-                  failed (course soft-deleted while the enrolment row is
-                  still active). */}
               <div className="relative h-24 bg-brand-gradient overflow-hidden">
                 <div className="absolute inset-0 bg-hero-radial opacity-60" />
                 <div className="relative h-full flex items-end p-4">
@@ -116,137 +107,12 @@ export function StudentCourses() {
   );
 }
 
-export function StudentCourseDetail() {
-  const { courseId } = useParams<{ courseId: string }>();
-  const query = useQuery({
-    queryKey: ['me', 'courses', courseId],
-    queryFn: () => meCoursesApi.get(courseId!),
-    enabled: Boolean(courseId),
-    // 4xx responses should not trigger retry — they're the canonical "not
-    // found / not enrolled / suspended" signals and re-fetching changes
-    // nothing.
-    retry: (failureCount, err) => {
-      if (err instanceof ApiHttpError && err.status >= 400 && err.status < 500) {
-        return false;
-      }
-      return failureCount < 2;
-    },
-  });
-  const annQ = useQuery({
-    queryKey: ['course', courseId, 'announcements'],
-    queryFn: () => announcementsApi.list(courseId!),
-    enabled: Boolean(courseId),
-    retry: false,
-  });
-
-  if (query.isLoading) return <Skeleton lines={6} />;
-  if (query.isError) {
-    return (
-      <Card>
-        <RequestErrorState
-          error={query.error}
-          onRetry={() => query.refetch()}
-          action={<Link to="/student/courses" className="text-brand-orange font-semibold hover:underline">← Back to my courses</Link>}
-        />
-      </Card>
-    );
-  }
-  if (!query.data) return <Skeleton lines={6} />;
-  const { course, modules } = query.data;
-
-  return (
-    <div className="space-y-6">
-      <div className="animate-fade-in-up">
-        <Link
-          to="/student/courses"
-          className="text-sm font-medium text-brand-navy hover:text-brand-orange transition-colors"
-        >
-          ← Back to courses
-        </Link>
-        <section className="relative mt-3 overflow-hidden rounded-3xl p-6 sm:p-8 bg-brand-gradient text-white shadow-elev-3">
-          <div className="absolute inset-0 bg-hero-radial opacity-60 pointer-events-none" />
-          <div className="relative">
-            <p className="text-white/70 text-xs uppercase tracking-widest font-bold">
-              {course.state}
-            </p>
-            <h1 className="text-display-md mt-2 text-white">{course.name}</h1>
-            {course.summary && <p className="mt-3 text-white/80 max-w-2xl">{course.summary}</p>}
-          </div>
-        </section>
-      </div>
-
-      {annQ.data && annQ.data.length > 0 && (
-        <Card accent="orange">
-          <CardHeader
-            title="Announcements"
-            subtitle="Latest from your faculty"
-          />
-          <ul className="space-y-3">
-            {annQ.data.slice(0, 5).map((a) => (
-              <li key={a.id} className="rounded-xl border border-black/5 bg-surface-muted p-4">
-                <div className="flex items-center justify-between gap-3 mb-1.5">
-                  <p className="font-semibold text-brand-navy">{a.subject}</p>
-                  <span className="text-xs text-muted whitespace-nowrap">
-                    {formatIstDateTime(a.createdAt)}
-                  </span>
-                </div>
-                <p className="text-sm whitespace-pre-wrap text-ink/90 leading-relaxed max-w-[68ch]">{a.body}</p>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      <StudentAssignmentsCard courseId={courseId!} />
-
-      <Card accent="navy">
-        <CardHeader
-          title="Sessions"
-          subtitle={`${modules.length} session${modules.length === 1 ? '' : 's'}`}
-        />
-        {modules.length === 0 ? (
-          <EmptyState
-            title="No sessions yet"
-            message="The faculty hasn't published content yet. Check back soon."
-          />
-        ) : (
-          <ol className="space-y-2">
-            {modules.map((m) => (
-              <li key={m.id}>
-                <Link
-                  to={`/student/courses/${courseId}/modules/${m.id}`}
-                  className="group flex items-center gap-4 rounded-xl border border-black/5 bg-white hover:bg-navy-50 hover:border-navy-200 p-4 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy/30"
-                >
-                  <span
-                    aria-hidden
-                    className="shrink-0 h-10 w-10 rounded-xl bg-navy-100 text-brand-navy font-bold font-mono tabular-nums grid place-items-center"
-                  >
-                    {m.order + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-brand-navy group-hover:text-brand-orange transition-colors truncate">
-                      {m.title}
-                    </p>
-                    <p className="text-xs text-muted mt-0.5">
-                      {m.content.length} resource{m.content.length === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                  <span
-                    aria-hidden
-                    className="text-brand-navy/40 group-hover:text-brand-orange group-hover:translate-x-0.5 transition-all"
-                  >
-                    →
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ol>
-        )}
-      </Card>
-    </div>
-  );
-}
-
+/**
+ * Legacy module deep-link (`/student/courses/:id/modules/:moduleId`)
+ * still routes here so old "Start quiz" links from outside the
+ * shell (e.g. notification emails) keep working. The new student
+ * course page renders the same content inline.
+ */
 export function StudentModuleView() {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
   const query = useQuery({
@@ -337,151 +203,5 @@ export function StudentModuleView() {
         ))}
       </div>
     </div>
-  );
-}
-
-// ---------- Student assignments card (embedded in course detail) ----------
-
-function StudentAssignmentsCard({ courseId }: { courseId: string }) {
-  const q = useQuery({
-    queryKey: ['course', courseId, 'assignments'],
-    queryFn: () => assignmentsApi.listForCourse(courseId),
-    enabled: Boolean(courseId),
-    retry: false,
-  });
-  if (q.isLoading) return <Skeleton lines={3} />;
-  if (q.isError || !q.data) return null;
-  const items = q.data;
-
-  if (items.length === 0) return null;
-
-  return (
-    <Card accent="orange">
-      <CardHeader
-        title="Assignments"
-        subtitle="Submit your work by the due date. Faculty grades and leaves feedback."
-      />
-      <ul className="space-y-3">
-        {items.map((a) => (
-          <StudentAssignmentRow key={a.id} a={a} courseId={courseId} />
-        ))}
-      </ul>
-    </Card>
-  );
-}
-
-function StudentAssignmentRow({ a, courseId }: { a: AssignmentWithMine; courseId: string }) {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [body, setBody] = useState(a.mySubmission?.bodyText ?? '');
-  const [url, setUrl] = useState(a.mySubmission?.attachmentUrl ?? '');
-  const [err, setErr] = useState<string | null>(null);
-  const submit = useMutation({
-    mutationFn: () =>
-      assignmentsApi.submit(a.id, {
-        bodyText: body.trim(),
-        attachmentUrl: url.trim() ? url.trim() : null,
-      }),
-    onSuccess: () => {
-      setErr(null);
-      setOpen(false);
-      qc.invalidateQueries({ queryKey: ['course', courseId, 'assignments'] });
-    },
-    onError: (e) => setErr((e as Error).message),
-  });
-
-  const graded = a.mySubmission?.score !== null && a.mySubmission?.score !== undefined;
-  const submitted = Boolean(a.mySubmission);
-  const overdue = new Date(a.dueAt).getTime() < Date.now();
-
-  return (
-    <li className="rounded-xl border border-black/5 bg-white">
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-semibold text-brand-navy">{a.title}</p>
-            <p className="text-xs text-muted mt-0.5">
-              Due {new Date(a.dueAt).toLocaleDateString()}
-              {overdue && !submitted ? ' · overdue' : ''} · Max {a.maxScore} pts
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {graded ? (
-              <Badge tone="success" dot>
-                {a.mySubmission!.score} / {a.maxScore}
-              </Badge>
-            ) : submitted ? (
-              <Badge tone="info" dot>Submitted</Badge>
-            ) : overdue ? (
-              <Badge tone="danger" dot>Overdue</Badge>
-            ) : (
-              <Badge tone="warning" dot>Pending</Badge>
-            )}
-            <Button variant="ghost" size="sm" onClick={() => setOpen((v) => !v)}>
-              {open ? 'Close' : submitted ? 'View / edit' : 'Open'}
-            </Button>
-          </div>
-        </div>
-        <p className="text-sm whitespace-pre-wrap text-ink/80 mt-2 line-clamp-3">
-          {a.instructions}
-        </p>
-      </div>
-      {open && (
-        <div className="border-t border-black/5 p-4 bg-surface-muted/60 space-y-3">
-          {graded && a.mySubmission?.feedback && (
-            <div className="rounded-xl bg-navy-50 border border-navy-100 p-3 text-sm leading-relaxed">
-              <p className="font-semibold text-brand-navy mb-1">Faculty feedback</p>
-              <p className="whitespace-pre-wrap text-ink/90 max-w-[68ch]">{a.mySubmission.feedback}</p>
-            </div>
-          )}
-          {a.state === 'closed' ? (
-            <div className="rounded-xl bg-surface-muted border border-black/5 p-3 text-sm text-muted">
-              This assignment is closed — no further submissions accepted.
-            </div>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (body.trim() || url.trim()) submit.mutate();
-              }}
-              className="space-y-3"
-            >
-              <TextArea
-                label="Your response"
-                placeholder="Type your answer here…"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={5}
-                maxLength={16_000}
-              />
-              <Input
-                label="Attachment URL (optional)"
-                placeholder="Google Doc, Drive, or any link"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                type="url"
-              />
-              {err && (
-                <div className="rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm">
-                  {err}
-                </div>
-              )}
-              <Button
-                type="submit"
-                loading={submit.isPending}
-                disabled={!body.trim() && !url.trim()}
-              >
-                {submitted ? 'Resubmit' : 'Submit'}
-              </Button>
-              {submitted && (
-                <p className="text-xs text-muted">
-                  Resubmitting will clear your previous grade.
-                </p>
-              )}
-            </form>
-          )}
-        </div>
-      )}
-    </li>
   );
 }

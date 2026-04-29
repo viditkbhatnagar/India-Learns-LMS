@@ -37,6 +37,20 @@ export interface UpdateProgramInput {
   isActive?: boolean;
 }
 
+/**
+ * One row in the program-learning-outcome list a course inherits from
+ * its program. Surfaced on the Overview tab so faculty can see what the
+ * course is supposed to land at the program level.
+ */
+export interface ProgramLearningOutcomeDto {
+  outcomeId: string;
+  code: string;
+  outcomeNumber: number | null;
+  statement: string;
+  bloomLevel: string;
+  linkedKSCs: string[];
+}
+
 export interface CourseDto {
   id: string;
   programId: string;
@@ -49,6 +63,11 @@ export interface CourseDto {
   sequential: boolean;
   certificateTemplateId: string | null;
   facultyIds: string[];
+  /**
+   * Course-level program-learning-outcome roll-up. Populated by the
+   * curriculum import; faculty can edit via PATCH /v1/courses/:id.
+   */
+  programLearningOutcomes: ProgramLearningOutcomeDto[];
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -85,12 +104,44 @@ export interface ModuleContentDto {
   quizId: string | null;
 }
 
+/**
+ * One row in a module's learning-outcome list (the MLOs in the
+ * curriculum-generator vocabulary). Carries Bloom level + competency
+ * links so faculty can see what each module is supposed to land.
+ */
+export interface ModuleLearningOutcomeDto {
+  mloId: string;
+  code: string;
+  statement: string;
+  bloomLevel: string;
+  verb: string;
+  linkedPLOs: string[];
+  linkedKSCs: string[];
+}
+
 export interface ModuleDto {
   id: string;
   courseId: string;
   title: string;
   order: number;
   content: ModuleContentDto[];
+  /**
+   * Curriculum-generator-derived metadata, exposed so the Content tab
+   * can render a "module overview" panel with description, outcomes,
+   * prerequisites, and faculty-private notes.
+   */
+  code: string | null;
+  aim: string;
+  prerequisites: string[];
+  learningOutcomes: ModuleLearningOutcomeDto[];
+  totalHours: number | null;
+  contactHours: number | null;
+  selfStudyHours: number | null;
+  /**
+   * Faculty-private notes — staff-only, never returned to students. Mirrors
+   * `Session.notes`. Empty string when unset.
+   */
+  facultyNotes: string;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -117,6 +168,13 @@ export interface UpdateModuleInput {
   title?: string;
   order?: number;
   content?: ModuleContentInput[];
+  /**
+   * Faculty-editable curriculum metadata (PR #16 — "module overview"
+   * panel). Each field is optional so partial PATCHes work.
+   */
+  aim?: string;
+  prerequisites?: string[];
+  facultyNotes?: string;
 }
 
 export interface BatchDto {
@@ -181,6 +239,113 @@ export interface EnrollmentDto {
     slug: string;
     state: 'sandbox' | 'published';
   } | null;
+}
+
+// =====================================================================
+// PR #16 Phase 4 — student course-view aggregated DTO. The student
+// "your course" page makes one call and gets back a fully-nested
+// Module → Session → Assignment tree with status + progress rollups
+// pre-computed server-side. Replaces the old flat enrolment list +
+// session list + assignment list payload.
+// =====================================================================
+
+export type AssignmentStatus =
+  | 'graded'
+  | 'submitted'
+  | 'late'
+  | 'dueSoon'
+  | 'upcoming';
+
+export interface StudentAssignmentDto {
+  id: string;
+  title: string;
+  dueAt: string;
+  maxPoints: number;
+  /** Null until the faculty publishes a grade. */
+  score: number | null;
+  /** Optional feedback string surfaced once the grade is published. */
+  feedback: string | null;
+  status: AssignmentStatus;
+  /** Negative when overdue. Computed server-side at request time. */
+  daysUntilDue: number;
+}
+
+export type StudentSessionState = 'not_started' | 'in_progress' | 'complete';
+
+export interface StudentSessionDto {
+  id: string;
+  order: number;
+  title: string;
+  subtitle: string;
+  state: StudentSessionState;
+  /** Mirrors the staff-side status — students see the same lifecycle. */
+  status: 'upcoming' | 'in_progress' | 'completed';
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  location: string | null;
+  assignments: StudentAssignmentDto[];
+  progress: {
+    total: number;
+    completed: number;
+    late: number;
+    dueSoon: number;
+  };
+}
+
+export interface StudentModuleDto {
+  id: string;
+  order: number;
+  title: string;
+  subtitle: string;
+  /** Module-level description — surfaced from `Module.aim`. */
+  aim: string;
+  state: StudentSessionState;
+  sessions: StudentSessionDto[];
+  progress: {
+    total: number;
+    completed: number;
+  };
+}
+
+export interface StudentCourseViewDto {
+  course: {
+    id: string;
+    title: string;
+    slug: string;
+    state: CourseState;
+    description: string;
+  };
+  enrolment: {
+    id: string;
+    validFrom: string;
+    validTo: string;
+    status: EnrollmentStatus;
+    accessState: EnrollmentAccessState;
+    completed: boolean;
+  };
+  progress: {
+    totalAssignments: number;
+    completedAssignments: number;
+    /** 0–100, integer. */
+    percentComplete: number;
+    /** Order of the module the student is "currently in" (first
+        in-progress, falling back to first not-started, falling back to
+        the first module). */
+    currentModuleOrder: number;
+    currentModuleTitle: string;
+  };
+  counts: {
+    late: number;
+    dueSoon: number;
+    upcoming: number;
+  };
+  /**
+   * Pre-sorted action list (late first, then nearest due, top 5). The
+   * page renders this in a "Needs your attention" panel — saves the
+   * student from scrolling to find the overdue rows.
+   */
+  needsAttention: StudentAssignmentDto[];
+  modules: StudentModuleDto[];
 }
 
 export interface CreateEnrollmentInput {

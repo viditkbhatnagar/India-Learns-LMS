@@ -24,9 +24,9 @@ import {
 import { StudentDashboard } from './pages/student/StudentDashboard.js';
 import {
   StudentCourses,
-  StudentCourseDetail,
   StudentModuleView,
 } from './pages/student/StudentCourses.js';
+import { StudentCoursePage } from './pages/student/course-view/StudentCoursePage.js';
 import { StudentTimetable } from './pages/student/StudentTimetable.js';
 import { StudentFees } from './pages/student/StudentFees.js';
 import {
@@ -171,7 +171,7 @@ export function App() {
                   <Routes>
                     <Route path="dashboard" element={<StudentDashboard />} />
                     <Route path="courses" element={<StudentCourses />} />
-                    <Route path="courses/:courseId" element={<StudentCourseDetail />} />
+                    <Route path="courses/:courseId" element={<StudentCoursePage />} />
                     <Route
                       path="courses/:courseId/modules/:moduleId"
                       element={<StudentModuleView />}

@@ -297,5 +297,9 @@ export const AUDIT_ACTIONS = [
   'session.reordered',
   'session.updated',
   'session.attendance.recorded',
+  // PR #16 — faculty add-material / replace-slides / delete-material
+  'material.created',
+  'material.deleted',
+  'material.slides.replaced',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

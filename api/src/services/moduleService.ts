@@ -18,8 +18,17 @@ import { recordAudit } from './auditService.js';
 import { facultyAssignedToCourse } from './courseService.js';
 import type { ActorContext } from './userService.js';
 
-const ADMIN_PATCH_FIELDS = new Set<keyof UpdateModuleInput>(['title', 'order', 'content']);
-const FACULTY_PATCH_FIELDS = new Set<keyof UpdateModuleInput>(['content']);
+// PR #16 — admin can edit everything (curriculum metadata included);
+// faculty on the course can edit content + their own facultyNotes + the
+// curriculum aim/prerequisites (so they can adapt the lesson plan to
+// their cohort without an admin round-trip). Other faculty can't touch
+// it; non-staff roles never reach this code.
+const ADMIN_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
+  'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes',
+]);
+const FACULTY_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
+  'content', 'aim', 'prerequisites', 'facultyNotes',
+]);
 
 function requireId(id: string): Types.ObjectId {
   if (!Types.ObjectId.isValid(id)) {
@@ -120,6 +129,26 @@ function toDto(doc: HydratedModule): ModuleDto {
     title: json.title as string,
     order: Number(json.order ?? 0),
     content,
+    code: (json.code as string | null) ?? null,
+    aim: (json.aim as string | undefined) ?? '',
+    prerequisites: Array.isArray(json.prerequisites)
+      ? (json.prerequisites as string[])
+      : [],
+    learningOutcomes: Array.isArray(json.learningOutcomes)
+      ? (json.learningOutcomes as Array<Record<string, unknown>>).map((m) => ({
+        mloId: (m.mloId as string) ?? '',
+        code: (m.code as string) ?? '',
+        statement: (m.statement as string) ?? '',
+        bloomLevel: (m.bloomLevel as string) ?? '',
+        verb: (m.verb as string) ?? '',
+        linkedPLOs: Array.isArray(m.linkedPLOs) ? (m.linkedPLOs as string[]) : [],
+        linkedKSCs: Array.isArray(m.linkedKSCs) ? (m.linkedKSCs as string[]) : [],
+      }))
+      : [],
+    totalHours: typeof json.totalHours === 'number' ? json.totalHours : null,
+    contactHours: typeof json.contactHours === 'number' ? json.contactHours : null,
+    selfStudyHours: typeof json.selfStudyHours === 'number' ? json.selfStudyHours : null,
+    facultyNotes: (json.facultyNotes as string | undefined) ?? '',
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -229,6 +258,11 @@ export async function updateModule(
   if (patch.content !== undefined) {
     doc.set('content', normalizeContent(patch.content));
   }
+  if (patch.aim !== undefined) doc.aim = patch.aim;
+  if (patch.prerequisites !== undefined) {
+    doc.set('prerequisites', patch.prerequisites);
+  }
+  if (patch.facultyNotes !== undefined) doc.facultyNotes = patch.facultyNotes;
   await doc.save();
   await recordAudit({
     actorUserId: actor.actorUserId,

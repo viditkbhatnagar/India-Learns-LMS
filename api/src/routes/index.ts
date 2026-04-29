@@ -56,7 +56,8 @@ import { analyticsRouter } from './analytics.js';
 import { jobsNotificationsRouter } from './jobsNotifications.js';
 import { curriculumImportRouter } from './curriculumImport.js';
 import { courseSessionsRouter, sessionsRouter } from './sessions.js';
-import { materialsRouter } from './materials.js';
+import { materialsRouter, sessionMaterialsRouter } from './materials.js';
+import { sessionAssignmentsRouter } from './sessionAssignments.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -77,6 +78,10 @@ export function v1Router(): Router {
   router.use('/courses/:courseId/gradebook', courseGradebookRouter());
   router.use('/courses/:courseId/sessions', courseSessionsRouter());
   router.use('/sessions', sessionsRouter());
+  // PR #16 phase 2 — faculty add-material + add-assignment per session.
+  // Mounted before /sessions so the nested paths register correctly.
+  router.use('/sessions/:sessionId/materials', sessionMaterialsRouter());
+  router.use('/sessions/:sessionId/assignments', sessionAssignmentsRouter());
   router.use('/materials', materialsRouter());
   router.use('/assignments', assignmentsRouter());
   router.use('/assignment-submissions', assignmentSubmissionsRouter());

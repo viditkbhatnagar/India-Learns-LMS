@@ -19,6 +19,7 @@ import { findCourseById, toCourseDto } from '../services/courseService.js';
 import { listModulesForCourse, toModuleDto } from '../services/moduleService.js';
 import { assertStudentCanAccessCourse } from '../services/moduleAccessService.js';
 import { toStudentSubmissionDto } from '../services/assignmentSubmissionService.js';
+import { getStudentCourseView } from '../services/studentCourseViewService.js';
 
 // Student-safe DTOs. These deliberately omit faculty-only fields:
 //   - Session.notes (private faculty notes)
@@ -184,6 +185,24 @@ export function meCoursesRouter(): Router {
             })),
           },
         });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // PR #16 Phase 4 — aggregated student "your course" view. One call,
+  // fully nested Module → Session → Assignment tree with progress
+  // rollups + a pre-sorted "needs your attention" panel. Replaces the
+  // flat catalog the student page used to consume; the legacy
+  // /me/courses/:courseId stays for back-compat until the visual
+  // rebuild lands.
+  router.get(
+    '/:courseId/student-view',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const view = await getStudentCourseView(req.auth!.user, req.params.courseId ?? '');
+        res.status(200).json({ data: view });
       } catch (err) {
         next(err);
       }

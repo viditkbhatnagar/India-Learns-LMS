@@ -19,6 +19,7 @@ import type {
   QuizAttemptDto,
   QuizDto,
   ReceiptDto,
+  StudentCourseViewDto,
   StudentDashboardDto,
   StudentFeesDto,
   TicketCommentDto,
@@ -211,6 +212,21 @@ export const assignmentsApi = {
     );
     return res.data.data.assignment;
   },
+  async createOnSession(
+    sessionId: string,
+    input: {
+      title: string;
+      instructions: string;
+      dueAt: string;
+      maxScore: number;
+    },
+  ) {
+    const res = await api.post<{ data: { assignment: AssignmentDto } }>(
+      `/sessions/${sessionId}/assignments`,
+      input,
+    );
+    return res.data.data.assignment;
+  },
   async get(id: string) {
     const res = await api.get<{
       data: { assignment: AssignmentDto; mySubmission: AssignmentSubmissionDto | null };
@@ -324,6 +340,26 @@ export const modulesApi = {
     );
     return res.data.data.module;
   },
+  async get(id: string) {
+    const res = await api.get<{ data: { module: ModuleDto } }>(`/modules/${id}`);
+    return res.data.data.module;
+  },
+  async update(
+    id: string,
+    patch: {
+      title?: string;
+      order?: number;
+      aim?: string;
+      prerequisites?: string[];
+      facultyNotes?: string;
+    },
+  ) {
+    const res = await api.patch<{ data: { module: ModuleDto } }>(
+      `/modules/${id}`,
+      patch,
+    );
+    return res.data.data.module;
+  },
 };
 
 export interface AnnouncementDto {
@@ -418,6 +454,18 @@ export const meCoursesApi = {
   },
   async get(courseId: string): Promise<MeCourseDetailDto> {
     const res = await api.get<{ data: MeCourseDetailDto }>(`/me/courses/${courseId}`);
+    return res.data.data;
+  },
+  /**
+   * Aggregated student-view payload — single call, fully nested
+   * Module → Session → Assignment tree with progress rollups + a
+   * pre-sorted "needs your attention" panel. Used by the new student
+   * course page (PR #16 Phases 4–6).
+   */
+  async studentView(courseId: string): Promise<StudentCourseViewDto> {
+    const res = await api.get<{ data: StudentCourseViewDto }>(
+      `/me/courses/${courseId}/student-view`,
+    );
     return res.data.data;
   },
 };
@@ -821,9 +869,43 @@ export interface MaterialDetailDto {
   updatedAt: string;
 }
 
+export type AddableMaterialType = Exclude<MaterialType, 'slides'>;
+
 export const materialsApi = {
   async get(id: string) {
     const res = await api.get<{ data: { material: MaterialDetailDto } }>(`/materials/${id}`);
+    return res.data.data.material;
+  },
+  async createOnSession(
+    sessionId: string,
+    input: {
+      type: AddableMaterialType;
+      title: string;
+      url?: string | null;
+      body?: string | null;
+      sizeBytes?: number | null;
+      expectedHours?: number | null;
+    },
+  ) {
+    const res = await api.post<{ data: { material: MaterialDetailDto } }>(
+      `/sessions/${sessionId}/materials`,
+      input,
+    );
+    return res.data.data.material;
+  },
+  async delete(id: string) {
+    await api.delete(`/materials/${id}`);
+  },
+  /**
+   * Replace the JSON slide body for a `type=slides` material. Faculty
+   * can use this to upload an edited deck (downloaded → tweaked →
+   * re-uploaded) without going through the curriculum-import flow.
+   */
+  async replaceSlides(id: string, body: unknown) {
+    const res = await api.put<{ data: { material: MaterialDetailDto } }>(
+      `/materials/${id}/slides`,
+      body,
+    );
     return res.data.data.material;
   },
 };
