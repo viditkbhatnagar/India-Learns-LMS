@@ -100,7 +100,7 @@ export function StudentCoursePage(): JSX.Element {
       ) : (
         <div className="space-y-6">
           {data.modules.map((m) => (
-            <ModuleSection key={m.id} module={m} />
+            <ModuleSection key={m.id} module={m} courseId={data.course.id} />
           ))}
         </div>
       )}
@@ -345,8 +345,10 @@ function NeedsAttentionPanel({
 
 function ModuleSection({
   module: m,
+  courseId,
 }: {
   module: StudentModuleDto;
+  courseId: string;
 }): JSX.Element {
   const isCurrent = m.state === 'in_progress';
   const stateLabel =
@@ -388,7 +390,7 @@ function ModuleSection({
       ) : (
         <div className="space-y-3">
           {m.sessions.map((s) => (
-            <SessionCard key={s.id} session={s} />
+            <SessionCard key={s.id} session={s} courseId={courseId} />
           ))}
         </div>
       )}
@@ -400,8 +402,10 @@ function ModuleSection({
 
 function SessionCard({
   session: s,
+  courseId,
 }: {
   session: StudentSessionDto;
+  courseId: string;
 }): JSX.Element {
   const isCurrent = s.state === 'in_progress';
   const isComplete = s.state === 'complete';
@@ -414,10 +418,13 @@ function SessionCard({
         isCurrent ? 'border-brand-orange/60 shadow-elev-1' : 'border-black/5 hover:border-black/10',
       ].join(' ')}
     >
-      <div className="flex items-center gap-4 px-5 py-4">
+      <Link
+        to={`/student/courses/${courseId}/sessions/${s.id}`}
+        className="flex items-center gap-4 px-5 py-4 hover:bg-surface-muted/40 transition-colors group"
+      >
         <SessionNumber order={s.order} state={s.state} />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-brand-navy truncate">
+          <div className="font-semibold text-brand-navy truncate group-hover:text-brand-orange transition-colors">
             {s.title}
           </div>
           <div className="text-xs text-muted mt-0.5 flex items-center gap-2">
@@ -436,7 +443,10 @@ function SessionCard({
           </span>
           <ProgressSegments assignments={s.assignments} />
         </div>
-      </div>
+        <span aria-hidden className="text-muted/60 group-hover:text-brand-orange transition-colors">
+          →
+        </span>
+      </Link>
       {s.assignments.length > 0 && (
         <div className="border-t border-black/5 bg-surface-muted/40">
           <p className="px-5 pt-2 pb-1 text-[10px] uppercase tracking-[0.08em] font-bold text-muted">

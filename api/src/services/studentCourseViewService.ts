@@ -11,6 +11,8 @@ import { HttpError } from '../middleware/error.js';
 import {
   Assignment,
   AssignmentSubmission,
+  Course,
+  Material,
   ModuleModel,
   SessionModel,
   type AssignmentDoc,
@@ -241,5 +243,112 @@ export async function getStudentCourseView(
     counts,
     needsAttention,
     modules: moduleDtos,
+  };
+}
+
+// =====================================================================
+// Student-side session detail. Logan's UAT round 4: "you can see from
+// the student view that they cannot click into the individual sessions".
+// The aggregated student-view payload already includes per-session
+// metadata + per-session assignments, but materials are only attached
+// at the session-detail level. This loader fills that gap.
+// =====================================================================
+
+export interface StudentSessionMaterialDto {
+  id: string;
+  type: string;
+  title: string;
+  url: string | null;
+  slideCount: number | null;
+  /** For type=slides: the structured slide JSON. Other types: null. */
+  body: unknown | null;
+}
+
+export interface StudentSessionDetailDto {
+  course: { id: string; title: string };
+  session: {
+    id: string;
+    moduleId: string;
+    courseId: string;
+    order: number;
+    title: string;
+    description: string;
+    type: string;
+    plannedMinutes: number | null;
+    scheduledStart: string | null;
+    scheduledEnd: string | null;
+    location: string | null;
+    status: 'upcoming' | 'in_progress' | 'completed';
+    completedAt: string | null;
+  };
+  materials: StudentSessionMaterialDto[];
+  assignments: StudentAssignmentDto[];
+}
+
+export async function getStudentSessionDetail(
+  student: HydratedUser,
+  sessionIdStr: string,
+): Promise<StudentSessionDetailDto> {
+  if (!Types.ObjectId.isValid(sessionIdStr)) {
+    throw new HttpError(404, 'NOT_FOUND', 'Session not found.');
+  }
+  const session = await SessionModel.findOne({
+    _id: sessionIdStr,
+    deletedAt: null,
+  });
+  if (!session) throw new HttpError(404, 'NOT_FOUND', 'Session not found.');
+
+  const course = await Course.findOne({ _id: session.courseId, deletedAt: null });
+  if (!course) throw new HttpError(404, 'NOT_FOUND', 'Session not found.');
+
+  // Same access gate as the rest of the student surface — sandbox is
+  // OK for enrolled students (PR #14), non-enrolled get 404 / 403 by
+  // course state.
+  await assertStudentCanAccessCourse(student, course);
+
+  const [materialDocs, assignmentDocs] = await Promise.all([
+    Material.find({ sessionId: session._id, deletedAt: null }).sort({ uploadedAt: 1 }),
+    Assignment.find({ sessionId: session._id, deletedAt: null }).sort({ dueAt: 1 }),
+  ]);
+  const submissions = await AssignmentSubmission.find({
+    studentId: student._id,
+    assignmentId: { $in: assignmentDocs.map((a) => a._id) },
+  });
+  const subByAssignment = new Map<string, AssignmentSubmissionDoc>(
+    submissions.map((s) => [s.assignmentId.toString(), s]),
+  );
+  const now = new Date();
+  const assignmentDtos: StudentAssignmentDto[] = assignmentDocs.map((a) =>
+    toAssignmentDto(a, subByAssignment.get(a._id.toString()) ?? null, now),
+  );
+
+  return {
+    course: { id: course._id.toString(), title: course.name },
+    session: {
+      id: session._id.toString(),
+      moduleId: session.moduleId.toString(),
+      courseId: session.courseId.toString(),
+      order: session.number,
+      title: session.title,
+      description: session.description ?? '',
+      type: session.type ?? 'lecture',
+      plannedMinutes: session.plannedMinutes,
+      scheduledStart: session.scheduledStart ? session.scheduledStart.toISOString() : null,
+      scheduledEnd: session.scheduledEnd ? session.scheduledEnd.toISOString() : null,
+      location: session.location ?? null,
+      status: session.status,
+      completedAt: session.completedAt ? session.completedAt.toISOString() : null,
+    },
+    materials: materialDocs.map((m) => ({
+      id: m._id.toString(),
+      type: m.type as string,
+      title: m.title,
+      url: m.url,
+      slideCount: m.slideCount,
+      // Only ship the slide body for type=slides — other types have a
+      // URL the client follows, no need to bloat the payload.
+      body: m.type === 'slides' ? m.body : null,
+    })),
+    assignments: assignmentDtos,
   };
 }

@@ -19,7 +19,10 @@ import { findCourseById, toCourseDto } from '../services/courseService.js';
 import { listModulesForCourse, toModuleDto } from '../services/moduleService.js';
 import { assertStudentCanAccessCourse } from '../services/moduleAccessService.js';
 import { toStudentSubmissionDto } from '../services/assignmentSubmissionService.js';
-import { getStudentCourseView } from '../services/studentCourseViewService.js';
+import {
+  getStudentCourseView,
+  getStudentSessionDetail,
+} from '../services/studentCourseViewService.js';
 
 // Student-safe DTOs. These deliberately omit faculty-only fields:
 //   - Session.notes (private faculty notes)
@@ -203,6 +206,26 @@ export function meCoursesRouter(): Router {
       try {
         const view = await getStudentCourseView(req.auth!.user, req.params.courseId ?? '');
         res.status(200).json({ data: view });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // UAT round 4 — Logan flagged that students could not click into
+  // individual sessions. This endpoint backs the new student session
+  // detail page: session metadata + materials (slide bodies inlined
+  // for type=slides) + assignments with the calling student's
+  // submission state.
+  router.get(
+    '/:courseId/sessions/:sessionId',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const detail = await getStudentSessionDetail(
+          req.auth!.user,
+          req.params.sessionId ?? '',
+        );
+        res.status(200).json({ data: detail });
       } catch (err) {
         next(err);
       }

@@ -468,7 +468,57 @@ export const meCoursesApi = {
     );
     return res.data.data;
   },
+  /**
+   * Student-side session detail. Returns the session metadata plus
+   * materials (slide JSON inlined for type=slides) plus the calling
+   * student's assignment-submission state.
+   */
+  async studentSession(courseId: string, sessionId: string): Promise<StudentSessionDetail> {
+    const res = await api.get<{ data: StudentSessionDetail }>(
+      `/me/courses/${courseId}/sessions/${sessionId}`,
+    );
+    return res.data.data;
+  },
 };
+
+export interface StudentSessionDetailMaterial {
+  id: string;
+  type: string;
+  title: string;
+  url: string | null;
+  slideCount: number | null;
+  body: unknown | null;
+}
+
+export interface StudentSessionDetail {
+  course: { id: string; title: string };
+  session: {
+    id: string;
+    moduleId: string;
+    courseId: string;
+    order: number;
+    title: string;
+    description: string;
+    type: string;
+    plannedMinutes: number | null;
+    scheduledStart: string | null;
+    scheduledEnd: string | null;
+    location: string | null;
+    status: 'upcoming' | 'in_progress' | 'completed';
+    completedAt: string | null;
+  };
+  materials: StudentSessionDetailMaterial[];
+  assignments: Array<{
+    id: string;
+    title: string;
+    dueAt: string;
+    maxPoints: number;
+    score: number | null;
+    feedback: string | null;
+    status: 'graded' | 'submitted' | 'late' | 'dueSoon' | 'upcoming';
+    daysUntilDue: number;
+  }>;
+}
 
 export const enrollmentsApi = {
   async listMine() {
@@ -998,8 +1048,13 @@ export const curriculumImportApi = {
 
 export const adminEnrollmentsApi = {
   async list(params: { batchId?: string; studentId?: string; status?: string } = {}) {
-    const res = await api.get<{ data: { enrolments: EnrollmentDto[] } }>('/enrollments', { params });
-    return res.data.data.enrolments;
+    // Server returns { items, total, page, limit }; the legacy client
+    // here read `enrolments` and crashed with
+    // "['admin','enrollments'] data is undefined" (UAT round 4).
+    const res = await api.get<{
+      data: { items: EnrollmentDto[]; total: number; page: number; limit: number };
+    }>('/enrollments', { params });
+    return res.data.data.items;
   },
   async create(input: { studentId: string; batchId: string }) {
     const res = await api.post<{ data: { enrolments: EnrollmentDto[] } }>('/enrollments', input);
