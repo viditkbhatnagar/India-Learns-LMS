@@ -46,6 +46,13 @@ export interface ModuleDoc {
    * Free-text, capped at 8000 chars to mirror Session.notes.
    */
   facultyNotes: string;
+  /**
+   * PR #18 (UAT r5) — student-facing module syllabus. Long-form text
+   * (Logan asked for "space for the syllabus to each module"). 16000
+   * char cap matches the assignment instructions / submission body
+   * caps elsewhere — plenty of room for a multi-paragraph syllabus.
+   */
+  syllabus: string;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -103,6 +110,7 @@ const ModuleSchema = new Schema<ModuleDoc>(
     contactHours: { type: Number, default: null },
     selfStudyHours: { type: Number, default: null },
     facultyNotes: { type: String, default: '', maxlength: 8000 },
+    syllabus: { type: String, default: '', maxlength: 16_000 },
     deletedAt: { type: Date, default: null },
   },
   {

@@ -377,6 +377,16 @@ function ModuleSection({
           {m.aim && (
             <p className="text-sm text-ink/80 mt-1.5 max-w-[68ch] leading-relaxed">{m.aim}</p>
           )}
+          {m.syllabus && (
+            <details className="mt-2 max-w-[72ch]">
+              <summary className="text-xs uppercase tracking-wider text-brand-orange font-bold cursor-pointer hover:text-brand-navy">
+                Syllabus
+              </summary>
+              <p className="text-sm text-ink/85 mt-2 whitespace-pre-wrap leading-relaxed">
+                {m.syllabus}
+              </p>
+            </details>
+          )}
         </div>
         <div className="text-right shrink-0">
           <p className={`text-base font-bold tabular-nums ${isCurrent ? 'text-brand-orange' : 'text-muted'}`}>

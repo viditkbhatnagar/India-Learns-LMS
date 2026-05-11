@@ -24,10 +24,10 @@ import type { ActorContext } from './userService.js';
 // their cohort without an admin round-trip). Other faculty can't touch
 // it; non-staff roles never reach this code.
 const ADMIN_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
-  'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes',
+  'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus',
 ]);
 const FACULTY_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
-  'content', 'aim', 'prerequisites', 'facultyNotes',
+  'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus',
 ]);
 
 function requireId(id: string): Types.ObjectId {
@@ -149,6 +149,7 @@ function toDto(doc: HydratedModule): ModuleDto {
     contactHours: typeof json.contactHours === 'number' ? json.contactHours : null,
     selfStudyHours: typeof json.selfStudyHours === 'number' ? json.selfStudyHours : null,
     facultyNotes: (json.facultyNotes as string | undefined) ?? '',
+    syllabus: (json.syllabus as string | undefined) ?? '',
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -263,6 +264,7 @@ export async function updateModule(
     doc.set('prerequisites', patch.prerequisites);
   }
   if (patch.facultyNotes !== undefined) doc.facultyNotes = patch.facultyNotes;
+  if (patch.syllabus !== undefined) doc.syllabus = patch.syllabus;
   await doc.save();
   await recordAudit({
     actorUserId: actor.actorUserId,

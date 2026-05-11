@@ -142,6 +142,12 @@ export interface ModuleDto {
    * `Session.notes`. Empty string when unset.
    */
   facultyNotes: string;
+  /**
+   * Student-facing module syllabus. Long-form text shown in the module
+   * overview panel — both faculty (edit) and students (read-only) see it.
+   * Empty string when unset.
+   */
+  syllabus: string;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -175,6 +181,7 @@ export interface UpdateModuleInput {
   aim?: string;
   prerequisites?: string[];
   facultyNotes?: string;
+  syllabus?: string;
 }
 
 export interface BatchDto {
@@ -299,6 +306,9 @@ export interface StudentModuleDto {
   subtitle: string;
   /** Module-level description — surfaced from `Module.aim`. */
   aim: string;
+  /** Student-facing long-form syllabus (UAT round 5 / Logan). Empty
+   *  string when faculty hasn't filled it in yet. */
+  syllabus: string;
   state: StudentSessionState;
   sessions: StudentSessionDto[];
   progress: {

@@ -352,6 +352,7 @@ export const modulesApi = {
       aim?: string;
       prerequisites?: string[];
       facultyNotes?: string;
+      syllabus?: string;
     },
   ) {
     const res = await api.patch<{ data: { module: ModuleDto } }>(
