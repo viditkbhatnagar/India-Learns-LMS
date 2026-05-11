@@ -114,8 +114,13 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
     { label: 'Users', to: '/admin/users', icon: Icon.users },
-    { label: 'Programs', to: '/admin/programs', icon: Icon.layers },
-    { label: 'Courses', to: '/admin/courses', icon: Icon.book },
+    // Logan's nomenclature (UAT round 5): the org-level catalog Logan
+    // calls "Programs" is what we call "Courses" internally. Keep the
+    // routes stable; relabel the sidebar so admins find what they
+    // expect. The CRUD page for our internal Programs concept is
+    // disambiguated as "Add & View Programs".
+    { label: 'Add & View Programs', to: '/admin/programs', icon: Icon.layers },
+    { label: 'Programs', to: '/admin/courses', icon: Icon.book },
     { label: 'Batches', to: '/admin/batches', icon: Icon.grid },
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
@@ -125,8 +130,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
   superadmin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
     { label: 'Users', to: '/admin/users', icon: Icon.users },
-    { label: 'Programs', to: '/admin/programs', icon: Icon.layers },
-    { label: 'Courses', to: '/admin/courses', icon: Icon.book },
+    { label: 'Add & View Programs', to: '/admin/programs', icon: Icon.layers },
+    { label: 'Programs', to: '/admin/courses', icon: Icon.book },
     { label: 'Curriculum import', to: '/admin/curriculum-import', icon: Icon.book },
     { label: 'Batches', to: '/admin/batches', icon: Icon.grid },
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },

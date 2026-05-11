@@ -186,6 +186,7 @@ export async function getStudentCourseView(
       // Module has no `subtitle` field — surface its `code` as the eyebrow.
       subtitle: m.code ?? '',
       aim: m.aim ?? '',
+      syllabus: m.syllabus ?? '',
       state: deriveState({ total, completed, late, dueSoon }),
       sessions: moduleSessions,
       progress: { total, completed },

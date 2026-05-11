@@ -265,6 +265,7 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
   const { isOversight } = useCourseOversight();
   const [aimDraft, setAimDraft] = useState<string>(m.aim ?? '');
   const [notesDraft, setNotesDraft] = useState<string>(m.facultyNotes ?? '');
+  const [syllabusDraft, setSyllabusDraft] = useState<string>(m.syllabus ?? '');
   // Re-seed when the prop changes (e.g. after a successful save invalidates
   // the parent query and re-renders this row).
   useEffect(() => {
@@ -273,11 +274,15 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
   useEffect(() => {
     setNotesDraft(m.facultyNotes ?? '');
   }, [m.facultyNotes]);
+  useEffect(() => {
+    setSyllabusDraft(m.syllabus ?? '');
+  }, [m.syllabus]);
   const [aimSaved, setAimSaved] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [syllabusSaved, setSyllabusSaved] = useState(false);
 
   const updateMut = useMutation({
-    mutationFn: (patch: { aim?: string; facultyNotes?: string }) =>
+    mutationFn: (patch: { aim?: string; facultyNotes?: string; syllabus?: string }) =>
       modulesApi.update(m.id, patch),
     onSuccess: (_doc, vars) => {
       if (vars.aim !== undefined) {
@@ -288,12 +293,17 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
         setNotesSaved(true);
         window.setTimeout(() => setNotesSaved(false), 2000);
       }
+      if (vars.syllabus !== undefined) {
+        setSyllabusSaved(true);
+        window.setTimeout(() => setSyllabusSaved(false), 2000);
+      }
       qc.invalidateQueries({ queryKey: ['course', m.courseId, 'shell'] });
     },
   });
 
   const aimDirty = aimDraft !== (m.aim ?? '');
   const notesDirty = notesDraft !== (m.facultyNotes ?? '');
+  const syllabusDirty = syllabusDraft !== (m.syllabus ?? '');
   const oversightTitle = 'Read-only in oversight mode';
 
   const aimError = updateMut.error instanceof ApiHttpError ? updateMut.error.message : null;
@@ -328,6 +338,32 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
             Save description
           </Button>
           {aimSaved && <span className="text-xs text-success">Saved.</span>}
+        </div>
+      </div>
+      <div>
+        <p className="text-xs uppercase tracking-wider text-muted font-bold mb-1.5">
+          Syllabus <span className="font-normal normal-case text-muted">— long-form, visible to students</span>
+        </p>
+        <TextArea
+          rows={6}
+          value={syllabusDraft}
+          onChange={(e) => setSyllabusDraft(e.target.value)}
+          placeholder="Topics, sequencing, deliverables, references — anything a student needs to know to follow the module."
+          disabled={isOversight}
+          maxLength={16_000}
+        />
+        <div className="mt-2 flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={updateMut.isPending && updateMut.variables?.syllabus !== undefined}
+            disabled={!syllabusDirty || isOversight}
+            onClick={() => updateMut.mutate({ syllabus: syllabusDraft })}
+            title={isOversight ? oversightTitle : undefined}
+          >
+            Save syllabus
+          </Button>
+          {syllabusSaved && <span className="text-xs text-success">Saved.</span>}
         </div>
       </div>
       {m.learningOutcomes.length > 0 && (

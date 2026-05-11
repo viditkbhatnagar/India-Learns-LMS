@@ -159,6 +159,11 @@ export function AdminUsers() {
 
 export function AdminInviteUser() {
   const qc = useQueryClient();
+  // PR #18 — faculty now also takes a `programId` so Logan can assign
+  // each instructor to a program (Aviation / Retail / etc.). The select
+  // populates from the live programs list — no more "find it on the
+  // Programs page and paste the ObjectId" friction.
+  const programsQ = useQuery({ queryKey: ['programs'], queryFn: programsApi.list });
   const [form, setForm] = useState({
     role: 'student' as Role,
     name: '',
@@ -241,19 +246,40 @@ export function AdminInviteUser() {
             onChange={(e) => setForm((f) => ({ ...f, phoneE164: e.target.value }))}
             hint="E.164 format (e.g. +919812345678)"
           />
-          {form.role === 'student' && (
+          {(form.role === 'student' || form.role === 'faculty') && (
             <>
-              <Input
-                label="Program ID"
-                value={form.programId}
-                onChange={(e) => setForm((f) => ({ ...f, programId: e.target.value }))}
-                hint="Find it on the Programs page."
-              />
-              <Input
-                label="Batch ID"
-                value={form.batchId}
-                onChange={(e) => setForm((f) => ({ ...f, batchId: e.target.value }))}
-              />
+              <label className="block">
+                <span className="block text-sm font-semibold text-brand-navy mb-1.5 tracking-tight">
+                  Program
+                </span>
+                <select
+                  value={form.programId}
+                  onChange={(e) => setForm((f) => ({ ...f, programId: e.target.value }))}
+                  className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
+                  required={form.role === 'student'}
+                >
+                  <option value="">
+                    {form.role === 'faculty' ? '— No program (assign later) —' : 'Pick a program…'}
+                  </option>
+                  {(programsQ.data ?? []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted mt-1">
+                  {form.role === 'faculty'
+                    ? 'Optional — pick the program this faculty member teaches in.'
+                    : 'Required — which program is the student joining?'}
+                </p>
+              </label>
+              {form.role === 'student' && (
+                <Input
+                  label="Batch ID"
+                  value={form.batchId}
+                  onChange={(e) => setForm((f) => ({ ...f, batchId: e.target.value }))}
+                />
+              )}
             </>
           )}
           {error && (
