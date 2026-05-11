@@ -1,9 +1,12 @@
-import type { JSX } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, type JSX } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader } from '../../../components/ui/Card.js';
 import { Badge } from '../../../components/ui/Badge.js';
+import { Button } from '../../../components/ui/Button.js';
 import { ErrorAlert, Skeleton } from '../../../components/ui/States.js';
-import { assignmentsApi, coursesApi, sessionsApi } from '../../../lib/endpoints.js';
+import { assignmentsApi, coursesApi, sessionsApi, usersApi } from '../../../lib/endpoints.js';
+import { ApiHttpError } from '../../../lib/api.js';
+import { useAuthStore } from '../../../store/auth.js';
 
 /** QA dashboard for the course shell — counts, grading backlog, attendance %. */
 export function CourseOverviewTab({ courseId }: { courseId: string }): JSX.Element {
@@ -53,6 +56,7 @@ export function CourseOverviewTab({ courseId }: { courseId: string }): JSX.Eleme
           </p>
         )}
       </Card>
+      <TeachingFacultyCard courseId={courseId} facultyIds={course.facultyIds} />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard label="Modules" value={moduleCount} />
         <MetricCard label="Sessions" value={sessionCount} hint={`${completionPct}% complete`} />
@@ -162,5 +166,167 @@ function MetricCard({
       <p className="text-3xl font-bold text-brand-navy mt-1">{value}</p>
       {hint && <p className="text-xs text-muted mt-1">{hint}</p>}
     </div>
+  );
+}
+
+/**
+ * PR #19 — assign faculty to a course. Logan's UAT round 5 follow-up
+ * "how to assign a course to a faculty?" — until now the data model
+ * supported `Course.facultyIds` and the API took it on
+ * `PATCH /v1/courses/:id`, but there was no UI affordance. That gap
+ * was load-bearing: every faculty write (attendance, save notes,
+ * mark complete, add material, save description) is gated by
+ * `assertFacultyCanWriteCourse` which checks this array — without a
+ * way to set it, faculty were locked out of every course unless
+ * someone hit the API directly.
+ *
+ * Admin / superadmin see the card with the current roster + an
+ * "Add faculty" combobox. Faculty (read-only view of the same course)
+ * see the same list as a roster but without the manage controls —
+ * useful so they know who else is on the team.
+ */
+function TeachingFacultyCard({
+  courseId,
+  facultyIds,
+}: {
+  courseId: string;
+  facultyIds: string[];
+}): JSX.Element {
+  const me = useAuthStore((s) => s.user);
+  const qc = useQueryClient();
+  const canManage = me?.role === 'admin' || me?.role === 'superadmin';
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // List of every faculty user — for the combobox + to render
+  // names/emails of the current roster (the course doc only carries
+  // ids).
+  const facultyQ = useQuery({
+    queryKey: ['users', { role: 'faculty' }],
+    queryFn: () => usersApi.list({ role: 'faculty' }),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: (nextIds: string[]) =>
+      coursesApi.update(courseId, { facultyIds: nextIds }),
+    onSuccess: () => {
+      setErr(null);
+      qc.invalidateQueries({ queryKey: ['course', courseId, 'shell'] });
+    },
+    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Update failed.'),
+  });
+
+  const allFaculty = facultyQ.data ?? [];
+  const facultyById = new Map(allFaculty.map((u) => [u.id, u]));
+  const current = facultyIds
+    .map((id) => facultyById.get(id))
+    .filter((u): u is NonNullable<typeof u> => Boolean(u));
+  const unassigned = allFaculty.filter((u) => !facultyIds.includes(u.id));
+
+  function add(userId: string): void {
+    if (!userId || facultyIds.includes(userId)) return;
+    updateMut.mutate([...facultyIds, userId]);
+    setPickerOpen(false);
+  }
+  function remove(userId: string): void {
+    if (!facultyIds.includes(userId)) return;
+    updateMut.mutate(facultyIds.filter((id) => id !== userId));
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Teaching faculty"
+        subtitle={
+          canManage
+            ? 'Add or remove the faculty members teaching this course. Anyone listed here can record attendance, mark sessions complete, and grade — and only they can.'
+            : current.length === 0
+              ? 'No faculty assigned yet — ask an admin to add you.'
+              : `${current.length} faculty member${current.length === 1 ? '' : 's'} teaching this course.`
+        }
+      />
+      {current.length === 0 ? (
+        <p className="text-sm italic text-muted">
+          {canManage
+            ? 'No faculty yet. Add one below — without anyone here, faculty edits are blocked.'
+            : 'No faculty have been assigned.'}
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {current.map((u) => (
+            <li
+              key={u.id}
+              className="flex items-center gap-3 rounded-xl border border-black/5 bg-white px-3 py-2"
+            >
+              <span aria-hidden className="h-8 w-8 rounded-full bg-navy-100 text-brand-navy font-semibold grid place-items-center text-xs">
+                {(u.name ?? u.email).slice(0, 2).toUpperCase()}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-brand-navy truncate">{u.name}</p>
+                <p className="text-xs text-muted truncate">{u.email}</p>
+              </div>
+              {canManage && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => remove(u.id)}
+                  loading={updateMut.isPending && updateMut.variables?.includes(u.id) === false}
+                  className="text-danger hover:bg-red-50"
+                >
+                  Remove
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {canManage && (
+        <div className="mt-3">
+          {pickerOpen ? (
+            <div className="flex items-center gap-2">
+              <select
+                autoFocus
+                defaultValue=""
+                onChange={(e) => add(e.target.value)}
+                className="flex-1 h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
+              >
+                <option value="" disabled>
+                  {facultyQ.isLoading
+                    ? 'Loading faculty…'
+                    : unassigned.length === 0
+                      ? 'Every faculty user is already on this course.'
+                      : 'Pick a faculty member to add…'}
+                </option>
+                {unassigned.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.email})
+                  </option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setPickerOpen(false);
+                  setErr(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setPickerOpen(true)}
+              disabled={facultyQ.isLoading}
+            >
+              + Add faculty
+            </Button>
+          )}
+          {err && <p className="mt-2 text-xs text-danger">{err}</p>}
+        </div>
+      )}
+    </Card>
   );
 }
