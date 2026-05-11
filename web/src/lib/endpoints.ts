@@ -411,6 +411,16 @@ export const coursesApi = {
     const res = await api.post<{ data: { course: CourseDto } }>('/courses', input);
     return res.data.data.course;
   },
+  /**
+   * Partial course update. Today only `facultyIds` is wired in the UI,
+   * but the server-side `UpdateCourseInput` supports name / slug /
+   * summary / sequential / certificateTemplateId too — extend the
+   * patch shape here as those screens land.
+   */
+  async update(id: string, patch: { facultyIds?: string[]; summary?: string; sequential?: boolean }) {
+    const res = await api.patch<{ data: { course: CourseDto } }>(`/courses/${id}`, patch);
+    return res.data.data.course;
+  },
   async publish(id: string) {
     await api.post(`/courses/${id}/publish`, {});
   },
