@@ -1,6 +1,8 @@
 import type {
+  AcceptOfferResult,
   AddRefereeInput,
   AddReviewerNoteInput,
+  AdmissionsAnalyticsDto,
   AdmissionsAuditChainDto,
   AnalyticsSummaryDto,
   ApplicantSignupInput,
@@ -8,11 +10,15 @@ import type {
   ApplicationDocumentDto,
   ApplicationDraftDto,
   ApplicationDto,
+  ApplicationFeeDto,
+  ApplicationPaymentDto,
   ApplicationState,
+  AssignCohortInput,
   CertificateDto,
   OfficerApplicationDetailDto,
   PublicCohortDto,
   PublicProgramDto,
+  RecordApplicationPaymentInput,
   RefereeDto,
   RefereeUploadContextDto,
   RegisterDocumentInput,
@@ -22,6 +28,7 @@ import type {
   SignDocumentUploadInput,
   SignedUploadTicketDto,
   SubmitApplicationInput,
+  WaiveApplicationFeeInput,
   WithdrawApplicationInput,
   CollectionsReportDto,
   CourseDto,
@@ -1449,6 +1456,61 @@ export const admissionsApi = {
   async getAuditChain(id: string): Promise<AdmissionsAuditChainDto> {
     const res = await api.get<{ data: AdmissionsAuditChainDto }>(
       `/admissions/officer/applications/${id}/audit`,
+    );
+    return res.data.data;
+  },
+  // M6 — application fee.
+  async getMyFee(): Promise<ApplicationFeeDto | null> {
+    const res = await api.get<{ data: { fee: ApplicationFeeDto | null } }>(
+      '/admissions/me/fee',
+    );
+    return res.data.data.fee;
+  },
+  async recordApplicationPayment(
+    applicationId: string,
+    input: RecordApplicationPaymentInput,
+  ): Promise<{ fee: ApplicationFeeDto; payment: ApplicationPaymentDto }> {
+    const res = await api.post<{
+      data: { fee: ApplicationFeeDto; payment: ApplicationPaymentDto };
+    }>(`/admissions/finance/applications/${applicationId}/payment`, input);
+    return res.data.data;
+  },
+  async waiveApplicationFee(
+    applicationId: string,
+    input: WaiveApplicationFeeInput,
+  ): Promise<ApplicationFeeDto> {
+    const res = await api.post<{ data: { fee: ApplicationFeeDto } }>(
+      `/admissions/officer/applications/${applicationId}/fee/waive`,
+      input,
+    );
+    return res.data.data.fee;
+  },
+  // M7 — accept / decline.
+  async acceptOffer(): Promise<AcceptOfferResult> {
+    const res = await api.post<{ data: AcceptOfferResult }>(
+      '/admissions/me/application/accept',
+      {},
+    );
+    return res.data.data;
+  },
+  async declineOffer(reason?: string): Promise<ApplicationDto> {
+    const res = await api.post<{ data: { application: ApplicationDto } }>(
+      '/admissions/me/application/decline',
+      reason ? { reason } : {},
+    );
+    return res.data.data.application;
+  },
+  async assignCohort(applicationId: string, input: AssignCohortInput): Promise<ApplicationDto> {
+    const res = await api.post<{ data: { application: ApplicationDto } }>(
+      `/admissions/officer/applications/${applicationId}/assign-cohort`,
+      input,
+    );
+    return res.data.data.application;
+  },
+  // M8 — funnel analytics.
+  async getAnalytics(): Promise<AdmissionsAnalyticsDto> {
+    const res = await api.get<{ data: AdmissionsAnalyticsDto }>(
+      '/admissions/officer/analytics',
     );
     return res.data.data;
   },

@@ -1,4 +1,4 @@
-import type { AdmissionMode, ApplicationState } from '../enums.js';
+import type { AdmissionMode, ApplicationState, PaymentMethod } from '../enums.js';
 
 // M1 — Application is a skeleton tied to an applicant User. PII (DOB, gov ID
 // upload refs, statement, etc.) lands on the Application doc in M2/M3; M1
@@ -16,6 +16,10 @@ export interface ApplicationDto {
     decision: 'admit' | 'deny' | 'waitlist' | null;
     decidedAt: string | null;
     decidedBy: string | null;
+    // Surfaced to the applicant portal (M5 + M7) so the green admit banner
+    // can show "Welcome to the program" or a denied applicant can read the
+    // officer's published message.
+    reasonApplicant: string | null;
   } | null;
   createdAt: string;
   updatedAt: string;
@@ -315,6 +319,9 @@ export interface OfficerApplicationDetailDto extends ApplicationDto {
   notes: ReviewerNoteDto[];
   statement: string | null;
   consents: ApplicationConsentsDto | null;
+  // M6 — fee row visible to the reviewer so they know whether the admit gate
+  // is open. null until application is submitted.
+  fee: ApplicationFeeDto | null;
 }
 
 export interface AdmissionsAuditChainEntryDto {
@@ -333,4 +340,83 @@ export interface AdmissionsAuditChainDto {
   headHash: string;
   verified: boolean;
   brokenAt: string | null;
+}
+
+// M6 — Application fee tracking.
+export interface ApplicationFeeDto {
+  id: string;
+  applicationId: string;
+  programId: string;
+  amountPaise: number;
+  status: 'pending' | 'paid' | 'waived';
+  paidAt: string | null;
+  waivedAt: string | null;
+  waivedReason: string | null;
+}
+
+export interface RecordApplicationPaymentInput {
+  amountPaise: number;
+  method: PaymentMethod;
+  reference?: string;
+  receivedAt?: string;
+  notes?: string;
+}
+
+export interface ApplicationPaymentDto {
+  id: string;
+  applicationFeeId: string;
+  amountPaise: number;
+  method: PaymentMethod;
+  reference: string;
+  receivedAt: string;
+  recordedByUserId: string;
+  notes: string;
+}
+
+export interface WaiveApplicationFeeInput {
+  reason: string;
+}
+
+// M7 — Applicant → Student conversion. The applicant accepts the offer, the
+// API mints a Student User code and creates Enrollment rows via the existing
+// enrollmentService. Officers can assign a cohort first for program_only
+// programs.
+
+export interface AssignCohortInput {
+  batchId: string;
+}
+
+export interface AcceptOfferResult {
+  // The applicant becomes a student User with this human-readable code.
+  studentCode: string;
+  // Enrollments created (one per course in the batch's program).
+  enrollmentIds: string[];
+}
+
+// M8 — Admissions funnel analytics.
+export interface AdmissionsAnalyticsDto {
+  totals: {
+    draft: number;
+    submitted: number;
+    under_review: number;
+    decision_pending: number;
+    admitted: number;
+    denied: number;
+    waitlisted: number;
+    withdrawn: number;
+  };
+  byProgram: Array<{
+    programId: string;
+    programName: string;
+    counts: AdmissionsAnalyticsDto['totals'];
+  }>;
+  timeToDecision: {
+    p50Hours: number | null;
+    p95Hours: number | null;
+    sampleSize: number;
+  };
+  // Drop-off per draft step — count of applicants who completed up to each
+  // step but didn't advance. Sourced from ApplicationDraft.completedSteps.
+  dropOff: Array<{ step: string; reachedCount: number }>;
+  generatedAt: string;
 }

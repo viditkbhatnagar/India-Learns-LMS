@@ -64,6 +64,11 @@ import {
   officerAdmissionsRouter,
   refereeRouter,
 } from './admissions/admissions.js';
+import {
+  financeAdmissionsRouter,
+  meFeeRouter,
+  officerFeeRoutes,
+} from './admissions/admissionsFees.js';
 import { jobsAdmissionsRouter } from './jobsAdmissions.js';
 
 export function v1Router(): Router {
@@ -155,7 +160,11 @@ export function v1Router(): Router {
   // validated only by the tokenized URL. M3b.
   router.use('/admissions/referee', refereeRouter());
   router.use('/admissions/me', meAdmissionsRouter());
+  // M6 — applicant view of their own fee + finance staff record-payment.
+  router.use('/admissions/me/fee', meFeeRouter());
+  router.use('/admissions/finance', financeAdmissionsRouter());
   router.use('/admissions/officer', officerAdmissionsRouter());
+  router.use('/admissions/officer', officerFeeRoutes());
 
   // Note: fees-suspension enforcement lives inside requireAuth itself — it
   // emits 403 FEES_SUSPENDED for non-whitelisted routes when the user's

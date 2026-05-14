@@ -32,6 +32,13 @@ export interface UserDoc {
   isCourseCoordinator: boolean;
   address: string | null;
   sessionCap: number;
+  // Admissions M9 — FERPA data-shape + MFA. None of these are enforced at
+  // ship time; they exist so when US-market expansion turns FERPA on, the
+  // schema is already in place and no migration is required.
+  mfaEnabled: boolean;
+  mfaSecret: string | null;
+  directoryFlags: Record<string, 'directory' | 'non_directory'>;
+  ferpaAnnualAckAtUtc: Date | null;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -110,6 +117,10 @@ const UserSchema = new Schema<UserDoc>(
     isCourseCoordinator: { type: Boolean, default: false },
     address: { type: String, default: null },
     sessionCap: { type: Number, default: 5 },
+    mfaEnabled: { type: Boolean, default: false },
+    mfaSecret: { type: String, default: null },
+    directoryFlags: { type: Schema.Types.Mixed, default: () => ({}) },
+    ferpaAnnualAckAtUtc: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
   },
   {
@@ -124,6 +135,8 @@ const UserSchema = new Schema<UserDoc>(
         delete ret.passwordHistoryHashes;
         delete ret.loginFailCount;
         delete ret.lockedUntil;
+        // M9 — never expose the MFA secret in API responses.
+        delete ret.mfaSecret;
         return ret;
       },
     },

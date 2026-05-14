@@ -46,6 +46,11 @@ import {
   withdrawApplication,
 } from '../../services/admissions/applicationSubmitService.js';
 import {
+  acceptOffer,
+  assignCohort,
+  declineOffer,
+} from '../../services/admissions/applicantConversionService.js';
+import {
   addReviewerNote,
   getOfficerApplicationDetail,
   recordDecision,
@@ -55,6 +60,10 @@ import {
   appendAdmissionsAudit,
   verifyAuditChain,
 } from '../../services/admissions/admissionsAuditService.js';
+import {
+  analyticsToCsv,
+  buildAdmissionsAnalytics,
+} from '../../services/admissions/admissionsAnalyticsService.js';
 import {
   REFRESH_COOKIE_NAME,
   refreshCookieOptions,
@@ -188,6 +197,14 @@ const DecisionBody = z.object({
   decision: z.enum(['admit', 'deny', 'waitlist']),
   reasonInternal: z.string().max(2000).optional(),
   reasonApplicant: z.string().max(2000).optional(),
+});
+
+const AssignCohortBody = z.object({
+  batchId: z.string().min(1),
+});
+
+const DeclineBody = z.object({
+  reason: z.string().max(1000).optional(),
 });
 
 /** Mounted at `/v1/admissions/apply` — public, unauthenticated. */
@@ -484,6 +501,48 @@ export function meAdmissionsRouter(): Router {
     },
   );
 
+  // M7 — accept / decline an admit offer. Accept triggers the applicant →
+  // student conversion (atomic seat decrement + role flip + IL-YYYY-NNNN
+  // mint + enrollment rows). The applicant's role flips to `student` after
+  // a successful accept, so subsequent calls to /me/application return 403
+  // — they live in the student portal now.
+  router.post(
+    '/application/accept',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const result = await acceptOffer(req.auth!.userId);
+        res.status(200).json({
+          data: {
+            studentCode: result.studentCode,
+            enrollmentIds: result.enrollmentIds,
+          },
+        });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  router.post(
+    '/application/decline',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const body = DeclineBody.parse(req.body ?? {});
+        const updated = await declineOffer(req.auth!.userId, body.reason);
+        res.status(200).json({
+          data: {
+            application: toApplicationDto(updated, {
+              name: req.auth!.user.name,
+              email: req.auth!.user.email,
+            }),
+          },
+        });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
   return router;
 }
 
@@ -632,6 +691,65 @@ export function officerAdmissionsRouter(): Router {
         }
         const chain = await verifyAuditChain(new Types.ObjectId(id));
         res.status(200).json({ data: chain });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // M8 — funnel analytics for the officer dashboard. Cheap aggregations
+  // (no per-doc scans of audit chain) so it's fine to hit on every dashboard
+  // load. CSV export shape matches the JSON one.
+  router.get(
+    '/analytics',
+    async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        const analytics = await buildAdmissionsAnalytics();
+        res.status(200).json({ data: analytics });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  router.get(
+    '/analytics.csv',
+    async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        const analytics = await buildAdmissionsAnalytics();
+        const csv = analyticsToCsv(analytics);
+        res.setHeader('content-type', 'text/csv; charset=utf-8');
+        res.setHeader(
+          'content-disposition',
+          `attachment; filename="admissions-analytics-${new Date().toISOString().slice(0, 10)}.csv"`,
+        );
+        res.status(200).send(csv);
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // M7 — officer assigns a cohort for program_only programs (only effective
+  // before the applicant accepts; ignored for cohort_pick programs).
+  router.post(
+    '/applications/:id/assign-cohort',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const body = AssignCohortBody.parse(req.body);
+        const updated = await assignCohort(
+          req.params.id ?? '',
+          req.auth!.userId,
+          body.batchId,
+        );
+        const applicant = await User.findById(updated.applicantUserId)
+          .select('_id name email')
+          .lean();
+        res.status(200).json({
+          data: {
+            application: toApplicationDto(updated, applicant ?? null),
+          },
+        });
       } catch (err) {
         next(err);
       }

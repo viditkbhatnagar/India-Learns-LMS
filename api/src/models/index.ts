@@ -202,3 +202,15 @@ export type {
   HydratedAdmissionsAuditLog,
   HydratedReviewerNote,
 } from './admissions/admissionsAuditLog.js';
+export {
+  ApplicationFee,
+  ApplicationPayment,
+  APPLICATION_FEE_STATUSES,
+} from './admissions/applicationFee.js';
+export type {
+  ApplicationFeeDoc,
+  ApplicationPaymentDoc,
+  ApplicationFeeStatus,
+  HydratedApplicationFee,
+  HydratedApplicationPayment,
+} from './admissions/applicationFee.js';

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { ApplicationState } from 'india-learns-shared-types';
@@ -296,9 +296,43 @@ const STATE_LABELS: Record<ApplicationState, { label: string; tone: 'neutral' | 
 };
 
 export function ApplyPortalPage() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['admissions', 'me'],
     queryFn: () => admissionsApi.myApplication(),
+  });
+  const { data: fee } = useQuery({
+    queryKey: ['admissions', 'me', 'fee'],
+    queryFn: () => admissionsApi.getMyFee(),
+    enabled: Boolean(data?.state) && data?.state !== 'draft',
+  });
+  const accept = useMutation({
+    mutationFn: () => admissionsApi.acceptOffer(),
+    onSuccess: (result) => {
+      setActionError(null);
+      // The applicant just became a student. Log them out + redirect to
+      // login — they need a new session as a student.
+      qc.clear();
+      window.alert(
+        `Welcome to India Learns! Your student ID is ${result.studentCode}. Please log in again to access your student dashboard.`,
+      );
+      navigate('/login', { replace: true });
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiHttpError ? err.message : 'Could not accept offer.');
+    },
+  });
+  const decline = useMutation({
+    mutationFn: () => admissionsApi.declineOffer(),
+    onSuccess: () => {
+      setActionError(null);
+      qc.invalidateQueries({ queryKey: ['admissions', 'me'] });
+    },
+    onError: (err) => {
+      setActionError(err instanceof ApiHttpError ? err.message : 'Could not decline.');
+    },
   });
 
   return (
@@ -364,6 +398,78 @@ export function ApplyPortalPage() {
                 <Link to="/apply/submit">
                   <Button variant="secondary">Review &amp; submit</Button>
                 </Link>
+              </div>
+            )}
+            {fee && (
+              <div className="mt-6 rounded-xl border border-black/5 bg-surface-muted/40 p-4">
+                <p className="text-sm font-semibold text-brand-navy mb-1">
+                  Application fee
+                </p>
+                {fee.status === 'paid' && (
+                  <p className="text-sm text-success">
+                    ✓ Paid (₹{(fee.amountPaise / 100).toFixed(0)}).
+                    Recorded {fee.paidAt ? new Date(fee.paidAt).toLocaleString() : ''}.
+                  </p>
+                )}
+                {fee.status === 'waived' && (
+                  <p className="text-sm text-success">
+                    ✓ Waived
+                    {fee.waivedReason ? ` — ${fee.waivedReason}` : ''}.
+                  </p>
+                )}
+                {fee.status === 'pending' && (
+                  <>
+                    <p className="text-sm text-muted">
+                      Amount due: ₹{(fee.amountPaise / 100).toFixed(0)}.
+                    </p>
+                    <p className="text-xs text-muted mt-1">
+                      Contact admissions to pay. Once recorded, you'll see the
+                      status update here.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+            {data.state === 'admitted' && (
+              <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <p className="font-semibold text-emerald-800 mb-2">
+                  Congratulations — you've been admitted!
+                </p>
+                {data.decision?.reasonApplicant && (
+                  <p className="text-sm text-emerald-900 mb-3">
+                    {data.decision.reasonApplicant}
+                  </p>
+                )}
+                <p className="text-sm text-emerald-900 mb-3">
+                  Accept your offer to receive your Student ID and enrol in your
+                  program. You can also decline if you've changed your mind.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => accept.mutate()} loading={accept.isPending}>
+                    Accept offer
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      if (window.confirm('Are you sure? You can\'t reverse this.')) {
+                        decline.mutate();
+                      }
+                    }}
+                    disabled={accept.isPending || decline.isPending}
+                  >
+                    Decline
+                  </Button>
+                </div>
+              </div>
+            )}
+            {(data.state === 'denied' || data.state === 'waitlisted' || data.state === 'withdrawn') && data.decision?.reasonApplicant && (
+              <div className="mt-6 rounded-xl border border-black/10 bg-surface-muted/40 p-4 text-sm">
+                {data.decision.reasonApplicant}
+              </div>
+            )}
+            {actionError && (
+              <div role="alert" className="mt-4 rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm">
+                {actionError}
               </div>
             )}
             <p className="mt-6 text-sm text-muted">
