@@ -41,7 +41,15 @@ const UserSchema = new Schema<UserDoc>(
   {
     role: {
       type: String,
-      enum: ['admin', 'superadmin', 'finance', 'faculty', 'student'],
+      enum: [
+        'admin',
+        'superadmin',
+        'finance',
+        'faculty',
+        'student',
+        'applicant',
+        'admissions_officer',
+      ],
       required: true,
       index: true,
     },

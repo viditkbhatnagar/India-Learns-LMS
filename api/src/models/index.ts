@@ -157,3 +157,48 @@ export type {
   ApiCostLedgerDoc,
   HydratedApiCostLedger,
 } from './apiCostLedger.js';
+export { Application } from './admissions/application.js';
+export type {
+  ApplicationDoc,
+  ApplicationDecisionDoc,
+  HydratedApplication,
+} from './admissions/application.js';
+export {
+  ApplicationDraft,
+  APPLICATION_DRAFT_STEPS,
+} from './admissions/applicationDraft.js';
+export type {
+  ApplicationDraftDoc,
+  ApplicationDraftStep,
+  HydratedApplicationDraft,
+} from './admissions/applicationDraft.js';
+export {
+  ApplicationDocument,
+  APPLICATION_DOCUMENT_TYPES,
+} from './admissions/applicationDocument.js';
+export type {
+  ApplicationDocumentDoc,
+  ApplicationDocumentType,
+  HydratedApplicationDocument,
+} from './admissions/applicationDocument.js';
+export {
+  Referee,
+  RefereeUploadToken,
+  REFEREE_STATUSES,
+} from './admissions/referee.js';
+export type {
+  RefereeDoc,
+  RefereeUploadTokenDoc,
+  RefereeStatus,
+  HydratedReferee,
+} from './admissions/referee.js';
+export {
+  AdmissionsAuditLog,
+  ReviewerNote,
+} from './admissions/admissionsAuditLog.js';
+export type {
+  AdmissionsAuditLogDoc,
+  ReviewerNoteDoc,
+  HydratedAdmissionsAuditLog,
+  HydratedReviewerNote,
+} from './admissions/admissionsAuditLog.js';

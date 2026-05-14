@@ -1,6 +1,28 @@
 import type {
+  AddRefereeInput,
+  AddReviewerNoteInput,
+  AdmissionsAuditChainDto,
   AnalyticsSummaryDto,
+  ApplicantSignupInput,
+  ApplicationDecisionInput,
+  ApplicationDocumentDto,
+  ApplicationDraftDto,
+  ApplicationDto,
+  ApplicationState,
   CertificateDto,
+  OfficerApplicationDetailDto,
+  PublicCohortDto,
+  PublicProgramDto,
+  RefereeDto,
+  RefereeUploadContextDto,
+  RegisterDocumentInput,
+  ReviewerNoteDto,
+  SaveDraftInput,
+  SaveStatementInput,
+  SignDocumentUploadInput,
+  SignedUploadTicketDto,
+  SubmitApplicationInput,
+  WithdrawApplicationInput,
   CollectionsReportDto,
   CourseDto,
   CreateTicketInput,
@@ -1171,6 +1193,221 @@ export const feedbackApi = {
       status: 'published',
     });
     return res.data.data.feedback;
+  },
+};
+
+// M1-M5 — Admissions module endpoints. The signup, programs, cohorts, and
+// referee-upload endpoints are the only public (unauthenticated) ones; the
+// rest assume the applicant or officer is signed in.
+export const admissionsApi = {
+  async signup(input: ApplicantSignupInput): Promise<{
+    application: ApplicationDto;
+    accessToken: string;
+    accessTokenExpiresIn: number;
+  }> {
+    const res = await api.post<{
+      data: {
+        application: ApplicationDto;
+        accessToken: string;
+        accessTokenExpiresIn: number;
+      };
+    }>('/admissions/apply/signup', { ...input, deviceId: getDeviceId() });
+    return res.data.data;
+  },
+  async myApplication(): Promise<ApplicationDto> {
+    const res = await api.get<{ data: { application: ApplicationDto } }>(
+      '/admissions/me/application',
+    );
+    return res.data.data.application;
+  },
+  async listPublicPrograms(): Promise<PublicProgramDto[]> {
+    const res = await api.get<{ data: { items: PublicProgramDto[] } }>(
+      '/admissions/apply/programs',
+    );
+    return res.data.data.items;
+  },
+  async listPublicCohorts(programId: string): Promise<PublicCohortDto[]> {
+    const res = await api.get<{ data: { items: PublicCohortDto[] } }>(
+      `/admissions/apply/programs/${programId}/cohorts`,
+    );
+    return res.data.data.items;
+  },
+  async getDraft(): Promise<ApplicationDraftDto> {
+    const res = await api.get<{ data: { draft: ApplicationDraftDto } }>(
+      '/admissions/me/draft',
+    );
+    return res.data.data.draft;
+  },
+  async saveDraft(input: SaveDraftInput): Promise<ApplicationDraftDto> {
+    const res = await api.put<{ data: { draft: ApplicationDraftDto } }>(
+      '/admissions/me/draft',
+      input,
+    );
+    return res.data.data.draft;
+  },
+  async signDocumentUpload(
+    input: SignDocumentUploadInput,
+  ): Promise<SignedUploadTicketDto> {
+    const res = await api.post<{ data: { ticket: SignedUploadTicketDto } }>(
+      '/admissions/me/documents/sign-upload',
+      input,
+    );
+    return res.data.data.ticket;
+  },
+  async registerDocument(
+    input: RegisterDocumentInput,
+  ): Promise<ApplicationDocumentDto> {
+    const res = await api.post<{ data: { document: ApplicationDocumentDto } }>(
+      '/admissions/me/documents',
+      input,
+    );
+    return res.data.data.document;
+  },
+  async listMyDocuments(): Promise<ApplicationDocumentDto[]> {
+    const res = await api.get<{ data: { items: ApplicationDocumentDto[] } }>(
+      '/admissions/me/documents',
+    );
+    return res.data.data.items;
+  },
+  async deleteDocument(id: string): Promise<void> {
+    await api.delete(`/admissions/me/documents/${id}`);
+  },
+  async saveStatement(input: SaveStatementInput): Promise<{ statement: string }> {
+    const res = await api.put<{ data: { statement: string } }>(
+      '/admissions/me/statement',
+      input,
+    );
+    return res.data.data;
+  },
+  async getStatement(): Promise<{ statement: string }> {
+    const res = await api.get<{ data: { statement: string } }>(
+      '/admissions/me/statement',
+    );
+    return res.data.data;
+  },
+  async listMyReferees(): Promise<RefereeDto[]> {
+    const res = await api.get<{ data: { items: RefereeDto[] } }>(
+      '/admissions/me/referees',
+    );
+    return res.data.data.items;
+  },
+  async addReferee(input: AddRefereeInput): Promise<RefereeDto> {
+    const res = await api.post<{ data: { referee: RefereeDto } }>(
+      '/admissions/me/referees',
+      input,
+    );
+    return res.data.data.referee;
+  },
+  async resendReferee(id: string): Promise<RefereeDto> {
+    const res = await api.post<{ data: { referee: RefereeDto } }>(
+      `/admissions/me/referees/${id}/resend`,
+      {},
+    );
+    return res.data.data.referee;
+  },
+  async deleteReferee(id: string): Promise<void> {
+    await api.delete(`/admissions/me/referees/${id}`);
+  },
+  // M3b — Public referee upload (no auth, uses tokenized URL).
+  async getRefereeContext(token: string): Promise<RefereeUploadContextDto> {
+    const res = await api.get<{ data: { context: RefereeUploadContextDto } }>(
+      `/admissions/referee/${encodeURIComponent(token)}`,
+    );
+    return res.data.data.context;
+  },
+  async refereeUpload(
+    token: string,
+    input: { url: string; key: string; sizeBytes: number; mimeType: string },
+  ): Promise<{ ok: true }> {
+    const res = await api.post<{ data: { ok: true } }>(
+      `/admissions/referee/${encodeURIComponent(token)}/upload`,
+      input,
+    );
+    return res.data.data;
+  },
+  async refereeSignUpload(
+    token: string,
+    input: { mimeType: string; sizeBytes: number },
+  ): Promise<SignedUploadTicketDto> {
+    const res = await api.post<{ data: { ticket: SignedUploadTicketDto } }>(
+      `/admissions/referee/${encodeURIComponent(token)}/sign-upload`,
+      input,
+    );
+    return res.data.data.ticket;
+  },
+  // M4 — Submit / withdraw.
+  async submitApplication(input: SubmitApplicationInput): Promise<ApplicationDto> {
+    const res = await api.post<{ data: { application: ApplicationDto } }>(
+      '/admissions/me/application/submit',
+      input,
+    );
+    return res.data.data.application;
+  },
+  async withdrawApplication(
+    input: WithdrawApplicationInput,
+  ): Promise<ApplicationDto> {
+    const res = await api.post<{ data: { application: ApplicationDto } }>(
+      '/admissions/me/application/withdraw',
+      input,
+    );
+    return res.data.data.application;
+  },
+  // M5 — Officer side.
+  async listForOfficer(
+    params: {
+      state?: ApplicationState;
+      programId?: string;
+      q?: string;
+      page?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{
+    items: ApplicationDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const res = await api.get<{
+      data: {
+        items: ApplicationDto[];
+        total: number;
+        page: number;
+        limit: number;
+      };
+    }>('/admissions/officer/applications', { params });
+    return res.data.data;
+  },
+  async getForOfficer(id: string): Promise<OfficerApplicationDetailDto> {
+    const res = await api.get<{
+      data: { application: OfficerApplicationDetailDto };
+    }>(`/admissions/officer/applications/${id}`);
+    return res.data.data.application;
+  },
+  async addOfficerNote(
+    id: string,
+    input: AddReviewerNoteInput,
+  ): Promise<ReviewerNoteDto> {
+    const res = await api.post<{ data: { note: ReviewerNoteDto } }>(
+      `/admissions/officer/applications/${id}/notes`,
+      input,
+    );
+    return res.data.data.note;
+  },
+  async recordDecision(
+    id: string,
+    input: ApplicationDecisionInput,
+  ): Promise<ApplicationDto> {
+    const res = await api.post<{ data: { application: ApplicationDto } }>(
+      `/admissions/officer/applications/${id}/decision`,
+      input,
+    );
+    return res.data.data.application;
+  },
+  async getAuditChain(id: string): Promise<AdmissionsAuditChainDto> {
+    const res = await api.get<{ data: AdmissionsAuditChainDto }>(
+      `/admissions/officer/applications/${id}/audit`,
+    );
+    return res.data.data;
   },
 };
 

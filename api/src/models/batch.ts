@@ -8,6 +8,17 @@ export interface BatchDoc {
   startDate: Date;
   endDate: Date;
   capacity: number;
+  // Admissions M2 — seatsRemaining is the source of truth for the
+  // cohort-capacity race-gate at admit time (M7). Defaults to `capacity` on
+  // create; decremented atomically when an applicant accepts an offer and
+  // incremented when they decline. The two-source-of-truth (capacity +
+  // seatsRemaining) is intentional: capacity is the cohort's design size and
+  // doesn't change; seatsRemaining tracks live availability.
+  seatsRemaining: number;
+  // True when the admissions module should accept new applications targeting
+  // this batch. Separate from `status` because admissions-readiness and
+  // program-delivery state are different concerns (plan §M2).
+  openForApplications: boolean;
   status: BatchStatus;
   coordinators: Types.ObjectId[];
   deletedAt: Date | null;
@@ -27,6 +38,8 @@ const BatchSchema = new Schema<BatchDoc>(
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     capacity: { type: Number, default: 30, min: 1 },
+    seatsRemaining: { type: Number, default: 30, min: 0 },
+    openForApplications: { type: Boolean, default: false, index: true },
     status: {
       type: String,
       enum: ['planned', 'active', 'completed', 'archived'],
