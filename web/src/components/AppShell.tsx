@@ -137,8 +137,19 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
     { label: 'Finance', to: '/finance/dashboard', icon: Icon.rupee },
+    { label: 'Admissions', to: '/admissions/dashboard', icon: Icon.users },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
+  ],
+  // Admissions M1 — applicant has the LMS shell so they can log out, see
+  // their name, and (in M4+) read notifications. The only nav target is
+  // their own portal; the full multi-step form lands at /apply/portal
+  // when M2 ships.
+  applicant: [
+    { label: 'My application', to: '/apply/portal', icon: Icon.home },
+  ],
+  admissions_officer: [
+    { label: 'Applications', to: '/admissions/dashboard', icon: Icon.users },
   ],
 };
 

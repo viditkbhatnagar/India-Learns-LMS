@@ -58,6 +58,13 @@ import { curriculumImportRouter } from './curriculumImport.js';
 import { courseSessionsRouter, sessionsRouter } from './sessions.js';
 import { materialsRouter, sessionMaterialsRouter } from './materials.js';
 import { sessionAssignmentsRouter } from './sessionAssignments.js';
+import {
+  applyRouter,
+  meAdmissionsRouter,
+  officerAdmissionsRouter,
+  refereeRouter,
+} from './admissions/admissions.js';
+import { jobsAdmissionsRouter } from './jobsAdmissions.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -67,6 +74,7 @@ export function v1Router(): Router {
   router.use('/jobs', jobsSlaRouter());
   router.use('/jobs', jobsFacultyDigestRouter());
   router.use('/jobs', jobsNotificationsRouter());
+  router.use('/jobs', jobsAdmissionsRouter());
 
   router.use('/auth', authRouter());
   router.use('/users', usersRouter());
@@ -138,6 +146,16 @@ export function v1Router(): Router {
   // isn't swallowed by the `/:id` handler (same pattern as tickets).
   router.use('/me/feedback', meFeedbackRouter());
   router.use('/feedback', feedbackRouter());
+
+  // Admissions module (M1+) — public /apply/* (no auth) and authenticated
+  // /me/* and /officer/* sub-routers. Mounted near the end so route ordering
+  // matches the existing convention (auth/users early, role-specific later).
+  router.use('/admissions/apply', applyRouter());
+  // Public referee upload — separate router because it's unauthenticated and
+  // validated only by the tokenized URL. M3b.
+  router.use('/admissions/referee', refereeRouter());
+  router.use('/admissions/me', meAdmissionsRouter());
+  router.use('/admissions/officer', officerAdmissionsRouter());
 
   // Note: fees-suspension enforcement lives inside requireAuth itself — it
   // emits 403 FEES_SUSPENDED for non-whitelisted routes when the user's

@@ -87,6 +87,24 @@ import { FacultyTimetablePage } from './pages/faculty/FacultyTimetable.js';
 import { ProfilePage, NotificationPrefsPage } from './pages/ProfilePage.js';
 import { OfflinePage } from './pages/Offline.js';
 
+// Admissions (M1+)
+import {
+  ApplyLandingPage,
+  ApplyPortalPage,
+  ApplySignupPage,
+} from './pages/apply/Apply.js';
+import { ApplyFormPage } from './pages/apply/Form.js';
+import {
+  ApplyConfirmationPage,
+  ApplyDocumentsPage,
+  ApplyReferencesPage,
+  ApplyStatementPage,
+  ApplySubmitPage,
+} from './pages/apply/Steps.js';
+import { AdmissionsDashboardPage } from './pages/admissions/AdmissionsDashboard.js';
+import { AdmissionsApplicationDetailPage } from './pages/admissions/AdmissionsApplicationDetail.js';
+import { RefereeUploadPage } from './pages/refer/RefereeUpload.js';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -137,6 +155,97 @@ export function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
           <Route path="/offline" element={<OfflinePage />} />
+
+          {/* Admissions — public landing + signup + referee upload (no AppShell) */}
+          <Route path="/apply" element={<ApplyLandingPage />} />
+          <Route path="/apply/signup" element={<ApplySignupPage />} />
+          <Route path="/refer/:token" element={<RefereeUploadPage />} />
+          <Route
+            path="/apply/portal"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['applicant']}>
+                  <ApplyPortalPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/apply/form"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['applicant']}>
+                  <ApplyFormPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/apply/documents"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['applicant']}>
+                  <ApplyDocumentsPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/apply/statement"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['applicant']}>
+                  <ApplyStatementPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/apply/references"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['applicant']}>
+                  <ApplyReferencesPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/apply/submit"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['applicant']}>
+                  <ApplySubmitPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/apply/confirmation"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['applicant']}>
+                  <ApplyConfirmationPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+
+          {/* Admissions Officer dashboard — staff-authenticated */}
+          <Route
+            path="/admissions/*"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['admissions_officer', 'admin', 'superadmin']}>
+                  <Routes>
+                    <Route path="dashboard" element={<AdmissionsDashboardPage />} />
+                    <Route path="applications/:id" element={<AdmissionsApplicationDetailPage />} />
+                    <Route path="*" element={<Navigate to="dashboard" replace />} />
+                  </Routes>
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
 
           {/* Onboarding flow — public, no AppShell */}
           <Route path="/onboarding/email-invite" element={<OnbEmailInvitePage />} />

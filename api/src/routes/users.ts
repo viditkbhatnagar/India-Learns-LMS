@@ -15,7 +15,17 @@ import {
   updateUser,
 } from '../services/userService.js';
 
-const RoleEnum = z.enum(['admin', 'finance', 'faculty', 'student']);
+const RoleEnum = z.enum([
+  'admin',
+  'finance',
+  'faculty',
+  'student',
+  // M1 admissions — admins seed officer accounts via the existing user-create
+  // flow. Applicants are NOT createable through this admin route — they
+  // self-sign-up via /v1/admissions/apply/signup. Including 'applicant' here
+  // would expose an admin-controlled bypass of the public funnel.
+  'admissions_officer',
+]);
 const DeptEnum = z.enum(['operations', 'it', 'academics', 'finance', 'senior_mgmt']);
 
 const CreateBody = z.object({
@@ -44,7 +54,17 @@ const UpdateBody = z.object({
 });
 
 const ListQuery = z.object({
-  role: z.enum(['admin', 'superadmin', 'finance', 'faculty', 'student']).optional(),
+  role: z
+    .enum([
+      'admin',
+      'superadmin',
+      'finance',
+      'faculty',
+      'student',
+      'applicant',
+      'admissions_officer',
+    ])
+    .optional(),
   status: z.enum(['pending', 'active', 'suspended', 'revoked']).optional(),
   programId: z.string().min(1).optional(),
   q: z.string().max(120).optional(),

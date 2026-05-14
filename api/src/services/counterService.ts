@@ -29,6 +29,14 @@ export async function nextUserCode(year: number): Promise<string> {
   return formatCode('IL', year, seq, 4);
 }
 
+// Admissions M1 — APP-2026-00001 etc. Width 5 because application volume in
+// Phase 1 is small but we want it visually distinct from student codes
+// (IL-YYYY-NNNN, width 4) and from receipts (RCP, width 6).
+export async function nextApplicationCode(year: number): Promise<string> {
+  const seq = await nextSeq(`application_code_${year}`);
+  return formatCode('APP', year, seq, 5);
+}
+
 export async function nextInvoiceCode(year: number): Promise<string> {
   const seq = await nextSeq(`invoice_code_${year}`);
   return formatCode('INV', year, seq, 6);

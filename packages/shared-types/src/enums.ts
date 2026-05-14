@@ -1,4 +1,12 @@
-export const ROLES = ['admin', 'superadmin', 'finance', 'faculty', 'student'] as const;
+export const ROLES = [
+  'admin',
+  'superadmin',
+  'finance',
+  'faculty',
+  'student',
+  'applicant',
+  'admissions_officer',
+] as const;
 export type Role = (typeof ROLES)[number];
 
 export const USER_STATUSES = ['pending', 'active', 'suspended', 'revoked'] as const;
@@ -46,6 +54,10 @@ export const STORAGE_FOLDERS = [
   'receipts',
   'avatars',
   'ticket-attachments',
+  // Admissions M3a + M3b — applicant-uploaded documents (gov ID, transcripts,
+  // resume, portfolio) and referee-uploaded letters of recommendation.
+  'application-documents',
+  'referee-uploads',
 ] as const;
 export type StorageFolder = (typeof STORAGE_FOLDERS)[number];
 
@@ -301,5 +313,53 @@ export const AUDIT_ACTIONS = [
   'material.created',
   'material.deleted',
   'material.slides.replaced',
+  // Admissions M1 — applicant signup + officer dashboard view.
+  // Future admissions actions land in the separate admissions_audit_logs
+  // collection with chain-hash (D-A4) — these few in the legacy AuditLog
+  // cover only the User-mutation surface (signup creates a User row).
+  'admission.applicant.signed_up',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+// Admissions module (M1+) — application lifecycle state.
+// Decisions are recorded on the Application as terminal transitions; the
+// state machine guards in routes/services enforce legal transitions.
+export const APPLICATION_STATES = [
+  'draft',
+  'submitted',
+  'under_review',
+  'decision_pending',
+  'admitted',
+  'denied',
+  'waitlisted',
+  'withdrawn',
+] as const;
+export type ApplicationState = (typeof APPLICATION_STATES)[number];
+
+// Admissions M2 — per-program admission target mode. `cohort_pick` shows
+// applicants the open batches at Step 4; `program_only` defers cohort
+// assignment to the officer at admit time (D-A3).
+export const ADMISSION_MODES = ['cohort_pick', 'program_only'] as const;
+export type AdmissionMode = (typeof ADMISSION_MODES)[number];
+
+// Admissions M5+ — tamper-evident audit actions (D-A4). These are recorded
+// to `admissions_audit_logs` (separate collection, chain-hash, service-layer
+// append-only). M1 only emits `applicant.signed_up` and `officer.viewed`.
+export const ADMISSIONS_AUDIT_ACTIONS = [
+  'applicant.signed_up',
+  'officer.viewed_dashboard',
+  'officer.viewed_application',
+  'application.draft_saved',
+  'application.submitted',
+  'application.withdrawn',
+  'officer.note_added',
+  'officer.decision.admit',
+  'officer.decision.deny',
+  'officer.decision.waitlist',
+  'applicant.offer.accepted',
+  'applicant.offer.declined',
+  'applicant.converted_to_student',
+  'application_fee.recorded',
+  'application_fee.waived',
+] as const;
+export type AdmissionsAuditAction = (typeof ADMISSIONS_AUDIT_ACTIONS)[number];

@@ -13,3 +13,4 @@ export * from './dto/assessments.js';
 export * from './dto/feedback.js';
 export * from './dto/certificate.js';
 export * from './dto/analytics.js';
+export * from './dto/admissions.js';

@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { Types } from 'mongoose';
 import { requireAuth } from '../middleware/auth.js';
+import { requireRole } from '../middleware/requireRole.js';
 import { HttpError } from '../middleware/error.js';
 import { buildStudentFees } from '../services/studentFeesService.js';
 
@@ -24,6 +25,11 @@ function assertCanView(req: Request, targetId: string): void {
 export function studentFeesRouter(): Router {
   const router = Router();
   router.use(requireAuth);
+  // Defensive role gate added with the M1 admissions cut-over: applicants
+  // (and admissions_officers) must not be able to probe a student's fees by
+  // calling /students/me/fees. The assertCanView() body below already does an
+  // identity check, but explicit role gating keeps the surface readable.
+  router.use(requireRole('student', 'admin', 'finance', 'superadmin'));
 
   router.get(
     '/:id/fees',
@@ -46,6 +52,7 @@ export function studentFeesRouter(): Router {
 export function myFeesRouter(): Router {
   const router = Router();
   router.use(requireAuth);
+  router.use(requireRole('student', 'admin', 'finance', 'superadmin'));
   router.get(
     '/fees',
     async (req: Request, res: Response, next: NextFunction) => {

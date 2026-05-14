@@ -35,6 +35,10 @@ export function defaultRouteForRole(role: Role): string {
     case 'admin':
     case 'superadmin':
       return '/admin/dashboard';
+    case 'applicant':
+      return '/apply/portal';
+    case 'admissions_officer':
+      return '/admissions/dashboard';
     default:
       return '/login';
   }

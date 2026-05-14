@@ -141,6 +141,21 @@ const TABS_BY_ROLE: Record<Role, Tab[]> = {
       icon: <Icon><path d="M9 12l2 2 4-4M5 4h14v16H5z" /></Icon>,
     },
   ],
+  // Admissions M1 — minimal mobile nav (one-tab) for the two new roles.
+  applicant: [
+    {
+      label: 'Application',
+      to: '/apply/portal',
+      icon: <Icon><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1z" /></Icon>,
+    },
+  ],
+  admissions_officer: [
+    {
+      label: 'Applications',
+      to: '/admissions/dashboard',
+      icon: <Icon><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0116 0" /></Icon>,
+    },
+  ],
 };
 
 /**
