@@ -579,3 +579,12 @@ Append-only log. Every entry: ID, date, decision, why, source.
 
 **Source:** impeccable skill quality rules (absolute bans, AI-slop test, color + typography + motion rules); cross-referenced against approved mockups in `webapp/` (JSX + styles.css).
 **How to apply:** After the OKLCH switch, `npm run typecheck && npm run lint && npm run build` all pass in `web/`. Manual visual pass recommended before pushing — anchor colors are identical but scale neighbors shift subtly. If the palette ramp drift is noticeable, the OKLCH block in [web/tailwind.config.ts](web/tailwind.config.ts) is the only revert point; the other changes are independent.
+
+## D-089 — Public signup form surfaces field-level validation errors
+**Date:** 2026-05-14
+**Why:** Logan reported a generic "Request failed validation." banner on `/apply/signup` with no indication of which field was wrong (his phone was `123456789` — no `+`/country code — and password was 4 chars). He read the banner as the page rejecting him outright ("it kicked me off"). The API was already returning the correct structured payload (`err.details.fieldErrors` from Zod's `flatten()`); only the frontend was throwing it away.
+
+**Change:** Single-file edit to [web/src/pages/apply/Apply.tsx](web/src/pages/apply/Apply.tsx). The `ApplySignupPage` now keeps two error states — `formError` (banner) and `fieldErrors` (per-input) — and the catch block reads `(err as ApiHttpError).details.fieldErrors` into the latter. Each `<Input>` is wired with `error={fieldErrors[name]}`; the existing component already supported red border + `aria-invalid` + inline message ([Input.tsx:4–46](web/src/components/ui/Input.tsx)). Zod's "Invalid" message for the phone regex is replaced with `Include the + and country code, e.g. +919876543210.` so it mirrors the hint copy. The client-side password-mismatch check now flags the **confirm** input (where the inconsistent value was typed), not the password field. Backend untouched — `validatePolicy` and the Zod schema already enforce the right rules.
+
+**Source:** Logan's screenshot + chat (2026-05-14); Explore findings on Apply.tsx, admissions.ts route schema, error.ts middleware, Input.tsx; CLAUDE.md §5 error envelope.
+**How to apply:** Other public forms (login, password reset) have the same single-banner pattern and will need the same refactor in a follow-up PR — flagged as deferred, not blocking this fix. Verify via [docs/smoke/apply-signup-errors.md](docs/smoke/apply-signup-errors.md). `npm run typecheck -w web && npm run lint -w web` clean.

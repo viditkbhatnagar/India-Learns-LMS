@@ -111,6 +111,11 @@ function FeatureCard({
 // (Personal, Contact, Program, Academic, Documents, References, Consents,
 // Submit) land in M2/M3/M4 as the milestones complete.
 
+// Server-side field names mirror the signup Zod schema in api/src/routes/admissions/admissions.ts.
+// `confirm` is client-only — the backend has no idea about it.
+type SignupFieldKey = 'name' | 'email' | 'phoneE164' | 'password' | 'confirm';
+type SignupFieldErrors = Partial<Record<SignupFieldKey, string>>;
+
 export function ApplySignupPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -118,16 +123,19 @@ export function ApplySignupPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [commsOptIn, setCommsOptIn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<SignupFieldErrors>({});
   const [loading, setLoading] = useState(false);
   const setSession = useAuthStore((s) => s.setSession);
   const navigate = useNavigate();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
+    setFieldErrors({});
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setFieldErrors({ confirm: 'Passwords do not match.' });
+      setFormError('Please fix the highlighted field below.');
       return;
     }
     setLoading(true);
@@ -171,9 +179,33 @@ export function ApplySignupPage() {
       navigate('/apply/portal', { replace: true });
     } catch (err) {
       if (err instanceof ApiHttpError) {
-        setError(err.message);
+        const details = err.details as { fieldErrors?: Record<string, string[] | undefined> } | undefined;
+        const fe = details?.fieldErrors;
+        const fromServer: SignupFieldErrors = {};
+        if (fe) {
+          const [phoneErr] = fe.phoneE164 ?? [];
+          const [nameErr] = fe.name ?? [];
+          const [emailErr] = fe.email ?? [];
+          const [passwordErr] = fe.password ?? [];
+          if (phoneErr) {
+            // Zod's flattened message ("Invalid") isn't actionable for the
+            // E.164 regex — replace with copy that mirrors the hint.
+            fromServer.phoneE164 = 'Include the + and country code, e.g. +919876543210.';
+          }
+          if (nameErr) fromServer.name = nameErr;
+          if (emailErr) fromServer.email = emailErr;
+          if (passwordErr) fromServer.password = passwordErr;
+        }
+        if (Object.keys(fromServer).length > 0) {
+          setFieldErrors(fromServer);
+          setFormError('Please fix the highlighted fields below.');
+        } else {
+          // HttpError path — backend already provides an actionable message
+          // (e.g. weak password from validatePolicy, or USER_EXISTS on duplicate email).
+          setFormError(err.message);
+        }
       } else {
-        setError('Unable to create your account. Please try again.');
+        setFormError('Unable to create your account. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -196,6 +228,7 @@ export function ApplySignupPage() {
             required
             autoComplete="name"
             autoFocus
+            error={fieldErrors.name}
           />
           <Input
             type="email"
@@ -206,6 +239,7 @@ export function ApplySignupPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
+            error={fieldErrors.email}
           />
           <Input
             type="tel"
@@ -218,6 +252,7 @@ export function ApplySignupPage() {
             required
             autoComplete="tel"
             hint="Include the + and country code."
+            error={fieldErrors.phoneE164}
           />
           <Input
             type="password"
@@ -229,6 +264,7 @@ export function ApplySignupPage() {
             required
             autoComplete="new-password"
             minLength={10}
+            error={fieldErrors.password}
           />
           <Input
             type="password"
@@ -240,6 +276,7 @@ export function ApplySignupPage() {
             required
             autoComplete="new-password"
             minLength={10}
+            error={fieldErrors.confirm}
           />
           <label className="flex items-start gap-2 text-sm text-ink/80">
             <input
@@ -255,12 +292,12 @@ export function ApplySignupPage() {
               way.)
             </span>
           </label>
-          {error && (
+          {formError && (
             <div
               role="alert"
               className="rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm animate-fade-in"
             >
-              {error}
+              {formError}
             </div>
           )}
           <Button type="submit" loading={loading} className="w-full" size="lg">
