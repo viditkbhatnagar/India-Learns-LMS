@@ -131,6 +131,42 @@ services:
     envVars:
       - fromGroup: il-app-secrets
 
+  # Admissions M3b — daily referee reminder (7-day nudge) + token expiry sweep.
+  - type: cron
+    name: il-cron-admissions-referee-reminders
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "15 4 * * *" # 04:15 UTC = 09:45 IST daily
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs admissions-referee-reminders
+    envVars:
+      - fromGroup: il-app-secrets
+
+  # Admissions M9 — daily audit chain head-hash snapshot (D-A4).
+  - type: cron
+    name: il-cron-admissions-audit-head-snapshot
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "0 1 * * *" # 01:00 UTC = 06:30 IST daily
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs admissions-audit-head-snapshot
+    envVars:
+      - fromGroup: il-app-secrets
+
+  # Admissions M9 — daily orphan-draft cleanup (storage GC + draft drop).
+  - type: cron
+    name: il-cron-admissions-draft-cleanup
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "30 1 * * *" # 01:30 UTC = 07:00 IST daily
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs admissions-draft-cleanup
+    envVars:
+      - fromGroup: il-app-secrets
+
 # ---- Secret group (single) ----
 envVarGroups:
   - name: il-app-secrets

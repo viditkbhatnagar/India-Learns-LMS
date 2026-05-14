@@ -98,6 +98,15 @@ export function AdmissionsApplicationDetailPage() {
               <ConsentRow label="Communications" c={data.consents.communications} />
             </Section>
           )}
+
+          {data.fee && (
+            <FeeSection
+              applicationId={id}
+              fee={data.fee}
+              onChange={() => queryClient.invalidateQueries({ queryKey: ['admissions', 'officer', 'application', id] })}
+              setError={setError}
+            />
+          )}
         </div>
 
         <aside className="space-y-6">
@@ -422,6 +431,153 @@ function DecisionToolbar({
         Admit
       </Button>
     </div>
+  );
+}
+
+function FeeSection({
+  applicationId,
+  fee,
+  onChange,
+  setError,
+}: {
+  applicationId: string;
+  fee: NonNullable<OfficerApplicationDetailDto['fee']>;
+  onChange: () => void;
+  setError: (msg: string | null) => void;
+}) {
+  const [waiveOpen, setWaiveOpen] = useState(false);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [amount, setAmount] = useState(String(Math.round(fee.amountPaise / 100)));
+  const [method, setMethod] = useState<'cash' | 'upi' | 'bank_transfer' | 'cheque' | 'other'>('upi');
+  const [reference, setReference] = useState('');
+
+  const waive = useMutation({
+    mutationFn: () => admissionsApi.waiveApplicationFee(applicationId, { reason }),
+    onSuccess: () => {
+      setWaiveOpen(false);
+      setReason('');
+      onChange();
+    },
+    onError: (err) => setError(err instanceof ApiHttpError ? err.message : 'Waive failed.'),
+  });
+  const record = useMutation({
+    mutationFn: () =>
+      admissionsApi.recordApplicationPayment(applicationId, {
+        amountPaise: Math.round(Number(amount) * 100),
+        method,
+        reference: reference || undefined,
+      }),
+    onSuccess: () => {
+      setRecordOpen(false);
+      onChange();
+    },
+    onError: (err) => setError(err instanceof ApiHttpError ? err.message : 'Record failed.'),
+  });
+
+  const toneByStatus: Record<typeof fee.status, 'success' | 'warning' | 'info'> = {
+    paid: 'success',
+    waived: 'info',
+    pending: 'warning',
+  };
+
+  return (
+    <section className="rounded-2xl bg-white shadow-elev-1 border border-black/5">
+      <header className="px-5 py-3 border-b border-black/5 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-brand-navy">Application fee</h2>
+        <Badge tone={toneByStatus[fee.status]}>{fee.status}</Badge>
+      </header>
+      <div className="p-5 space-y-3 text-sm">
+        <div>
+          <span className="text-muted">Amount: </span>
+          <span className="font-semibold text-brand-navy">₹{(fee.amountPaise / 100).toFixed(0)}</span>
+        </div>
+        {fee.status === 'paid' && fee.paidAt && (
+          <p className="text-xs text-muted">Recorded at {new Date(fee.paidAt).toLocaleString()}</p>
+        )}
+        {fee.status === 'waived' && (
+          <p className="text-xs text-muted">
+            Waived{fee.waivedAt ? ` at ${new Date(fee.waivedAt).toLocaleString()}` : ''}
+            {fee.waivedReason ? ` — ${fee.waivedReason}` : ''}
+          </p>
+        )}
+        {fee.status === 'pending' && fee.amountPaise > 0 && (
+          <p className="text-xs text-warning">
+            Admit is blocked until the fee is recorded or waived.
+          </p>
+        )}
+
+        {recordOpen ? (
+          <div className="space-y-2 rounded-lg border border-black/10 p-3">
+            <p className="text-xs font-semibold text-brand-navy">Record payment</p>
+            <Input
+              type="number"
+              min="0"
+              label="Amount (₹)"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <label className="block">
+              <span className="block text-sm font-semibold text-brand-navy mb-1.5">Method</span>
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value as typeof method)}
+                className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white"
+              >
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="cheque">Cheque</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <Input
+              label="Reference (optional)"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="UTR / cheque no / etc"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="ghost" onClick={() => setRecordOpen(false)} disabled={record.isPending}>
+                Cancel
+              </Button>
+              <Button onClick={() => record.mutate()} loading={record.isPending}>
+                Record payment
+              </Button>
+            </div>
+          </div>
+        ) : waiveOpen ? (
+          <div className="space-y-2 rounded-lg border border-black/10 p-3">
+            <p className="text-xs font-semibold text-brand-navy">Waive fee</p>
+            <Input
+              label="Reason (required)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Scholarship, hardship, etc."
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="ghost" onClick={() => setWaiveOpen(false)} disabled={waive.isPending}>
+                Cancel
+              </Button>
+              <Button variant="secondary" onClick={() => waive.mutate()} loading={waive.isPending} disabled={!reason.trim()}>
+                Waive
+              </Button>
+            </div>
+          </div>
+        ) : (
+          fee.status === 'pending' && (
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => setRecordOpen(true)}>
+                Record payment
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setWaiveOpen(true)}>
+                Waive
+              </Button>
+            </div>
+          )
+        )}
+      </div>
+    </section>
   );
 }
 

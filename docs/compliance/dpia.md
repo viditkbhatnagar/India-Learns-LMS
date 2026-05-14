@@ -136,3 +136,51 @@ This DPIA is refreshed on:
 4. After any breach — to capture lessons.
 
 _Last reviewed: 2026-04-26 — Owner: Vidit Bhatnagar (interim DPO). Next review: before July 2026 launch._
+
+---
+
+## 7. Admissions module (added 2026-05-14 with M1–M9 shipped)
+
+The Admissions module introduces new PII categories at the prospective-student stage — before the data subject is a Student. This addendum captures the additional processing activities.
+
+### 7.1 New PII fields captured
+
+| Field | Where | Lawful basis | Retention |
+|---|---|---|---|
+| Legal first / middle / last name, preferred name | `applications` → `draft.data.step2_personal` | Consent (signup) | Application lifetime + 7 years per [data-retention-policy.md](data-retention-policy.md) |
+| Date of birth | step2_personal | Consent + age-verification (18+ only) | Same |
+| Citizenship, country of birth, primary language | step2_personal | Consent | Same |
+| Gender identity | step2_personal (optional) | Consent | Same |
+| Address (street + city + state + postal + country) | step3_contact | Consent | Same |
+| Phone (mobile + alt), emergency contact | step3_contact | Consent | Same |
+| Academic history (institution, dates, GPA, test scores) | step5_academic | Consent | Same |
+| Government ID image (PDF/JPG/PNG) | `applicationdocuments` (Cloudinary `il/application-documents/*`) | Consent (explicit upload) | Application lifetime; **purged after 90 days if application stays in `draft` state** (M9 cleanup cron) |
+| Prior transcript image | same | same | same |
+| Resume / portfolio (if program requires) | same | same | same |
+| Letter of recommendation (uploaded by referee) | same, plus `referees` row with referee name + email + organization | Referee implicit consent via the tokenized email link | same |
+| Statement of purpose (long-text) | `applications.statement` | Consent | Same |
+| Consents (FERPA notice, terms, prior-education-auth, comms) | `applications.consents.*` | Each consent timestamp + version stamped for proof | Lifetime of student record |
+
+### 7.2 Risks and admissions-specific mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Applicant abandons mid-form — PII sits indefinitely | M9 `admissionsDraftCleanupJob` cron sweeps draft Applications + their documents/referees/tokens 90 days after last edit. Cloudinary objects deleted as part of the sweep. |
+| Referee email contains plain-text tokenized URL | Tokens are SHA-256 hashed in Mongo. Plain token only in the email body. TTL 30 days, single-use, marked `usedAt` after upload. |
+| Cloudinary breach exposes gov-ID images | Authenticated mode (signed-URL access only); no public URLs. Cloud account is per-environment with separate API keys. |
+| Audit log tampering hides officer actions | `admissionsauditlogs` is service-layer append-only + per-row SHA-256 chain. M9 head-snapshot cron records the head hash off-row daily for external recomputation. |
+| MFA not enforced on staff | M9 ships `mfaEnabled` + `mfaSecret` fields on User (data-shape only). Enforcement (TOTP verify on login) lands in M10+. Off by default. |
+| FERPA enforcement gap | M4 captures `directoryFlags` + `ferpaAnnualAckAtUtc` on Application + User. Enforcement logic (3rd-party disclosure log per 34 CFR § 99.32, opt-out gate) is Phase 2 when US-market expansion happens. |
+
+### 7.3 Subprocessors used by admissions
+
+No new subprocessor is introduced — admissions reuses MongoDB Atlas (ap-south-1), Cloudinary, Resend (primary email) + SendGrid (fallback), and Sentry, all of which are already listed in [vendor-risk-register.md](vendor-risk-register.md).
+
+### 7.4 Outstanding items before US-market FERPA enforcement
+
+- Officer↔program scoping (currently any `admissions_officer` can view any application — Plan-agent risk #3 from `/Users/viditkbhatnagar/.claude/plans/users-viditkbhatnagar-downloads-applica-glittery-anchor.md`).
+- Annual FERPA notification UI prompt + acknowledgement.
+- Directory-information opt-out UI for students.
+- 34 CFR § 99.32 disclosure log for any third-party PII disclosure.
+- TOTP MFA enrolment + verify-on-login flow.
+- Soft-delete flow for retracted applications.

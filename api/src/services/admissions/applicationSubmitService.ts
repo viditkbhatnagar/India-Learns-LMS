@@ -145,6 +145,12 @@ export async function submitApplication(
   application.submittedAt = now;
   await application.save();
 
+  // M6 — auto-create the ApplicationFee row using program.applicationFeePaise.
+  // Free programs (fee 0) get marked paid immediately so the admit gate is
+  // non-blocking.
+  const { ensureFeeForApplication } = await import('./applicationFeeService.js');
+  await ensureFeeForApplication(application._id);
+
   // Fire status-change notification (email). Best-effort; don't block on
   // failures since the audit row is the source of truth.
   await maybeSendStatusEmail(application, 'submitted');

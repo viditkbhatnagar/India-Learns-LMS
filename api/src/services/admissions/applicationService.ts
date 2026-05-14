@@ -192,6 +192,9 @@ export function toApplicationDto(
           decision: decisionDoc.decision,
           decidedAt: decisionDoc.decidedAt ? decisionDoc.decidedAt.toISOString() : null,
           decidedBy: decisionDoc.decidedBy ? decisionDoc.decidedBy.toString() : null,
+          // Only `reasonApplicant` is surfaced to the applicant; the internal
+          // reason stays officer-only.
+          reasonApplicant: decisionDoc.reasonApplicant ?? null,
         }
       : null;
   return {

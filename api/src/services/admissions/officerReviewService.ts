@@ -24,6 +24,11 @@ import { toRefereeDto } from './refereeService.js';
 import { toApplicationDraftDto } from './applicationDraftService.js';
 import { toApplicationDto } from './applicationService.js';
 import { appendAdmissionsAudit } from './admissionsAuditService.js';
+import {
+  assertFeeClearedForAdmit,
+  getFeeForApplication,
+  toApplicationFeeDto,
+} from './applicationFeeService.js';
 
 // M5 — Officer-facing aggregation + decision flow.
 //
@@ -63,6 +68,7 @@ export async function getOfficerApplicationDetail(
   };
 
   const base = toApplicationDto(app, applicant ?? null);
+  const fee = await getFeeForApplication(String(app._id));
 
   return {
     ...base,
@@ -74,6 +80,7 @@ export async function getOfficerApplicationDetail(
     ),
     statement: app.statement || null,
     consents: hasAnyConsent(app) ? consentsDto : null,
+    fee: fee ? toApplicationFeeDto(fee) : null,
   };
 }
 
@@ -128,9 +135,11 @@ export async function recordDecision(
     throw new HttpError(409, 'INVALID_STATE', `Cannot decide from state "${app.state}".`);
   }
 
-  // Application-fee gate (M6) — feature-flagged. We import lazily so the
-  // M6 service is not a hard dependency for M5 ship.
-  // (M5 wires the check; M6 turns it on. For now, no-op.)
+  // Application-fee gate (M6) — only enforced for `admit`. Deny/waitlist can
+  // proceed even with an unpaid fee since the applicant isn't being admitted.
+  if (input.decision === 'admit') {
+    await assertFeeClearedForAdmit(app._id);
+  }
 
   const nextState =
     input.decision === 'admit'

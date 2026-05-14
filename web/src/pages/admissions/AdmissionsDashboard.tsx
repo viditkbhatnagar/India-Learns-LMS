@@ -63,6 +63,8 @@ export function AdmissionsDashboardPage() {
         subtitle="Review prospective students and progress them through the funnel."
       />
 
+      <AnalyticsSummary />
+
       <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
         <div className="flex-1">
           <Input
@@ -172,5 +174,54 @@ export function AdmissionsDashboardPage() {
         )}
       </section>
     </div>
+  );
+}
+
+// M8 — Lightweight analytics summary at the top of the officer dashboard.
+// Loads asynchronously; doesn't block the application list below.
+function AnalyticsSummary() {
+  const { data } = useQuery({
+    queryKey: ['admissions', 'officer', 'analytics'],
+    queryFn: () => admissionsApi.getAnalytics(),
+  });
+  if (!data) return null;
+  const apiOrigin =
+    import.meta.env.VITE_API_ORIGIN && (import.meta.env.VITE_API_ORIGIN as string).length > 0
+      ? (import.meta.env.VITE_API_ORIGIN as string)
+      : '';
+  const csvUrl = `${apiOrigin}/v1/admissions/officer/analytics.csv`;
+  const cells: { label: string; value: number; tone: 'info' | 'success' | 'warning' | 'danger' | 'neutral' }[] = [
+    { label: 'Draft', value: data.totals.draft, tone: 'warning' },
+    { label: 'Submitted', value: data.totals.submitted, tone: 'info' },
+    { label: 'Under review', value: data.totals.under_review, tone: 'info' },
+    { label: 'Admitted', value: data.totals.admitted, tone: 'success' },
+    { label: 'Denied', value: data.totals.denied, tone: 'danger' },
+    { label: 'Waitlisted', value: data.totals.waitlisted, tone: 'warning' },
+    { label: 'Withdrawn', value: data.totals.withdrawn, tone: 'neutral' },
+  ];
+  return (
+    <section className="rounded-2xl bg-white shadow-elev-1 border border-black/5 p-4">
+      <header className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-brand-navy">Funnel</h2>
+        <a href={csvUrl} className="text-xs text-brand-navy hover:text-brand-orange">
+          Export CSV →
+        </a>
+      </header>
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        {cells.map((c) => (
+          <div key={c.label} className="rounded-xl border border-black/5 p-3 text-center">
+            <Badge tone={c.tone} size="sm">{c.label}</Badge>
+            <p className="mt-1 text-display-sm text-brand-navy font-bold">{c.value}</p>
+          </div>
+        ))}
+      </div>
+      {data.timeToDecision.sampleSize > 0 && (
+        <p className="mt-3 text-xs text-muted">
+          Time to decision: p50 {data.timeToDecision.p50Hours ?? '—'}h ·
+          {' '}p95 {data.timeToDecision.p95Hours ?? '—'}h
+          {' '}({data.timeToDecision.sampleSize} decided)
+        </p>
+      )}
+    </section>
   );
 }
