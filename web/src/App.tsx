@@ -49,6 +49,7 @@ import {
 } from './pages/admin/AdminUsers.js';
 import { AdminTickets } from './pages/admin/AdminTickets.js';
 import { AdminPrograms, AdminCourses } from './pages/admin/AdminPrograms.js';
+import { AdminProgramAdmissionsPage } from './pages/admin/AdminProgramAdmissions.js';
 import { AdminBatchesPage } from './pages/admin/AdminBatches.js';
 import { AdminBatchDetailPage } from './pages/admin/AdminBatchDetail.js';
 import { AdminTimetableBuilderPage } from './pages/admin/AdminTimetableBuilder.js';
@@ -318,6 +319,10 @@ export function App() {
                     <Route path="users/new" element={<AdminInviteUser />} />
                     <Route path="users/:id" element={<AdminUserDetail />} />
                     <Route path="programs" element={<AdminPrograms />} />
+                    <Route
+                      path="programs/:id/admissions"
+                      element={<AdminProgramAdmissionsPage />}
+                    />
                     <Route path="courses" element={<AdminCourses />} />
                     <Route path="batches" element={<AdminBatchesPage />} />
                     <Route path="batches/:id" element={<AdminBatchDetailPage />} />

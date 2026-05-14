@@ -35,6 +35,19 @@ function toDto(doc: HydratedProgram): ProgramDto {
     description: (json.description as string) ?? '',
     totalHours: Number(json.totalHours ?? 300),
     isActive: Boolean(json.isActive),
+    admissionsEnabled: Boolean(json.admissionsEnabled),
+    admissionMode: (json.admissionMode as ProgramDto['admissionMode']) ?? 'cohort_pick',
+    applicationFeePaise: Number(json.applicationFeePaise ?? 0),
+    requiredDocs: ((json.requiredDocs as ProgramDto['requiredDocs']) ?? []).map((d) => ({
+      documentType: d.documentType,
+      label: d.label,
+      required: Boolean(d.required),
+    })),
+    requiresStatement: Boolean(json.requiresStatement),
+    requiresReferences: Boolean(json.requiresReferences),
+    referencesMinCount: Number(json.referencesMinCount ?? 0),
+    referencesMaxCount: Number(json.referencesMaxCount ?? 2),
+    statementWordLimit: Number(json.statementWordLimit ?? 1000),
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -131,6 +144,37 @@ export async function updateProgram(
   if (patch.description !== undefined) doc.description = patch.description;
   if (patch.totalHours !== undefined) doc.totalHours = patch.totalHours;
   if (patch.isActive !== undefined) doc.isActive = patch.isActive;
+  // Admissions config (M5+) — admin-controlled per Q4 in open-questions.md.
+  if (patch.admissionsEnabled !== undefined) doc.admissionsEnabled = patch.admissionsEnabled;
+  if (patch.admissionMode !== undefined) doc.admissionMode = patch.admissionMode;
+  if (patch.applicationFeePaise !== undefined) {
+    doc.applicationFeePaise = Math.max(0, Math.floor(patch.applicationFeePaise));
+  }
+  if (patch.requiredDocs !== undefined) {
+    doc.requiredDocs = patch.requiredDocs.map((d) => ({
+      documentType: d.documentType,
+      label: d.label,
+      required: Boolean(d.required),
+    }));
+  }
+  if (patch.requiresStatement !== undefined) doc.requiresStatement = patch.requiresStatement;
+  if (patch.requiresReferences !== undefined) doc.requiresReferences = patch.requiresReferences;
+  if (patch.referencesMinCount !== undefined) {
+    doc.referencesMinCount = Math.max(0, Math.min(5, patch.referencesMinCount));
+  }
+  if (patch.referencesMaxCount !== undefined) {
+    doc.referencesMaxCount = Math.max(0, Math.min(5, patch.referencesMaxCount));
+  }
+  if (doc.referencesMaxCount < doc.referencesMinCount) {
+    throw new HttpError(
+      422,
+      'VALIDATION_FAILED',
+      'referencesMaxCount must be ≥ referencesMinCount.',
+    );
+  }
+  if (patch.statementWordLimit !== undefined) {
+    doc.statementWordLimit = Math.max(50, Math.min(5000, patch.statementWordLimit));
+  }
   await doc.save();
   await recordAudit({
     actorUserId: actor.actorUserId,

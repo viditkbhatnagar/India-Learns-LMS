@@ -31,6 +31,10 @@ const UpdateBody = z.object({
   capacity: z.coerce.number().int().positive().optional(),
   status: BatchStatusEnum.optional(),
   coordinators: z.array(z.string()).max(20).optional(),
+  // Admissions M5+ — toggle visibility on the public /apply cohort feed +
+  // manual seat-count override (auto-decrement at admit time is separate).
+  openForApplications: z.boolean().optional(),
+  seatsRemaining: z.coerce.number().int().nonnegative().optional(),
 });
 
 const ListQuery = z.object({

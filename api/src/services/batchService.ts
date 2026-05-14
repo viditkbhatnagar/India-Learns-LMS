@@ -42,6 +42,8 @@ function toDto(doc: HydratedBatch): BatchDto {
     startDate: iso(json.startDate) ?? new Date(0).toISOString(),
     endDate: iso(json.endDate) ?? new Date(0).toISOString(),
     capacity: Number(json.capacity ?? 30),
+    seatsRemaining: Number(json.seatsRemaining ?? json.capacity ?? 30),
+    openForApplications: Boolean(json.openForApplications),
     status: json.status as BatchStatus,
     coordinators: ids(json.coordinators),
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
@@ -123,12 +125,16 @@ export async function createBatch(
     throw new HttpError(422, 'VALIDATION_FAILED', 'endDate must be after startDate.');
   }
   const coordinators = await assertCoordinatorIdsResolve(input.coordinators);
+  const capacity = input.capacity ?? 30;
   const doc = await Batch.create({
     programId,
     name: input.name.trim(),
     startDate,
     endDate,
-    capacity: input.capacity ?? 30,
+    capacity,
+    // Default seatsRemaining = capacity on create so the admit-gate has a
+    // sensible starting value even before an admin flips openForApplications.
+    seatsRemaining: capacity,
     status: input.status ?? 'planned',
     coordinators,
   });
@@ -192,6 +198,24 @@ export async function updateBatch(
   if (patch.status !== undefined) doc.status = patch.status;
   if (patch.coordinators !== undefined) {
     doc.coordinators = await assertCoordinatorIdsResolve(patch.coordinators);
+  }
+  // Admissions M5+ — admin can directly adjust the gate + the live seat
+  // count. Auto-decrement at admit (M7) will use atomic $inc instead.
+  if (patch.openForApplications !== undefined) {
+    doc.openForApplications = patch.openForApplications;
+  }
+  if (patch.seatsRemaining !== undefined) {
+    if (patch.seatsRemaining < 0) {
+      throw new HttpError(422, 'VALIDATION_FAILED', 'seatsRemaining must be ≥ 0.');
+    }
+    if (patch.seatsRemaining > doc.capacity) {
+      throw new HttpError(
+        422,
+        'VALIDATION_FAILED',
+        `seatsRemaining cannot exceed capacity (${doc.capacity}).`,
+      );
+    }
+    doc.seatsRemaining = patch.seatsRemaining;
   }
   await doc.save();
   await recordAudit({

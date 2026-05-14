@@ -1,4 +1,5 @@
 import type {
+  AdmissionMode,
   BatchStatus,
   CourseState,
   EnrollmentAccessState,
@@ -9,6 +10,20 @@ import type { OutstandingFeesDto } from './fees.js';
 import type { TimetableOccurrenceDto } from './timetable.js';
 import type { UserPublicDto } from './user.js';
 
+// Admissions M5+ — per-program required document slot config. Mirrors the
+// model shape in api/src/models/program.ts.
+export interface ProgramAdmissionsDocReqDto {
+  documentType:
+    | 'govid'
+    | 'transcript'
+    | 'resume'
+    | 'portfolio'
+    | 'test_score'
+    | 'other';
+  label: string;
+  required: boolean;
+}
+
 export interface ProgramDto {
   id: string;
   name: string;
@@ -16,6 +31,17 @@ export interface ProgramDto {
   description: string;
   totalHours: number;
   isActive: boolean;
+  // Admissions M5+ — exposed on the admin Program detail screen so admins
+  // can toggle the funnel for a given program without going through Mongo.
+  admissionsEnabled: boolean;
+  admissionMode: AdmissionMode;
+  applicationFeePaise: number;
+  requiredDocs: ProgramAdmissionsDocReqDto[];
+  requiresStatement: boolean;
+  requiresReferences: boolean;
+  referencesMinCount: number;
+  referencesMaxCount: number;
+  statementWordLimit: number;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -35,6 +61,15 @@ export interface UpdateProgramInput {
   description?: string;
   totalHours?: number;
   isActive?: boolean;
+  admissionsEnabled?: boolean;
+  admissionMode?: AdmissionMode;
+  applicationFeePaise?: number;
+  requiredDocs?: ProgramAdmissionsDocReqDto[];
+  requiresStatement?: boolean;
+  requiresReferences?: boolean;
+  referencesMinCount?: number;
+  referencesMaxCount?: number;
+  statementWordLimit?: number;
 }
 
 /**
@@ -191,6 +226,10 @@ export interface BatchDto {
   startDate: string;
   endDate: string;
   capacity: number;
+  // Admissions M5+ — live seat count + the gate that decides whether this
+  // batch appears in the public /apply cohort feed.
+  seatsRemaining: number;
+  openForApplications: boolean;
   status: BatchStatus;
   coordinators: string[];
   createdAt: string;
@@ -215,6 +254,10 @@ export interface UpdateBatchInput {
   capacity?: number;
   status?: BatchStatus;
   coordinators?: string[];
+  // Admissions M5+ — admin can manually adjust both. Auto-decrement at admit
+  // time (M7) will mutate seatsRemaining via $inc, not via this endpoint.
+  seatsRemaining?: number;
+  openForApplications?: boolean;
 }
 
 export interface EnrollmentDto {
