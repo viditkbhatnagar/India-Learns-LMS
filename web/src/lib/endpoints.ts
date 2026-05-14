@@ -150,8 +150,39 @@ export const programsApi = {
     const res = await api.get<{ data: { items: ProgramDto[] } }>('/programs');
     return res.data.data.items;
   },
+  async get(id: string) {
+    const res = await api.get<{ data: { program: ProgramDto } }>(`/programs/${id}`);
+    return res.data.data.program;
+  },
   async create(input: { name: string; slug: string; description?: string; totalHours?: number }) {
     const res = await api.post<{ data: { program: ProgramDto } }>('/programs', input);
+    return res.data.data.program;
+  },
+  async update(
+    id: string,
+    patch: Partial<{
+      name: string;
+      slug: string;
+      description: string;
+      totalHours: number;
+      isActive: boolean;
+      // Admissions config — added with the M5+ admin UI.
+      admissionsEnabled: boolean;
+      admissionMode: 'cohort_pick' | 'program_only';
+      applicationFeePaise: number;
+      requiredDocs: Array<{
+        documentType: 'govid' | 'transcript' | 'resume' | 'portfolio' | 'test_score' | 'other';
+        label: string;
+        required: boolean;
+      }>;
+      requiresStatement: boolean;
+      requiresReferences: boolean;
+      referencesMinCount: number;
+      referencesMaxCount: number;
+      statementWordLimit: number;
+    }>,
+  ) {
+    const res = await api.patch<{ data: { program: ProgramDto } }>(`/programs/${id}`, patch);
     return res.data.data.program;
   },
 };
@@ -753,7 +784,19 @@ export const batchesApi = {
     const res = await api.post<{ data: { batch: unknown } }>('/batches', input);
     return res.data.data.batch;
   },
-  async update(id: string, input: Partial<{ name: string; capacity: number; startDate: string; endDate: string; status: string }>) {
+  async update(
+    id: string,
+    input: Partial<{
+      name: string;
+      capacity: number;
+      startDate: string;
+      endDate: string;
+      status: string;
+      // Admissions M5+ — admin toggles for the public cohort feed.
+      openForApplications: boolean;
+      seatsRemaining: number;
+    }>,
+  ) {
     const res = await api.patch<{ data: { batch: unknown } }>(`/batches/${id}`, input);
     return res.data.data.batch;
   },

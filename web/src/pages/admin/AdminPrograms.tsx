@@ -48,19 +48,28 @@ export function AdminPrograms() {
           ) : (
             <ul className="divide-y divide-black/5">
               {query.data.map((p) => (
-                <li
-                  key={p.id}
-                  className="py-3 flex items-center justify-between gap-4 hover:bg-surface-muted/50 transition-colors -mx-2 px-2 rounded-lg"
-                >
-                  <div className="min-w-0">
-                    <p className="font-semibold text-brand-navy truncate">{p.name}</p>
-                    <p className="text-xs text-muted font-mono mt-0.5">
-                      {p.slug} · {p.totalHours}h
-                    </p>
-                  </div>
-                  <Badge tone={p.isActive ? 'success' : 'neutral'} dot>
-                    {p.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
+                <li key={p.id}>
+                  <Link
+                    to={`/admin/programs/${p.id}/admissions`}
+                    className="py-3 flex items-center justify-between gap-4 hover:bg-surface-muted/50 transition-colors -mx-2 px-2 rounded-lg"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold text-brand-navy truncate">{p.name}</p>
+                      <p className="text-xs text-muted font-mono mt-0.5">
+                        {p.slug} · {p.totalHours}h
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {p.admissionsEnabled && (
+                        <Badge tone="accent" dot>
+                          Admissions on
+                        </Badge>
+                      )}
+                      <Badge tone={p.isActive ? 'success' : 'neutral'} dot>
+                        {p.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>

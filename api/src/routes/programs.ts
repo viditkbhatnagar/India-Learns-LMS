@@ -20,12 +20,33 @@ const CreateBody = z.object({
   isActive: z.boolean().optional(),
 });
 
+const DocReqEnum = z.enum(['govid', 'transcript', 'resume', 'portfolio', 'test_score', 'other']);
+
 const UpdateBody = z.object({
   name: z.string().min(1).max(160).optional(),
   slug: z.string().min(1).max(160).regex(/^[a-z0-9-]+$/).optional(),
   description: z.string().max(2000).optional(),
   totalHours: z.coerce.number().int().positive().optional(),
   isActive: z.boolean().optional(),
+  // Admissions M5+ — admin can toggle and configure the funnel here.
+  admissionsEnabled: z.boolean().optional(),
+  admissionMode: z.enum(['cohort_pick', 'program_only']).optional(),
+  applicationFeePaise: z.coerce.number().int().nonnegative().optional(),
+  requiredDocs: z
+    .array(
+      z.object({
+        documentType: DocReqEnum,
+        label: z.string().min(1).max(200),
+        required: z.boolean(),
+      }),
+    )
+    .max(10)
+    .optional(),
+  requiresStatement: z.boolean().optional(),
+  requiresReferences: z.boolean().optional(),
+  referencesMinCount: z.coerce.number().int().min(0).max(5).optional(),
+  referencesMaxCount: z.coerce.number().int().min(0).max(5).optional(),
+  statementWordLimit: z.coerce.number().int().min(50).max(5000).optional(),
 });
 
 const ListQuery = z.object({
