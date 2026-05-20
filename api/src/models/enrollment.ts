@@ -20,6 +20,10 @@ export interface EnrollmentDoc {
   certificateIssuedAt: Date | null;
   certificateProviderId: string | null;
   certificateIssueError: string | null;
+  // M10x — Admin-declared total fee for the Excel "Total Fees Specified"
+  // field. Null means "not declared, use computed sum". When set, the
+  // Finance student page warns if the computed installment sum drifts.
+  declaredTotalPaise: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -69,6 +73,8 @@ const EnrollmentSchema = new Schema<EnrollmentDoc>(
     certificateIssuedAt: { type: Date, default: null },
     certificateProviderId: { type: String, default: null },
     certificateIssueError: { type: String, default: null, maxlength: 500 },
+    // M10x — Excel "Total Fees Specified" upfront declaration.
+    declaredTotalPaise: { type: Number, default: null, min: 0 },
   },
   {
     timestamps: true,

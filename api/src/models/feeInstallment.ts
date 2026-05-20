@@ -17,6 +17,14 @@ export interface FeeInstallmentDoc {
   amountPaise: number;
   paidPaise: number;
   dueDate: Date;
+  // M10x — Free-text milestone label that displays instead of the
+  // calendar date when set. Matches Logan's Excel rows like
+  // "Registration Fee | Seat Reservation" or "Admission Fee | Upon
+  // Admission" — events, not specific dates. We still keep `dueDate`
+  // (a placeholder Date that admin can set to roughly when they
+  // expect the milestone) so the existing reminder cron + sorting
+  // keep working.
+  dueLabel: string | null;
   status: InstallmentStatus;
   remindersSent: ReminderSentEntry[];
   createdAt: Date;
@@ -61,6 +69,8 @@ const FeeInstallmentSchema = new Schema<FeeInstallmentDoc>(
     amountPaise: { type: Number, required: true, min: 0 },
     paidPaise: { type: Number, default: 0, min: 0 },
     dueDate: { type: Date, required: true },
+    // M10x — Milestone label (e.g., "Seat Reservation", "Upon Admission").
+    dueLabel: { type: String, default: null, maxlength: 120, trim: true },
     status: {
       type: String,
       enum: ['pending', 'partial', 'paid', 'overdue', 'waived'],

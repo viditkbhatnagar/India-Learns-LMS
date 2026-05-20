@@ -157,6 +157,8 @@ export const usersApi = {
       phoneE164: string;
       email: string | null;
     } | null;
+    // M10x — Marketing source attribution (Excel "Source" column).
+    source?: UserPublicDto['source'];
   }) {
     const res = await api.post<{ data: { user: UserPublicDto } }>('/users', input);
     return res.data.data.user;
@@ -180,6 +182,8 @@ export const usersApi = {
       emergencyContact: UserPublicDto['emergencyContact'];
       parentGuardian: UserPublicDto['parentGuardian'];
       resumeUrl: string | null;
+      // M10x — Marketing source attribution.
+      source: UserPublicDto['source'];
     }>,
   ) {
     const res = await api.patch<{ data: { user: UserPublicDto } }>(`/users/${id}`, input);
@@ -1315,6 +1319,25 @@ export const adminEnrollmentsApi = {
     const res = await api.post<{ data: { invoices: InvoiceDto[] } }>(`/enrollments/${id}/generate-fees`, {});
     return res.data.data.invoices;
   },
+  // M10x — PATCH for declaredTotalPaise + other fields. Returns the
+  // updated EnrollmentDto.
+  async update(
+    id: string,
+    patch: {
+      declaredTotalPaise?: number | null;
+      batchId?: string;
+      validTo?: string;
+      completed?: boolean;
+      status?: 'revoked';
+      accessState?: 'active' | 'warn1' | 'warn2' | 'override' | 'suspended';
+    },
+  ) {
+    const res = await api.patch<{ data: { enrolment: EnrollmentDto } }>(
+      `/enrollments/${id}`,
+      patch,
+    );
+    return res.data.data.enrolment;
+  },
 };
 
 export const facultyApi = {
@@ -1843,6 +1866,9 @@ export const installmentsApi = {
     label: string;
     amountPaise: number;
     dueDate: string;
+    // M10x — Milestone label (e.g., "Seat Reservation") that displays
+    // instead of the calendar date when set.
+    dueLabel?: string | null;
     status?: 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
   }): Promise<{ installment: Record<string, unknown>; invoice: Record<string, unknown> }> {
     const res = await api.post<{
@@ -1856,6 +1882,7 @@ export const installmentsApi = {
       label?: string;
       amountPaise?: number;
       dueDate?: string;
+      dueLabel?: string | null;
       status?: 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
     },
   ): Promise<{ installment: Record<string, unknown>; invoice: Record<string, unknown> }> {

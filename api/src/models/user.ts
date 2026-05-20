@@ -1,10 +1,5 @@
 import mongoose, { Schema, model, type HydratedDocument, type Types } from 'mongoose';
-import type {
-  DeptTag,
-  Role,
-  SuspensionKind,
-  UserStatus,
-} from 'india-learns-shared-types';
+import { VISITOR_LEAD_SOURCES, type DeptTag, type Role, type SuspensionKind, type UserStatus, type VisitorLeadSource } from 'india-learns-shared-types';
 
 // M10 — Structured personal address. Originally captured on the
 // ApplicationDraft step3_contact form; copied here at applicant→student
@@ -67,6 +62,12 @@ export interface UserDoc {
   // this at apply time so later edits don't retroactively rewrite past
   // applications.
   resumeUrl: string | null;
+  // M10x — Marketing source on the enrolled student (Logan's Excel
+  // template "Source: Meta / Google / Agent" field). Auto-copied from
+  // VisitorLead.leadSource when admin marks a lead converted; can also
+  // be set directly on the invite form for walk-ins that skipped the
+  // visitor-lead step.
+  source: VisitorLeadSource | null;
   sessionCap: number;
   // Admissions M9 — FERPA data-shape + MFA. None of these are enforced at
   // ship time; they exist so when US-market expansion turns FERPA on, the
@@ -213,6 +214,13 @@ const UserSchema = new Schema<UserDoc>(
       default: null,
     },
     resumeUrl: { type: String, default: null, maxlength: 1024 },
+    // M10x — Marketing source attribution (mirrors VisitorLead.leadSource).
+    source: {
+      type: String,
+      enum: [...VISITOR_LEAD_SOURCES, null],
+      default: null,
+      index: true,
+    },
     sessionCap: { type: Number, default: 5 },
     mfaEnabled: { type: Boolean, default: false },
     mfaSecret: { type: String, default: null },

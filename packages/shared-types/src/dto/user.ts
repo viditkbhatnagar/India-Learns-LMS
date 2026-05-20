@@ -1,4 +1,4 @@
-import type { DeptTag, Role, SuspensionKind, UserStatus } from '../enums.js';
+import type { DeptTag, Role, SuspensionKind, UserStatus, VisitorLeadSource } from '../enums.js';
 
 // M10 — Structured personal-address shape. Captured at apply time on
 // ApplicationDraft step3_contact and copied to User at acceptOffer; also
@@ -46,6 +46,10 @@ export interface UserPublicDto {
   parentGuardian: ContactRefDto | null;
   // M10f — Placement / Jobs. Single canonical resume URL; null until set.
   resumeUrl: string | null;
+  // M10x — Marketing source attribution (Excel template "Source" column).
+  // Auto-copied from VisitorLead.leadSource when admin marks a lead
+  // converted, OR set directly on the invite form for walk-ins.
+  source: VisitorLeadSource | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -70,6 +74,8 @@ export interface CreateUserInput {
   personalAddress?: PersonalAddressDto | null;
   emergencyContact?: ContactRefDto | null;
   parentGuardian?: ContactRefDto | null;
+  // M10x — Marketing source ("Meta / Google / Agent / Walk-in" etc).
+  source?: VisitorLeadSource | null;
 }
 
 export interface UpdateUserInput {
@@ -91,6 +97,8 @@ export interface UpdateUserInput {
   parentGuardian?: ContactRefDto | null;
   // M10f — Placement / Jobs resume.
   resumeUrl?: string | null;
+  // M10x — Marketing source attribution.
+  source?: VisitorLeadSource | null;
 }
 
 export interface UserListQuery {

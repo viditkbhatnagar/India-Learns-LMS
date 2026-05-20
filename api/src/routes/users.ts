@@ -73,6 +73,19 @@ const CreateBody = z.object({
   personalAddress: PersonalAddressBody.nullable().optional(),
   emergencyContact: ContactRefBody.nullable().optional(),
   parentGuardian: ContactRefBody.nullable().optional(),
+  // M10x — Marketing source (Excel "Source: Meta / Google / Agent").
+  source: z
+    .enum([
+      'reference',
+      'google',
+      'social_media',
+      'walk_in',
+      'meta',
+      'agent',
+      'other',
+    ])
+    .nullable()
+    .optional(),
 });
 
 const UpdateBody = z.object({
@@ -97,6 +110,19 @@ const UpdateBody = z.object({
   parentGuardian: ContactRefBody.nullable().optional(),
   // M10f — Placement resume URL. Accept null to clear.
   resumeUrl: z.string().url().max(1024).nullable().optional(),
+  // M10x — Marketing source attribution.
+  source: z
+    .enum([
+      'reference',
+      'google',
+      'social_media',
+      'walk_in',
+      'meta',
+      'agent',
+      'other',
+    ])
+    .nullable()
+    .optional(),
 });
 
 const ListQuery = z.object({

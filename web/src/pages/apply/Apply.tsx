@@ -180,6 +180,8 @@ export function ApplySignupPage() {
           // M10f — Placement resume URL; applicants never have one until
           // they convert to students and upload via Profile.
           resumeUrl: null,
+          // M10x — Marketing source unknown for self-signup applicants.
+          source: null,
           createdAt: result.application.createdAt,
           updatedAt: result.application.updatedAt,
           deletedAt: null,

@@ -46,6 +46,7 @@ function toDto(doc: HydratedEnrollment): EnrollmentDto {
     completedAt: iso(json.completedAt),
     certificateUrl: (json.certificateUrl as string | null) ?? null,
     certificateIssuedAt: iso(json.certificateIssuedAt),
+    declaredTotalPaise: (json.declaredTotalPaise as number | null) ?? null,
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
   };
@@ -247,6 +248,9 @@ export async function updateEnrollment(
   }
   if (patch.accessState !== undefined) {
     doc.accessState = patch.accessState;
+  }
+  if (patch.declaredTotalPaise !== undefined) {
+    doc.declaredTotalPaise = patch.declaredTotalPaise;
   }
   await doc.save();
   await recordAudit({
