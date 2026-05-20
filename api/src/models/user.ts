@@ -6,6 +6,30 @@ import type {
   UserStatus,
 } from 'india-learns-shared-types';
 
+// M10 — Structured personal address. Originally captured on the
+// ApplicationDraft step3_contact form; copied here at applicant→student
+// conversion so the Student Profile screen can display + edit it without
+// re-querying the draft. All fields stay optional so existing students
+// (pre-M10) don't break.
+export interface PersonalAddressDoc {
+  street: string;
+  city: string;
+  stateProvince: string;
+  postalCode: string;
+  country: string;
+}
+
+// M10 — Emergency contact + parent/guardian use the same shape; emergency
+// is captured on the apply form at step3, parent/guardian is captured
+// either on the apply form (step3 extension) or filled in later on the
+// Student Profile screen.
+export interface ContactRefDoc {
+  name: string;
+  relationship: string;
+  phoneE164: string;
+  email: string | null;
+}
+
 export interface UserDoc {
   _id: Types.ObjectId;
   role: Role;
@@ -31,6 +55,13 @@ export interface UserDoc {
   deptTag: DeptTag | null;
   isCourseCoordinator: boolean;
   address: string | null;
+  // M10 — student personal details (LMS_Requirements §1). All nullable
+  // so M1-M9 users remain valid. The Profile screen surfaces these for
+  // students; admins can edit on behalf via PATCH /v1/users/:id.
+  dateOfBirth: Date | null;
+  personalAddress: PersonalAddressDoc | null;
+  emergencyContact: ContactRefDoc | null;
+  parentGuardian: ContactRefDoc | null;
   sessionCap: number;
   // Admissions M9 — FERPA data-shape + MFA. None of these are enforced at
   // ship time; they exist so when US-market expansion turns FERPA on, the
@@ -116,6 +147,67 @@ const UserSchema = new Schema<UserDoc>(
     },
     isCourseCoordinator: { type: Boolean, default: false },
     address: { type: String, default: null },
+    // M10 — Personal-detail expansion. Embedded subdocs so the Profile
+    // screen reads them in one find() and edits go through Mongoose
+    // validation. _id disabled on the subdocs since they're singletons.
+    dateOfBirth: { type: Date, default: null },
+    personalAddress: {
+      type: new Schema<PersonalAddressDoc>(
+        {
+          street: { type: String, required: true, trim: true, maxlength: 200 },
+          city: { type: String, required: true, trim: true, maxlength: 120 },
+          stateProvince: { type: String, default: '', trim: true, maxlength: 120 },
+          postalCode: { type: String, default: '', trim: true, maxlength: 32 },
+          country: { type: String, required: true, trim: true, maxlength: 80 },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+    emergencyContact: {
+      type: new Schema<ContactRefDoc>(
+        {
+          name: { type: String, required: true, trim: true, maxlength: 120 },
+          relationship: { type: String, default: '', trim: true, maxlength: 60 },
+          phoneE164: {
+            type: String,
+            required: true,
+            match: /^\+\d{6,15}$/,
+          },
+          email: {
+            type: String,
+            default: null,
+            lowercase: true,
+            trim: true,
+            maxlength: 254,
+          },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+    parentGuardian: {
+      type: new Schema<ContactRefDoc>(
+        {
+          name: { type: String, required: true, trim: true, maxlength: 120 },
+          relationship: { type: String, default: '', trim: true, maxlength: 60 },
+          phoneE164: {
+            type: String,
+            required: true,
+            match: /^\+\d{6,15}$/,
+          },
+          email: {
+            type: String,
+            default: null,
+            lowercase: true,
+            trim: true,
+            maxlength: 254,
+          },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     sessionCap: { type: Number, default: 5 },
     mfaEnabled: { type: Boolean, default: false },
     mfaSecret: { type: String, default: null },

@@ -1,6 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { NOTIFICATION_TYPES } from 'india-learns-shared-types';
+import {
+  NOTIFICATION_TYPES,
+  type ContactRefDto,
+  type PersonalAddressDto,
+} from 'india-learns-shared-types';
 import { authApi, notificationsApi, programsApi, usersApi } from '../lib/endpoints.js';
 import { useAuthStore } from '../store/auth.js';
 import { Card, CardHeader } from '../components/ui/Card.js';
@@ -32,6 +36,31 @@ export function ProfilePage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  // M10 — personal-detail editable state. Each section is independent so
+  // a partial fill doesn't block the others.
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [addr, setAddr] = useState<PersonalAddressDto>({
+    street: '',
+    city: '',
+    stateProvince: '',
+    postalCode: '',
+    country: '',
+  });
+  const [emergency, setEmergency] = useState<ContactRefDto>({
+    name: '',
+    relationship: '',
+    phoneE164: '',
+    email: null,
+  });
+  const [parent, setParent] = useState<ContactRefDto>({
+    name: '',
+    relationship: '',
+    phoneE164: '',
+    email: null,
+  });
+  const [personalMsg, setPersonalMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [emergencyMsg, setEmergencyMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [parentMsg, setParentMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -43,6 +72,10 @@ export function ProfilePage() {
     setName(meQ.data.name);
     setPhone(meQ.data.phoneE164);
     setAddress(meQ.data.address ?? '');
+    setDateOfBirth(meQ.data.dateOfBirth ?? '');
+    if (meQ.data.personalAddress) setAddr(meQ.data.personalAddress);
+    if (meQ.data.emergencyContact) setEmergency(meQ.data.emergencyContact);
+    if (meQ.data.parentGuardian) setParent(meQ.data.parentGuardian);
   }, [meQ.data]);
 
   const saveProfile = useMutation({
@@ -61,6 +94,83 @@ export function ProfilePage() {
       setProfileMsg({
         kind: 'err',
         text: err instanceof ApiHttpError ? err.message : 'Failed to update profile.',
+      }),
+  });
+
+  // M10 — Personal-detail mutations. Each section saves independently so
+  // a failing emergency contact doesn't block the address.
+  const savePersonal = useMutation({
+    mutationFn: () =>
+      usersApi.updateMe({
+        dateOfBirth: dateOfBirth.trim() ? dateOfBirth.trim() : null,
+        personalAddress:
+          addr.street.trim() && addr.city.trim() && addr.country.trim()
+            ? {
+                street: addr.street.trim(),
+                city: addr.city.trim(),
+                stateProvince: addr.stateProvince.trim(),
+                postalCode: addr.postalCode.trim(),
+                country: addr.country.trim(),
+              }
+            : null,
+      }),
+    onSuccess: (updated) => {
+      setPersonalMsg({ kind: 'ok', text: 'Personal details saved.' });
+      if (token) setSession(updated, token);
+      qc.invalidateQueries({ queryKey: ['users', 'me'] });
+    },
+    onError: (err) =>
+      setPersonalMsg({
+        kind: 'err',
+        text: err instanceof ApiHttpError ? err.message : 'Failed to save personal details.',
+      }),
+  });
+  const saveEmergency = useMutation({
+    mutationFn: () =>
+      usersApi.updateMe({
+        emergencyContact:
+          emergency.name.trim() && emergency.phoneE164.trim()
+            ? {
+                name: emergency.name.trim(),
+                relationship: emergency.relationship.trim(),
+                phoneE164: emergency.phoneE164.trim(),
+                email: emergency.email?.trim() || null,
+              }
+            : null,
+      }),
+    onSuccess: (updated) => {
+      setEmergencyMsg({ kind: 'ok', text: 'Emergency contact saved.' });
+      if (token) setSession(updated, token);
+      qc.invalidateQueries({ queryKey: ['users', 'me'] });
+    },
+    onError: (err) =>
+      setEmergencyMsg({
+        kind: 'err',
+        text: err instanceof ApiHttpError ? err.message : 'Failed to save emergency contact.',
+      }),
+  });
+  const saveParent = useMutation({
+    mutationFn: () =>
+      usersApi.updateMe({
+        parentGuardian:
+          parent.name.trim() && parent.phoneE164.trim()
+            ? {
+                name: parent.name.trim(),
+                relationship: parent.relationship.trim(),
+                phoneE164: parent.phoneE164.trim(),
+                email: parent.email?.trim() || null,
+              }
+            : null,
+      }),
+    onSuccess: (updated) => {
+      setParentMsg({ kind: 'ok', text: 'Parent / guardian saved.' });
+      if (token) setSession(updated, token);
+      qc.invalidateQueries({ queryKey: ['users', 'me'] });
+    },
+    onError: (err) =>
+      setParentMsg({
+        kind: 'err',
+        text: err instanceof ApiHttpError ? err.message : 'Failed to save parent / guardian.',
       }),
   });
 
@@ -178,6 +288,204 @@ export function ProfilePage() {
           )}
           <Button type="submit" loading={saveProfile.isPending}>
             Save changes
+          </Button>
+        </form>
+      </Card>
+
+      {/* M10 — Personal details (DOB + structured address). Optional — */}
+      {/* the apply funnel populates these but students can update later. */}
+      <Card>
+        <CardHeader
+          title="Personal details"
+          subtitle="Date of birth and your full residential address. Captured during admissions; update here if anything has changed."
+        />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setPersonalMsg(null);
+            savePersonal.mutate();
+          }}
+          className="space-y-4"
+        >
+          <Input
+            label="Date of birth"
+            type="date"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            hint="YYYY-MM-DD"
+          />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Input
+              label="Street"
+              value={addr.street}
+              onChange={(e) => setAddr({ ...addr, street: e.target.value })}
+              placeholder="House / building / street"
+              maxLength={200}
+            />
+            <Input
+              label="City"
+              value={addr.city}
+              onChange={(e) => setAddr({ ...addr, city: e.target.value })}
+              maxLength={120}
+            />
+            <Input
+              label="State / province"
+              value={addr.stateProvince}
+              onChange={(e) => setAddr({ ...addr, stateProvince: e.target.value })}
+              maxLength={120}
+            />
+            <Input
+              label="Postal code"
+              value={addr.postalCode}
+              onChange={(e) => setAddr({ ...addr, postalCode: e.target.value })}
+              maxLength={32}
+            />
+            <Input
+              label="Country"
+              value={addr.country}
+              onChange={(e) => setAddr({ ...addr, country: e.target.value })}
+              maxLength={80}
+            />
+          </div>
+          {personalMsg && (
+            <div
+              role={personalMsg.kind === 'ok' ? 'status' : 'alert'}
+              className={`rounded-xl p-3 text-sm ${
+                personalMsg.kind === 'ok'
+                  ? 'bg-emerald-50 border border-emerald-200 text-success'
+                  : 'bg-red-50 border border-danger/30 text-danger'
+              }`}
+            >
+              {personalMsg.text}
+            </div>
+          )}
+          <Button type="submit" loading={savePersonal.isPending}>
+            Save personal details
+          </Button>
+        </form>
+      </Card>
+
+      {/* M10 — Emergency contact (the person we call if something happens */}
+      {/* in class). Phone is required, email optional. */}
+      <Card>
+        <CardHeader
+          title="Emergency contact"
+          subtitle="Whom we should reach if there's an emergency during a class or on campus."
+        />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setEmergencyMsg(null);
+            saveEmergency.mutate();
+          }}
+          className="space-y-4"
+        >
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Input
+              label="Name"
+              value={emergency.name}
+              onChange={(e) => setEmergency({ ...emergency, name: e.target.value })}
+              maxLength={120}
+            />
+            <Input
+              label="Relationship"
+              value={emergency.relationship}
+              onChange={(e) => setEmergency({ ...emergency, relationship: e.target.value })}
+              placeholder="Parent, sibling, friend…"
+              maxLength={60}
+            />
+            <Input
+              label="Phone"
+              value={emergency.phoneE164}
+              onChange={(e) => setEmergency({ ...emergency, phoneE164: e.target.value })}
+              placeholder="+919812345678"
+              hint="E.164 format (+ country code + digits, no spaces)"
+            />
+            <Input
+              label="Email (optional)"
+              type="email"
+              value={emergency.email ?? ''}
+              onChange={(e) => setEmergency({ ...emergency, email: e.target.value || null })}
+              maxLength={254}
+            />
+          </div>
+          {emergencyMsg && (
+            <div
+              role={emergencyMsg.kind === 'ok' ? 'status' : 'alert'}
+              className={`rounded-xl p-3 text-sm ${
+                emergencyMsg.kind === 'ok'
+                  ? 'bg-emerald-50 border border-emerald-200 text-success'
+                  : 'bg-red-50 border border-danger/30 text-danger'
+              }`}
+            >
+              {emergencyMsg.text}
+            </div>
+          )}
+          <Button type="submit" loading={saveEmergency.isPending}>
+            Save emergency contact
+          </Button>
+        </form>
+      </Card>
+
+      {/* M10 — Parent / guardian. Distinct from emergency — this is the */}
+      {/* person the admissions team and finance reach out to about your */}
+      {/* programme; emergency is whom we call if something goes wrong. */}
+      <Card>
+        <CardHeader
+          title="Parent / guardian"
+          subtitle="The primary person we'll contact about your programme — admissions updates, fee reminders, attendance summaries."
+        />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setParentMsg(null);
+            saveParent.mutate();
+          }}
+          className="space-y-4"
+        >
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Input
+              label="Name"
+              value={parent.name}
+              onChange={(e) => setParent({ ...parent, name: e.target.value })}
+              maxLength={120}
+            />
+            <Input
+              label="Relationship"
+              value={parent.relationship}
+              onChange={(e) => setParent({ ...parent, relationship: e.target.value })}
+              placeholder="Mother, father, guardian…"
+              maxLength={60}
+            />
+            <Input
+              label="Phone"
+              value={parent.phoneE164}
+              onChange={(e) => setParent({ ...parent, phoneE164: e.target.value })}
+              placeholder="+919812345678"
+              hint="E.164 format (+ country code + digits, no spaces)"
+            />
+            <Input
+              label="Email (optional)"
+              type="email"
+              value={parent.email ?? ''}
+              onChange={(e) => setParent({ ...parent, email: e.target.value || null })}
+              maxLength={254}
+            />
+          </div>
+          {parentMsg && (
+            <div
+              role={parentMsg.kind === 'ok' ? 'status' : 'alert'}
+              className={`rounded-xl p-3 text-sm ${
+                parentMsg.kind === 'ok'
+                  ? 'bg-emerald-50 border border-emerald-200 text-success'
+                  : 'bg-red-50 border border-danger/30 text-danger'
+              }`}
+            >
+              {parentMsg.text}
+            </div>
+          )}
+          <Button type="submit" loading={saveParent.isPending}>
+            Save parent / guardian
           </Button>
         </form>
       </Card>
