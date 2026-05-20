@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { useEffect, useState, type FormEvent } from 'react';
-import type {
-  ContactRefDto,
-  PersonalAddressDto,
-  Role,
-  UserPublicDto,
+import {
+  APPLICATION_DOCUMENT_TYPE_LABELS,
+  PROGRAM_REQUIRED_DOC_TYPES,
+  type ContactRefDto,
+  type PersonalAddressDto,
+  type ProgramRequiredDocType,
+  type Role,
+  type UserPublicDto,
 } from 'india-learns-shared-types';
 import { usersApi, programsApi, batchesApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
@@ -14,7 +17,7 @@ import { Input } from '../../components/ui/Input.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { PageHeader } from '../../components/ui/PageHeader.js';
-import { ApiHttpError } from '../../lib/api.js';
+import { ApiHttpError, api } from '../../lib/api.js';
 
 export function AdminUsers() {
   const isReadOnly = false; // superadmin now has full write access (round 3)
@@ -415,6 +418,7 @@ export function AdminUserDetail() {
           <EmergencyContactEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
           <ParentGuardianEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
           <ResumeUrlEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
+          {u.role === 'student' && <StudentDocumentsEditor studentId={u.id} />}
         </>
       )}
 
@@ -816,6 +820,165 @@ function ResumeUrlEditor({ user, onSaved }: EditorProps) {
           Save resume URL
         </Button>
       </form>
+    </Card>
+  );
+}
+
+// M10k — Student documents editor. Admin uploads SSLC / Plus Two /
+// Degree / Transfer Certificate / Passport Photo / Gov ID etc. on
+// behalf of a student via URL paste (Drive / Cloudinary link). Once
+// staging flips STORAGE_PROVIDER to 'cloudinary', a follow-up PR can
+// add direct file upload here — the URL contract stays the same.
+
+interface StudentDocumentItem {
+  id: string;
+  documentType: ProgramRequiredDocType;
+  label: string;
+  url: string;
+  sizeBytes: number;
+  mimeType: string;
+  uploadedByUserId: string;
+  uploadedAt: string;
+}
+
+function StudentDocumentsEditor({ studentId }: { studentId: string }) {
+  const qc = useQueryClient();
+  const docsQ = useQuery({
+    queryKey: ['students', studentId, 'documents'],
+    queryFn: async () => {
+      const res = await api.get<{ data: { items: StudentDocumentItem[] } }>(
+        `/students/${studentId}/documents`,
+      );
+      return res.data.data.items;
+    },
+  });
+
+  const [docType, setDocType] = useState<ProgramRequiredDocType>('govid');
+  const [label, setLabel] = useState('');
+  const [url, setUrl] = useState('');
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const upload = useMutation({
+    mutationFn: () =>
+      api.post(`/students/${studentId}/documents`, {
+        documentType: docType,
+        label: label.trim() || undefined,
+        url: url.trim(),
+      }),
+    onSuccess: () => {
+      setMsg({ kind: 'ok', text: 'Document added.' });
+      setUrl('');
+      setLabel('');
+      qc.invalidateQueries({ queryKey: ['students', studentId, 'documents'] });
+    },
+    onError: (err) =>
+      setMsg({
+        kind: 'err',
+        text: err instanceof ApiHttpError ? err.message : 'Failed to add document.',
+      }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (docId: string) => api.delete(`/students/${studentId}/documents/${docId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['students', studentId, 'documents'] }),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Documents"
+        subtitle="SSLC, Plus Two, Degree, Transfer Certificate, Passport photo, ID proof. Paste a link to the file (Drive / Dropbox / Cloudinary)."
+      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setMsg(null);
+          if (!url.trim()) {
+            setMsg({ kind: 'err', text: 'URL is required.' });
+            return;
+          }
+          upload.mutate();
+        }}
+        className="space-y-3"
+      >
+        <div className="grid sm:grid-cols-3 gap-3">
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="text-xs uppercase tracking-wider text-muted font-bold">
+              Document type
+            </span>
+            <select
+              value={docType}
+              onChange={(e) => setDocType(e.target.value as ProgramRequiredDocType)}
+              className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+            >
+              {PROGRAM_REQUIRED_DOC_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {APPLICATION_DOCUMENT_TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Input
+            label="Label (optional)"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder={APPLICATION_DOCUMENT_TYPE_LABELS[docType]}
+          />
+          <Input
+            label="File URL"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://drive.google.com/file/d/..."
+          />
+        </div>
+        <StatusBanner msg={msg} />
+        <Button type="submit" loading={upload.isPending}>
+          Add document
+        </Button>
+      </form>
+
+      {docsQ.isLoading && <div className="mt-4"><Skeleton lines={2} /></div>}
+      {docsQ.data && docsQ.data.length === 0 && (
+        <div className="mt-4">
+          <EmptyState title="No documents on file" message="" />
+        </div>
+      )}
+      {docsQ.data && docsQ.data.length > 0 && (
+        <ul className="mt-4 divide-y divide-black/5">
+          {docsQ.data.map((d) => (
+            <li key={d.id} className="py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-brand-navy">
+                  {d.label || APPLICATION_DOCUMENT_TYPE_LABELS[d.documentType]}
+                </p>
+                <p className="text-xs text-muted mt-0.5">
+                  {APPLICATION_DOCUMENT_TYPE_LABELS[d.documentType]} ·{' '}
+                  {new Date(d.uploadedAt).toLocaleDateString('en-IN')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={d.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-brand-orange hover:underline"
+                >
+                  Open
+                </a>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm('Remove this document?')) remove.mutate(d.id);
+                  }}
+                >
+                  Remove
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }
