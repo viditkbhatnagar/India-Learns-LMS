@@ -58,6 +58,12 @@ export const STORAGE_FOLDERS = [
   // resume, portfolio) and referee-uploaded letters of recommendation.
   'application-documents',
   'referee-uploads',
+  // M10q — chat attachments + post-conversion student documents + applicant
+  // resumes. Same StorageAdapter contract, just different metadata buckets so
+  // cleanup + audits can scope by folder.
+  'chat-attachments',
+  'student-documents',
+  'resumes',
 ] as const;
 export type StorageFolder = (typeof STORAGE_FOLDERS)[number];
 

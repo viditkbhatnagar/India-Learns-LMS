@@ -54,7 +54,7 @@ export function StudentJobsPage() {
       {meQ.data && !meQ.data.resumeUrl && (
         <Card>
           <p className="text-sm">
-            You haven't added a resume URL to your{' '}
+            You haven't uploaded a resume to your{' '}
             <Link to="/profile" className="text-brand-orange hover:underline">
               profile
             </Link>{' '}
@@ -245,7 +245,7 @@ function PostingDetail({
           </p>
         ) : !canApply ? (
           <p className="text-sm text-warning">
-            Add a resume URL to your{' '}
+            Upload a resume on your{' '}
             <Link to="/profile" className="underline">
               profile
             </Link>{' '}

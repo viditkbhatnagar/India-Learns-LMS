@@ -215,6 +215,17 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] **PR #27 / m10d** — Daily attendance auto-report cron — `il-cron-daily-attendance-report` at 18:30 IST
 - [x] **PR #28 / m10f** — Placement / Jobs module — Company + JobPosting + JobApplication + `/admin/placement` + `/jobs` + per-student `resumeUrl` (D-092)
 - [x] m10g — memory + TASKS sweep (this entry)
+- [x] **PR #29 / m10h** — Admin academic-data edit surface on AdminUserDetail
+- [x] **PR #30 / m10i** — PDF reports + parent-CC on fee reminders + new-job notifications
+- [x] **PR #31 / m10j** — Announcements UI (admin/faculty broadcast + student feed)
+- [x] **PR #32 / m10k** — Post-conversion student documents (admin upload + student view)
+- [x] **PR #33 / m10l** — Interview scheduling fields + faculty dashboard click-through attendance
+- [x] **PR #34 / m10e1** — Chat foundation (models + REST + polling + 1:1 UI)
+- [x] **PR #35 / m10m** — Socket.IO real-time chat + group batch chats
+- [x] **PR #36 / m10n** — Chat unread surfaced in NotificationBell
+- [x] **PR #37 / m10o** — Per-batch attendance screen — 1-click dashboard target
+- [x] **PR #38 / m10p** — Interview scheduling modal (replace window.prompt)
+- [x] **PR #39 / m10q** — MongoDB GridFS file storage (D-094) — direct file upload via `/v1/files/upload`; resume / student-documents / chat-attachments all now upload through GridFS by default. No Cloudinary credentials needed.
 
 ### Deferred to follow-up session (D-093)
 - [ ] **PR-E — Internal Chat (real-time, full).** Planned as 3-4 sub-PRs:
@@ -224,13 +235,14 @@ Live task list. Update at every session start (mark new) and every session end (
   - [ ] Polish + notifications integration
 
 ### M10 follow-ups (not blocking, low priority)
-- [ ] Direct resume file upload via Cloudinary (today: paste URL only)
-- [ ] PDF renderers for Reports module (pdfkit) — req says "PDF or Excel"; Excel already ships
-- [ ] Job-published notification scoped to matching programmes — extend `NOTIFICATION_TYPES`
-- [ ] Interview scheduling fields (date/time/location) on JobApplication — today only free-text `interviewNote`
+- [x] Direct resume file upload — shipped via PR-Q (M10q, GridFS)
+- [x] PDF renderers for Reports module — shipped via PR-I (M10i)
+- [x] Job-published notification — shipped via PR-I (M10i)
+- [x] Interview scheduling fields (date/time/location) — shipped via PR-L + PR-P
 - [ ] Course-scoped attendance / assignment report variants for faculty
 - [ ] Sessions-held filter on attendance report
 - [ ] One-time backfill job for existing students' personal details from their ApplicationDraft
-- [ ] Admin "edit student personal details" surface
+- [x] Admin "edit student personal details" surface — shipped via PR-H
 - [ ] Apply Form step-3 UI to capture `parentGuardian` during apply (DTO already accepts it)
 - [ ] WhatsApp template for daily attendance report (parent channel) — needs WABA approval first
+- [ ] Cloudinary CDN — switch from GridFS once LUC asks for a CDN (env flip only, no code change)

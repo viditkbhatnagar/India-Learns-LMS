@@ -119,3 +119,23 @@ Rushing this in one PR alongside five others = reckless. Plan to ship as 3–4 s
 2. Check `/TASKS.md` for the deferred PR-E plan
 3. Pull `claude/m10g-memory-and-tasks` if it merged; otherwise rebase
 4. Begin PR-E sub-PR 1 (models + REST + polling) — see deferred section above
+
+---
+
+## Late session adds (2026-05-20, after the original M10 sweep)
+
+| PR | Branch | What |
+|---|---|---|
+| H | `claude/m10h-admin-academic-edit` | Admin academic-data edit surface on AdminUserDetail. |
+| I | `claude/m10i-pdf-and-parent-notifications` | PDF report renderers + parent-CC on fee reminders + job-published notification scoped to matching programmes. |
+| J | `claude/m10j-announcements-ui` | Broadcast announcements model + admin/faculty composer + student feed. |
+| K | `claude/m10k-student-documents` | Post-conversion student documents (admin upload + student view). |
+| L | `claude/m10l-interview-fields` | `interviewAt` + `interviewLocation` on JobApplication. |
+| E1 | `claude/m10e1-chat-foundation` | Chat foundation — models + REST + polling + 1:1 UI. |
+| M | `claude/m10m-chat-realtime` | Socket.IO real-time chat + group batch chats. |
+| N | `claude/m10n-chat-bell` | Chat unread surfaced in NotificationBell. |
+| O | `claude/m10o-batch-attendance` | Per-batch attendance screen — 1-click target from Faculty Dashboard. |
+| P | `claude/m10p-interview-modal` | Interview scheduling modal replaces `window.prompt`. |
+| **Q** | **`claude/m10q-mongo-file-storage`** | **MongoDB GridFS file storage (D-094) — direct file upload for resume / student-documents / chat-attachments; default `STORAGE_PROVIDER=mongo` so production needs no Cloudinary credentials.** |
+
+PR-Q closes the long-standing "file upload needs Cloudinary" follow-up. The `StorageAdapter` contract (`{ url, key }`) is unchanged, so consumers (receiptService, applicationDocumentService, refereeService, chat, profile, admin) all keep working — they just write to GridFS now instead of Cloudinary, with no code change to those services.

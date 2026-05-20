@@ -643,3 +643,19 @@ Append-only log. Every entry: ID, date, decision, why, source.
 4. Polish + notifications integration
 
 **How to apply:** Next session: read `memory/milestones/M10-additional-features.md` §"Deferred work" for the design notes and entry point.
+
+## D-094 — File uploads stored in MongoDB GridFS by default (no Cloudinary required)
+**Date:** 2026-05-20
+**Why:** Logan asked "can we upload directly on mongo db database which we have?" — she doesn't have Cloudinary credentials and wants production-ready file upload without depending on a paid third-party. LUC's V1 scale (~30 students/class × ~10 docs each × ~500 KB) is well under any Atlas tier's storage budget, so storing files in the same cluster as the rest of the app is fine.
+
+**Change:**
+- `STORAGE_PROVIDER` enum widened to `['cloudinary', 'mongo', 'stub']`; default flipped from `stub` to `mongo` so production "just works" the moment Atlas is connected.
+- New `MongoStorageAdapter` (`api/src/integrations/mongoStorageAdapter.ts`) implements `StorageAdapter` against a `GridFSBucket` named `il_files` on the app's existing mongoose connection. Adapter `key` is the 24-char GridFS file `_id`; `url` is `${API_ORIGIN}/v1/files/<id>`.
+- New `POST /v1/files/upload?folder=<folder>` (multer in-memory + 5 MB cap, auth-required) and `GET /v1/files/:id` (auth-required, streams from GridFS, sets `inline` content-disposition + 5-minute private cache).
+- Three new `StorageFolder` values: `chat-attachments`, `student-documents`, `resumes`. `StorageUploadTicketResponse.provider` widened to include `'mongo'`.
+- Frontend file pickers in `Chat.tsx` (attachments), `AdminUsers.tsx` (StudentDocumentsEditor + ResumeUrlEditor), `ProfilePage.tsx` (ResumeCard). URL paste fallback retained for everything except chat.
+- `render.yaml`: `INTEGRATIONS_MODE=live`, `STORAGE_PROVIDER=mongo`. WhatsApp/Certifier still feature-flagged off and Email still `stub` so flipping `INTEGRATIONS_MODE` doesn't accidentally activate the unconfigured providers.
+
+**Trade-off:** No CDN, files served straight from Mongo through the Node process. Atlas storage is ~10× more expensive per GB than Cloudinary, but at LUC scale that's irrelevant. To switch to Cloudinary later: set `STORAGE_PROVIDER=cloudinary` + provide credentials; the URL contract (`{ url, key }`) is identical so no consumers need changing.
+
+**How to apply:** Use `getIntegrations().storage` (already abstracted via `StorageAdapter`). For UI uploads, call `filesApi.upload(file, folder)` from `web/src/lib/endpoints.ts`. For server-side uploads (e.g. PDF receipts), keep calling `storage.upload({ bytes, ... })` — the same code paths work across all three adapters.

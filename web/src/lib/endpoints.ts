@@ -1771,3 +1771,23 @@ export const chatApi = {
     return res.data.data.items;
   },
 };
+
+// M10q — Generic file uploads through the configured storage adapter
+// (GridFS-backed in default production config). Returns the public URL the
+// browser can render + the opaque storage key the backend uses for deletes.
+export interface UploadFileResult {
+  url: string;
+  key: string;
+}
+export const filesApi = {
+  async upload(file: File, folder: string): Promise<UploadFileResult> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await api.post<{ data: UploadFileResult }>(
+      '/files/upload',
+      form,
+      { params: { folder }, headers: { 'content-type': 'multipart/form-data' } },
+    );
+    return res.data.data;
+  },
+};
