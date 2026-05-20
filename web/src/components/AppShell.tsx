@@ -104,12 +104,16 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Grading', to: '/faculty/grading', icon: Icon.feedback },
     { label: 'Feedback', to: '/faculty/feedback', icon: Icon.feedback },
     { label: 'Timetable', to: '/faculty/timetable', icon: Icon.calendar },
+    // M10 — Reports for batches faculty teaches (server-scoped).
+    { label: 'Reports', to: '/reports', icon: Icon.folder },
   ],
   finance: [
     { label: 'Dashboard', to: '/finance/dashboard', icon: Icon.home },
     { label: 'Record payment', to: '/finance/payments/new', icon: Icon.plus },
     { label: 'Payments', to: '/finance/payments', icon: Icon.rupee },
     { label: 'Fee structures', to: '/finance/fee-structures', icon: Icon.folder },
+    // M10 — Cross-batch summary reports.
+    { label: 'Reports', to: '/reports', icon: Icon.folder },
   ],
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
@@ -125,6 +129,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
     { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
+    // M10 — Cross-batch attendance / assignment / fees reports.
+    { label: 'Reports', to: '/reports', icon: Icon.folder },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
   superadmin: [
@@ -139,6 +145,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Finance', to: '/finance/dashboard', icon: Icon.rupee },
     { label: 'Admissions', to: '/admissions/dashboard', icon: Icon.users },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
+    // M10 — Reports for everyone (admin sees all batches).
+    { label: 'Reports', to: '/reports', icon: Icon.folder },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
   // Admissions M1 — applicant has the LMS shell so they can log out, see

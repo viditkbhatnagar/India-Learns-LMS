@@ -37,6 +37,9 @@ import type {
   ExamAttemptDto,
   ExamDto,
   FeedbackEntryDto,
+  AssignmentSubmissionsReportDto,
+  AttendanceReportDto,
+  BatchSummaryReportDto,
   HolidayDto,
   InvoiceDto,
   ModuleDto,
@@ -824,6 +827,51 @@ export const batchesApi = {
   async timetable(id: string) {
     const res = await api.get<{ data: { items: unknown[] } }>(`/batches/${id}/timetable`);
     return res.data.data.items;
+  },
+};
+
+// M10 — Reports module (LMS_Faculty_Features §4). JSON for preview,
+// `format=xlsx` for download. The `download*` helpers return a Blob the
+// caller saves with createObjectURL + an <a download>.
+export const reportsApi = {
+  async attendance(query: {
+    batchId: string;
+    from: string;
+    to: string;
+    courseId?: string;
+  }): Promise<AttendanceReportDto> {
+    const res = await api.get<{ data: AttendanceReportDto }>('/reports/attendance', {
+      params: query,
+    });
+    return res.data.data;
+  },
+  async batchSummary(query: { batchId: string }): Promise<BatchSummaryReportDto> {
+    const res = await api.get<{ data: BatchSummaryReportDto }>('/reports/batch-summary', {
+      params: query,
+    });
+    return res.data.data;
+  },
+  async assignmentSubmissions(query: {
+    batchId: string;
+    from: string;
+    to: string;
+    courseId?: string;
+  }): Promise<AssignmentSubmissionsReportDto> {
+    const res = await api.get<{ data: AssignmentSubmissionsReportDto }>(
+      '/reports/assignment-submissions',
+      { params: query },
+    );
+    return res.data.data;
+  },
+  async downloadXlsx(
+    kind: 'attendance' | 'batch-summary' | 'assignment-submissions',
+    query: Record<string, string>,
+  ): Promise<Blob> {
+    const res = await api.get<Blob>(`/reports/${kind}`, {
+      params: { ...query, format: 'xlsx' },
+      responseType: 'blob',
+    });
+    return res.data;
   },
 };
 

@@ -73,6 +73,7 @@ import { FinanceStudentDetailPage } from './pages/finance/FinanceStudentDetail.j
 import { FinancePaymentsListPage } from './pages/finance/FinancePaymentsList.js';
 import { FinancePaymentDetailPage } from './pages/finance/FinancePaymentDetail.js';
 import { FinanceReportsPage } from './pages/finance/FinanceReports.js';
+import { ReportsPage } from './pages/Reports.js';
 
 // Faculty
 import { FacultyDashboard } from './pages/faculty/FacultyDashboard.js';
@@ -254,6 +255,20 @@ export function App() {
           <Route path="/onboarding/set-password" element={<OnbSetPasswordPage />} />
           <Route path="/onboarding/tour" element={<OnbTourPage />} />
           <Route path="/onboarding/arrival" element={<OnbArrivalPage />} />
+
+          {/* M10 — Reports module. Admin, finance, faculty + admissions
+              officer can hit it; faculty are further scoped server-side to
+              batches they teach. */}
+          <Route
+            path="/reports"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['admin', 'superadmin', 'finance', 'faculty', 'admissions_officer']}>
+                  <ReportsPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
 
           {/* Shared protected */}
           <Route
