@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { notificationsApi } from '../lib/endpoints.js';
+import { chatApi, notificationsApi } from '../lib/endpoints.js';
 import { formatRelative } from '../lib/format.js';
 import { Badge } from './ui/Badge.js';
 
@@ -19,8 +19,22 @@ export function NotificationBell() {
     mutationFn: (id: string) => notificationsApi.markRead(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications', 'me'] }),
   });
+  // M10n — Sum chat unread alongside the in-app notification list so the
+  // bell badge totals "things you should look at" across both surfaces.
+  // Cheap: `chatApi.listMyConversations` already returns `unreadCount`
+  // per conversation; we just sum. Refetches via the same poll cadence
+  // plus push events from Chat.tsx invalidating the same cache key.
+  const chatQuery = useQuery({
+    queryKey: ['chat', 'conversations'],
+    queryFn: () => chatApi.listMyConversations(),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
   const items = listQuery.data ?? [];
-  const unreadCount = items.filter((n) => !n.readAt).length;
+  const inAppUnread = items.filter((n) => !n.readAt).length;
+  const chats = chatQuery.data ?? [];
+  const chatUnread = chats.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0);
+  const unreadCount = inAppUnread + chatUnread;
 
   return (
     <div className="relative">
@@ -51,6 +65,32 @@ export function NotificationBell() {
               Preferences
             </Link>
           </div>
+          {/* M10n — Chat unread, surfaced as the first item when > 0 so it's
+              visible above the time-ordered notifications list. */}
+          {chatUnread > 0 && (
+            <Link
+              to="/chat"
+              onClick={() => setOpen(false)}
+              className="w-full text-left px-4 py-3 border-b border-black/5 bg-navy-50/40 hover:bg-navy-50 transition flex items-start gap-2"
+            >
+              <span aria-hidden className="mt-1.5 h-2 w-2 rounded-full bg-brand-orange shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="font-medium text-brand-navy truncate">
+                    {chatUnread} unread chat{chatUnread === 1 ? '' : 's'}
+                  </p>
+                  <Badge tone="accent" className="shrink-0">chat</Badge>
+                </div>
+                <p className="text-sm text-muted line-clamp-1">
+                  {chats
+                    .filter((c) => c.unreadCount > 0)
+                    .slice(0, 3)
+                    .map((c) => c.title ?? c.members.find((m) => m.userId)?.name ?? 'Conversation')
+                    .join(', ')}
+                </p>
+              </div>
+            </Link>
+          )}
           {listQuery.isLoading && <div className="p-4 text-muted text-sm">Loading…</div>}
           {listQuery.isError && <div className="p-4 text-danger text-sm">Failed to load.</div>}
           {!listQuery.isLoading && items.length === 0 && (
