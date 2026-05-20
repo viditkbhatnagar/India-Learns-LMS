@@ -80,6 +80,10 @@ import {
   placementAnalyticsRouter,
 } from './placement.js';
 import { chatRouter, meConversationsRouter } from './chat.js';
+import {
+  broadcastAnnouncementsRouter,
+  meAnnouncementsRouter,
+} from './broadcastAnnouncements.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -105,6 +109,9 @@ export function v1Router(): Router {
   // M10e — Internal chat (LMS_Requirements §2). PR-E1 ships 1:1 + polling.
   router.use('/me/conversations', meConversationsRouter());
   router.use('/chat', chatRouter());
+  // M10j — Broad-scope announcements (LMS_Requirements §2).
+  router.use('/announcements', broadcastAnnouncementsRouter());
+  router.use('/me/announcements', meAnnouncementsRouter());
   router.use('/users', usersRouter());
   router.use('/users', suspensionOverrideRouter());
   router.use('/programs', programsRouter());

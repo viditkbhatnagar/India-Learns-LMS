@@ -77,6 +77,7 @@ import { ReportsPage } from './pages/Reports.js';
 import { AdminPlacementPage } from './pages/AdminPlacement.js';
 import { StudentJobsPage } from './pages/StudentJobs.js';
 import { ChatPage } from './pages/Chat.js';
+import { AnnouncementsPage } from './pages/Announcements.js';
 
 // Faculty
 import { FacultyDashboard } from './pages/faculty/FacultyDashboard.js';
@@ -258,6 +259,16 @@ export function App() {
           <Route path="/onboarding/set-password" element={<OnbSetPasswordPage />} />
           <Route path="/onboarding/tour" element={<OnbTourPage />} />
           <Route path="/onboarding/arrival" element={<OnbArrivalPage />} />
+
+          {/* M10j — Announcements (LMS_Requirements §2). */}
+          <Route
+            path="/announcements"
+            element={
+              <RequireAuth>
+                <AnnouncementsPage />
+              </RequireAuth>
+            }
+          />
 
           {/* M10e — Chat (PR-E1 ships 1:1 polling; real-time + groups in PR-E2). */}
           <Route
