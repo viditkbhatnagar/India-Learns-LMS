@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { Types } from 'mongoose';
 import { z } from 'zod';
+import { PROGRAM_REQUIRED_DOC_TYPES } from 'india-learns-shared-types';
 import { requireAuth } from '../../middleware/auth.js';
 import { requireRole } from '../../middleware/requireRole.js';
 import { HttpError } from '../../middleware/error.js';
@@ -129,14 +130,11 @@ const SaveDraftBody = z.object({
   markComplete: z.boolean().optional(),
 });
 
-const DocumentTypeEnum = z.enum([
-  'govid',
-  'transcript',
-  'resume',
-  'portfolio',
-  'test_score',
-  'other',
-]);
+// M10 — Reuses the shared program-required doc-type list so SSLC, Plus Two,
+// Degree, Transfer Certificate, and Passport Photo are now valid Step-6
+// uploads. `referee_letter` is intentionally excluded — that path goes
+// through the M3b tokenized referee upload, not this applicant endpoint.
+const DocumentTypeEnum = z.enum(PROGRAM_REQUIRED_DOC_TYPES);
 
 const SignDocumentBody = z.object({
   documentType: DocumentTypeEnum,

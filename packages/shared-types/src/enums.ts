@@ -321,6 +321,57 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
+// Admissions M3a / M10 — document type slots an admin can require on a
+// program, and the storage-level types we persist on ApplicationDocument.
+//
+// `PROGRAM_REQUIRED_DOC_TYPES` is what an officer / admin can mark required
+// when configuring a program. `APPLICATION_DOCUMENT_TYPES` is the full set
+// of types we accept as uploaded files — it is the program-required set
+// plus `referee_letter`, which is uploaded by referees via the M3b
+// tokenized flow and is not configurable per-program.
+//
+// M10 (LMS_Requirements.docx §1) added the five Indian-school document
+// types — SSLC, Plus Two, Degree, Transfer Certificate, Passport-size photo
+// — to support the LUC India Learns admissions workflow. Old applications
+// uploaded under `other` continue to work (we don't backfill).
+export const PROGRAM_REQUIRED_DOC_TYPES = [
+  'govid',
+  'transcript',
+  'resume',
+  'portfolio',
+  'test_score',
+  'sslc',
+  'plus_two',
+  'degree',
+  'transfer_certificate',
+  'passport_photo',
+  'other',
+] as const;
+export type ProgramRequiredDocType = (typeof PROGRAM_REQUIRED_DOC_TYPES)[number];
+
+export const APPLICATION_DOCUMENT_TYPES = [
+  ...PROGRAM_REQUIRED_DOC_TYPES,
+  'referee_letter',
+] as const;
+export type ApplicationDocumentType = (typeof APPLICATION_DOCUMENT_TYPES)[number];
+
+// Human-readable labels used in UI selects, audit log payloads, and the
+// applicant-facing Step-6 uploader. Keep in sync with the constants above.
+export const APPLICATION_DOCUMENT_TYPE_LABELS: Record<ApplicationDocumentType, string> = {
+  govid: 'Government ID',
+  transcript: 'Prior transcript',
+  resume: 'Resume / CV',
+  portfolio: 'Portfolio',
+  test_score: 'Test score report',
+  sslc: 'Class 10 (SSLC) certificate',
+  plus_two: 'Class 12 / Plus Two certificate',
+  degree: 'Degree certificate',
+  transfer_certificate: 'Transfer certificate (TC)',
+  passport_photo: 'Passport-size photo',
+  other: 'Supporting document',
+  referee_letter: 'Letter of recommendation',
+};
+
 // Admissions module (M1+) — application lifecycle state.
 // Decisions are recorded on the Application as terminal transitions; the
 // state machine guards in routes/services enforce legal transitions.

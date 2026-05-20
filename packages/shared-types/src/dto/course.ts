@@ -5,6 +5,7 @@ import type {
   EnrollmentAccessState,
   EnrollmentStatus,
   ModuleContentKind,
+  ProgramRequiredDocType,
 } from '../enums.js';
 import type { OutstandingFeesDto } from './fees.js';
 import type { TimetableOccurrenceDto } from './timetable.js';
@@ -12,14 +13,10 @@ import type { UserPublicDto } from './user.js';
 
 // Admissions M5+ — per-program required document slot config. Mirrors the
 // model shape in api/src/models/program.ts.
+// M10 — documentType uses ProgramRequiredDocType so SSLC / Plus Two /
+// Degree / Transfer Certificate / Passport Photo are accepted.
 export interface ProgramAdmissionsDocReqDto {
-  documentType:
-    | 'govid'
-    | 'transcript'
-    | 'resume'
-    | 'portfolio'
-    | 'test_score'
-    | 'other';
+  documentType: ProgramRequiredDocType;
   label: string;
   required: boolean;
 }

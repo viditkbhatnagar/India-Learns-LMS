@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ProgramDto } from 'india-learns-shared-types';
+import {
+  APPLICATION_DOCUMENT_TYPE_LABELS,
+  PROGRAM_REQUIRED_DOC_TYPES,
+  type ProgramDto,
+} from 'india-learns-shared-types';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -17,14 +21,14 @@ import { ApiHttpError } from '../../lib/api.js';
 
 type DocReq = ProgramDto['requiredDocs'][number];
 
-const DOC_TYPE_LABELS: Record<DocReq['documentType'], string> = {
-  govid: 'Government ID',
-  transcript: 'Prior transcript',
-  resume: 'Resume / CV',
-  portfolio: 'Portfolio',
-  test_score: 'Test score report',
-  other: 'Other document',
-};
+// M10 — Labels come from shared-types so SSLC / Plus Two / Degree /
+// Transfer Certificate / Passport Photo render here without a duplicate
+// definition. Iteration order matches PROGRAM_REQUIRED_DOC_TYPES so the
+// select dropdown groups the original five before the M10 additions.
+const DOC_TYPE_LABELS: Record<DocReq['documentType'], string> =
+  Object.fromEntries(
+    PROGRAM_REQUIRED_DOC_TYPES.map((t) => [t, APPLICATION_DOCUMENT_TYPE_LABELS[t]] as const),
+  ) as Record<DocReq['documentType'], string>;
 
 export function AdminProgramAdmissionsPage() {
   const { id = '' } = useParams<{ id: string }>();

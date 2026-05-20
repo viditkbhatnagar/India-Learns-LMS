@@ -1,4 +1,9 @@
-import type { AdmissionMode, ApplicationState, PaymentMethod } from '../enums.js';
+import type {
+  AdmissionMode,
+  ApplicationState,
+  PaymentMethod,
+  ProgramRequiredDocType,
+} from '../enums.js';
 
 // M1 — Application is a skeleton tied to an applicant User. PII (DOB, gov ID
 // upload refs, statement, etc.) lands on the Application doc in M2/M3; M1
@@ -58,14 +63,11 @@ export interface OfficerApplicationListResponse {
 }
 
 // M2 — Program admissions config exposed on the public /apply/programs feed.
+// M10 — documentType reuses the shared ProgramRequiredDocType so SSLC /
+// Plus Two / Degree / Transfer Certificate / Passport Photo flow through
+// automatically.
 export interface PublicProgramDocReqDto {
-  documentType:
-    | 'govid'
-    | 'transcript'
-    | 'resume'
-    | 'portfolio'
-    | 'test_score'
-    | 'other';
+  documentType: ProgramRequiredDocType;
   label: string;
   required: boolean;
 }
@@ -189,10 +191,14 @@ export interface SignedUploadTicketDto {
   fields?: Record<string, string>;
 }
 
+// M10 — `documentType` here is the *applicant-visible* set (program-required
+// subset). The storage model can also hold `referee_letter`, but the DTO
+// re-maps it to `other` on the way out so officer/applicant views stay
+// consistent. See applicationDocumentService.toApplicationDocumentDto.
 export interface ApplicationDocumentDto {
   id: string;
   applicationId: string;
-  documentType: 'govid' | 'transcript' | 'resume' | 'portfolio' | 'test_score' | 'other';
+  documentType: ProgramRequiredDocType;
   label: string;
   url: string;
   key: string;

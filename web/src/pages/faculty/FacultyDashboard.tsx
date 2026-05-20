@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { coursesApi, timetableApi, facultyApi } from '../../lib/endpoints.js';
@@ -58,6 +59,67 @@ export function FacultyDashboard() {
         />
         <StatTile label="Students" value="—" tone="neutral" sub="Coming soon" />
       </div>
+
+      {/* M10 — Quick-access tiles. Faculty doc (LMS_Faculty_Features_Requirements_§5)
+          asks for one-tap routes to the workflows they use most. Each tile links
+          to an already-built page; deeper attendance jump-in lives on
+          /faculty/timetable today (pick today's class → SessionDetail). */}
+      <section aria-labelledby="quick-access-heading">
+        <h2 id="quick-access-heading" className="sr-only">
+          Quick access
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <QuickActionTile
+            to="/faculty/timetable"
+            title="Mark attendance"
+            subtitle="Today's classes"
+            tone="orange"
+            icon={
+              <path d="M4 5h16v3H4V5zm0 5h16v3H4v-3zm0 5h10v3H4v-3z" />
+            }
+          />
+          <QuickActionTile
+            to="/faculty/grading"
+            title="Grading queue"
+            subtitle={
+              gradingPending > 0
+                ? `${gradingPending} pending`
+                : 'Nothing pending'
+            }
+            tone={gradingPending > 0 ? 'orange' : 'navy'}
+            icon={
+              <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+            }
+          />
+          <QuickActionTile
+            to="/faculty/courses"
+            title="Course materials"
+            subtitle="PPTs · PDFs · videos"
+            tone="navy"
+            icon={
+              <path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z" />
+            }
+          />
+          <QuickActionTile
+            to="/faculty/timetable"
+            title="Timetable"
+            subtitle="Full week view"
+            tone="navy"
+            icon={
+              <path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z" />
+            }
+          />
+          <QuickActionTile
+            to="/profile/notifications"
+            title="Notifications"
+            subtitle="Alerts & preferences"
+            tone="navy"
+            icon={
+              <path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 0 0-5-5.9V4a1 1 0 1 0-2 0v1.1A6 6 0 0 0 6 11v5l-2 2v1h16v-1l-2-2z" />
+            }
+          />
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr,1fr]">
         {/* Courses list */}
@@ -159,6 +221,59 @@ export function FacultyDashboard() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function QuickActionTile({
+  to,
+  title,
+  subtitle,
+  tone,
+  icon,
+}: {
+  to: string;
+  title: string;
+  subtitle: string;
+  tone: 'navy' | 'orange';
+  icon: ReactNode;
+}) {
+  const accent =
+    tone === 'orange'
+      ? {
+          ring: 'group-hover:border-brand-orange/50',
+          bubble: 'bg-brand-orange/10 text-brand-orange group-hover:bg-brand-orange/15',
+        }
+      : {
+          ring: 'group-hover:border-brand-navy/30',
+          bubble: 'bg-brand-navy/5 text-brand-navy group-hover:bg-brand-navy/10',
+        };
+  return (
+    <Link
+      to={to}
+      className={`group flex items-start gap-3 rounded-2xl bg-white border border-black/5 shadow-elev-1 p-4 transition-all hover:shadow-elev-2 ${accent.ring}`}
+      aria-label={`${title} — ${subtitle}`}
+    >
+      <span
+        className={`shrink-0 rounded-xl p-2.5 transition-colors ${accent.bubble}`}
+        aria-hidden="true"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {icon}
+        </svg>
+      </span>
+      <span className="min-w-0">
+        <span className="block font-semibold text-sm text-brand-navy truncate group-hover:text-brand-orange transition-colors">
+          {title}
+        </span>
+        <span className="block text-xs text-muted mt-0.5 truncate">{subtitle}</span>
+      </span>
+    </Link>
   );
 }
 

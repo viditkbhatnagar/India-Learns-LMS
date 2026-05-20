@@ -1,20 +1,19 @@
 import mongoose, { Schema, model, type HydratedDocument, type Types } from 'mongoose';
+import {
+  APPLICATION_DOCUMENT_TYPES,
+  type ApplicationDocumentType,
+} from 'india-learns-shared-types';
 
 // M3a — Files uploaded by the applicant (Step 6) and by referees (M3b).
 // Stored in Cloudinary; this doc holds the application-side metadata + a
 // pointer to the storage key/URL. Files are private (Cloudinary
 // `authenticated` mode); the officer view fetches a signed URL on demand.
-
-export const APPLICATION_DOCUMENT_TYPES = [
-  'govid',
-  'transcript',
-  'resume',
-  'portfolio',
-  'test_score',
-  'other',
-  'referee_letter',
-] as const;
-export type ApplicationDocumentType = (typeof APPLICATION_DOCUMENT_TYPES)[number];
+//
+// M10 — The document-type list is now sourced from shared-types so the
+// program-required subset and the storage-level superset (which adds
+// `referee_letter`) stay in lock-step across api + web. SSLC / Plus Two /
+// Degree / Transfer certificate / Passport photo were added there.
+export { APPLICATION_DOCUMENT_TYPES, type ApplicationDocumentType };
 
 export interface ApplicationDocumentDoc {
   _id: Types.ObjectId;

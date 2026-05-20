@@ -45,6 +45,7 @@ import type {
   OutstandingFeesDto,
   PaymentDto,
   ProgramDto,
+  ProgramRequiredDocType,
   QuizAttemptDto,
   QuizDto,
   ReceiptDto,
@@ -178,7 +179,9 @@ export const programsApi = {
       admissionMode: 'cohort_pick' | 'program_only';
       applicationFeePaise: number;
       requiredDocs: Array<{
-        documentType: 'govid' | 'transcript' | 'resume' | 'portfolio' | 'test_score' | 'other';
+        // M10 — Sourced from shared-types so SSLC / Plus Two / Degree /
+        // Transfer Certificate / Passport Photo are accepted here too.
+        documentType: ProgramRequiredDocType;
         label: string;
         required: boolean;
       }>;

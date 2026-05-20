@@ -1,9 +1,11 @@
 import { Types } from 'mongoose';
-import type {
-  ApplicationDocumentDto,
-  RegisterDocumentInput,
-  SignDocumentUploadInput,
-  SignedUploadTicketDto,
+import {
+  APPLICATION_DOCUMENT_TYPE_LABELS,
+  type ApplicationDocumentDto,
+  type ApplicationDocumentType,
+  type RegisterDocumentInput,
+  type SignDocumentUploadInput,
+  type SignedUploadTicketDto,
 } from 'india-learns-shared-types';
 import { HttpError } from '../../middleware/error.js';
 import { getIntegrations } from '../../integrations/index.js';
@@ -12,7 +14,6 @@ import {
   ApplicationDocument,
   type HydratedApplicationDocument,
 } from '../../models/index.js';
-import type { ApplicationDocumentType } from '../../models/admissions/applicationDocument.js';
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -21,15 +22,9 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 const MAX_BYTES = 10 * 1024 * 1024;
 
-const TYPE_LABEL: Record<ApplicationDocumentType, string> = {
-  govid: 'Government ID',
-  transcript: 'Prior transcript',
-  resume: 'Resume / CV',
-  portfolio: 'Portfolio',
-  test_score: 'Test score report',
-  other: 'Supporting document',
-  referee_letter: 'Letter of recommendation',
-};
+// M10 — Labels now live in shared-types so api + web stay in sync when a
+// new program-required doc type is added (e.g. SSLC, Plus Two).
+const TYPE_LABEL: Record<ApplicationDocumentType, string> = APPLICATION_DOCUMENT_TYPE_LABELS;
 
 function ensureMimeAndSize(mime: string, size: number): void {
   if (!ALLOWED_MIME_TYPES.has(mime)) {
