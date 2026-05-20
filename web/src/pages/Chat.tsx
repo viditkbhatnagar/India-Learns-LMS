@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ChatMessageDto, ConversationDto } from 'india-learns-shared-types';
 import { chatApi } from '../lib/endpoints.js';
 import { useAuthStore } from '../store/auth.js';
+import { getChatSocket, disconnectChatSocket } from '../lib/chatSocket.js';
 import { Card, CardHeader } from '../components/ui/Card.js';
 import { Input } from '../components/ui/Input.js';
 import { Button } from '../components/ui/Button.js';
@@ -10,17 +11,19 @@ import { Skeleton, ErrorAlert, EmptyState } from '../components/ui/States.js';
 import { PageHeader } from '../components/ui/PageHeader.js';
 import { Badge } from '../components/ui/Badge.js';
 
-// M10e — Chat page (PR-E1). Two-column layout: conversation list on the
-// left, thread view on the right. New-message picker opens an inline
-// user search; clicking a result starts/opens a 1:1 conversation. Polls
-// every 5 seconds for new messages in the open thread, and every 15
-// seconds for the conversation list (unread counts).
+// M10e/M10m — Chat page. Two-column layout: conversation list on the
+// left, thread view on the right. Real-time via Socket.IO (M10m) with
+// polling as a fallback when the socket is down — both refresh the same
+// React Query caches, so any consumer (sidebar bell counts, thread
+// scroll, conversation-list badges) updates uniformly.
 
 const MESSAGE_POLL_MS = 5000;
 const CONVERSATION_POLL_MS = 15000;
 
 export function ChatPage() {
   const me = useAuthStore((s) => s.user)!;
+  const token = useAuthStore((s) => s.accessToken);
+  const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNewPicker, setShowNewPicker] = useState(false);
 
@@ -29,6 +32,35 @@ export function ChatPage() {
     queryFn: () => chatApi.listMyConversations(),
     refetchInterval: CONVERSATION_POLL_MS,
   });
+
+  // M10m — Socket.IO push. When the server pings us with
+  // `chat:conversation_touched` (someone sent a message to a
+  // conversation we belong to), invalidate the list query — React Query
+  // refetches once and every consumer (sidebar badges, this page's
+  // conversation list) updates. `chat:membership_added` does the same
+  // since a new conversation should appear in the sidebar.
+  useEffect(() => {
+    if (!token) return undefined;
+    const socket = getChatSocket(token);
+    const onTouched = (payload: { conversationId: string }) => {
+      qc.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+      qc.invalidateQueries({ queryKey: ['chat', 'messages', payload.conversationId] });
+    };
+    const onMembership = () => {
+      qc.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+    };
+    socket.on('chat:conversation_touched', onTouched);
+    socket.on('chat:membership_added', onMembership);
+    return () => {
+      socket.off('chat:conversation_touched', onTouched);
+      socket.off('chat:membership_added', onMembership);
+    };
+  }, [token, qc]);
+
+  // Disconnect on logout / page unmount when the auth token is cleared.
+  useEffect(() => () => {
+    if (!token) disconnectChatSocket();
+  }, [token]);
 
   // Auto-pick first conversation when none selected.
   useEffect(() => {
@@ -186,6 +218,7 @@ function ThreadView({
   meId: string;
 }) {
   const qc = useQueryClient();
+  const token = useAuthStore((s) => s.accessToken);
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -196,6 +229,27 @@ function ThreadView({
     queryFn: () => chatApi.listMessages(conversation.id),
     refetchInterval: MESSAGE_POLL_MS,
   });
+
+  // M10m — Join the per-conversation socket room on mount so incoming
+  // messages push instantly (no 5s wait). The poll above remains as a
+  // safety net for stale-tab / offline / dropped-connection scenarios.
+  useEffect(() => {
+    if (!token) return undefined;
+    const socket = getChatSocket(token);
+    let joined = false;
+    socket.emit('chat:join', conversation.id, (ok: boolean) => {
+      joined = ok;
+    });
+    const onMessage = (msg: ChatMessageDto) => {
+      if (msg.conversationId !== conversation.id) return;
+      qc.invalidateQueries({ queryKey: ['chat', 'messages', conversation.id] });
+    };
+    socket.on('chat:message', onMessage);
+    return () => {
+      socket.off('chat:message', onMessage);
+      if (joined) socket.emit('chat:leave', conversation.id);
+    };
+  }, [conversation.id, token, qc]);
 
   // Auto-mark read on open + on new messages.
   useEffect(() => {

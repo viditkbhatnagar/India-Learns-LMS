@@ -7,6 +7,7 @@ import type {
 } from 'india-learns-shared-types';
 import { HttpError } from '../middleware/error.js';
 import {
+  Batch,
   ChatMessage,
   Conversation,
   ConversationMembership,
@@ -14,6 +15,11 @@ import {
   type HydratedChatMessage,
   type HydratedConversation,
 } from '../models/index.js';
+import {
+  emitConversationTouched,
+  emitMembershipAdded,
+  emitMessage,
+} from '../chat/socketServer.js';
 
 // M10e — Internal chat service (PR-E1). 1:1 direct conversations,
 // polling-based delivery. Group chat + Socket.IO + file upload land
@@ -274,10 +280,25 @@ export async function sendMessage(
   ]);
 
   const sender = await User.findById(senderId).select({ name: 1, role: 1 }).lean();
-  return toMessageDto(doc, {
+  const dto = toMessageDto(doc, {
     name: (sender?.name as string) ?? null,
     role: (sender?.role as string) ?? null,
   });
+
+  // M10m — Real-time push. Emit to everyone joined to the conversation
+  // room (those who currently have the thread open), and ping every
+  // member's per-user room so their conversation-list refreshes the
+  // unread badge even when the thread isn't open.
+  emitMessage(conversationId.toString(), dto as unknown as Record<string, unknown>);
+  const members = await ConversationMembership.find({ conversationId })
+    .select({ userId: 1 })
+    .lean();
+  emitConversationTouched(
+    members.map((m: { userId: Types.ObjectId }) => m.userId.toString()),
+    conversationId.toString(),
+  );
+
+  return dto;
 }
 
 export async function markRead(
@@ -292,6 +313,113 @@ export async function markRead(
     { conversationId, userId },
     { $set: { lastReadAt: new Date() } },
   );
+}
+
+// ---------- Group chat (M10m) --------------------------------------
+
+// Ensures a single `group_batch` conversation exists for a given batch
+// + the caller is a member of it. Auto-membership is added on first
+// access for any active student in the batch; this is how the batch
+// group "auto-appears" for students post-enrolment without a separate
+// migration job.
+export async function getOrCreateBatchGroupConversation(
+  batchIdStr: string,
+  callerId: Types.ObjectId,
+  callerRole: string,
+): Promise<ConversationDto> {
+  if (!Types.ObjectId.isValid(batchIdStr)) {
+    throw new HttpError(404, 'NOT_FOUND', 'Batch not found.');
+  }
+  const batchId = new Types.ObjectId(batchIdStr);
+  const batch = await Batch.findById(batchId);
+  if (!batch || batch.deletedAt) {
+    throw new HttpError(404, 'NOT_FOUND', 'Batch not found.');
+  }
+
+  // Eligibility: the caller must be enrolled in the batch (student) OR
+  // be staff (faculty/admin/superadmin/admissions_officer).
+  const isStaff = ['faculty', 'admin', 'superadmin', 'admissions_officer'].includes(
+    callerRole,
+  );
+  const isMemberOfBatch = await User.exists({ _id: callerId, batchId });
+  if (!isStaff && !isMemberOfBatch) {
+    throw new HttpError(403, 'FORBIDDEN', 'You are not a member of this batch.');
+  }
+
+  let conv = await Conversation.findOne({
+    kind: 'group_batch',
+    batchId,
+    deletedAt: null,
+  });
+  if (!conv) {
+    try {
+      conv = await Conversation.create({
+        kind: 'group_batch',
+        title: batch.name,
+        batchId,
+        directPairKey: null,
+        lastMessageAt: new Date(),
+        createdBy: callerId,
+      });
+    } catch {
+      const winner = await Conversation.findOne({
+        kind: 'group_batch',
+        batchId,
+        deletedAt: null,
+      });
+      if (!winner) throw new HttpError(500, 'INTERNAL_ERROR', 'Could not create group.');
+      conv = winner;
+    }
+  }
+
+  // Ensure the caller is a member — add lazily.
+  const existingMembership = await ConversationMembership.findOne({
+    conversationId: conv._id,
+    userId: callerId,
+  });
+  if (!existingMembership) {
+    await ConversationMembership.create({
+      conversationId: conv._id,
+      userId: callerId,
+      role: isStaff ? 'admin' : 'member',
+      joinedAt: new Date(),
+      lastReadAt: new Date(0),
+    });
+    emitMembershipAdded(callerId.toString(), conv._id.toString());
+  }
+
+  // Also lazily add every active student of the batch — this is the
+  // "group auto-appears for the whole batch" behaviour. Idempotent via
+  // the unique compound index.
+  const batchStudents = await User.find({ batchId, role: 'student', status: 'active' })
+    .select({ _id: 1 })
+    .lean();
+  if (batchStudents.length > 0) {
+    const existingIds = new Set(
+      (await ConversationMembership.find({ conversationId: conv._id })
+        .select({ userId: 1 })
+        .lean()).map((m: { userId: Types.ObjectId }) => m.userId.toString()),
+    );
+    const toAdd = batchStudents
+      .filter((s) => !existingIds.has(String(s._id)))
+      .map((s) => ({
+        conversationId: conv!._id,
+        userId: s._id,
+        role: 'member' as const,
+        joinedAt: new Date(),
+        lastReadAt: new Date(0),
+      }));
+    if (toAdd.length > 0) {
+      try {
+        await ConversationMembership.insertMany(toAdd, { ordered: false });
+        for (const m of toAdd) emitMembershipAdded(m.userId.toString(), conv._id.toString());
+      } catch {
+        // Duplicate-key racing inserts — fine, just continue.
+      }
+    }
+  }
+
+  return toConversationDto(conv, callerId);
 }
 
 // ---------- Search users to start a chat with -----------------------
