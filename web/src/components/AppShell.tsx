@@ -154,6 +154,13 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Announcements', to: '/announcements', icon: Icon.feedback },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
+  // M10w — Superadmin nav was drifting behind admin's. Logan / Vidit
+  // logs in as superadmin most of the time, so we mirror the full admin
+  // sidebar here and just add the superadmin-only "Curriculum import"
+  // + "Admissions" entries on top. Going forward, ALWAYS add new
+  // sidebar items to BOTH admin and superadmin (or, ideally, define
+  // one list and reuse it — to be refactored when the next nav addition
+  // lands).
   superadmin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
     { label: 'Users', to: '/admin/users', icon: Icon.users },
@@ -162,17 +169,22 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Curriculum import', to: '/admin/curriculum-import', icon: Icon.book },
     { label: 'Batches', to: '/admin/batches', icon: Icon.grid },
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
-    { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
-    { label: 'Finance', to: '/finance/dashboard', icon: Icon.rupee },
-    { label: 'Admissions', to: '/admissions/dashboard', icon: Icon.users },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
-    // M10 — Reports for everyone (admin sees all batches).
+    { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
+    // M10s — Visitor Leads (pre-application funnel).
+    { label: 'Visitor Leads', to: '/admin/visitor-leads', icon: Icon.users },
+    // M10u — Staff attendance roster.
+    { label: 'Staff attendance', to: '/admin/staff-attendance', icon: Icon.calendar },
+    // M10r — Finance screens (admin-gated now).
+    { label: 'Finance', to: '/finance/dashboard', icon: Icon.rupee },
+    { label: 'Record payment', to: '/finance/payments/new', icon: Icon.plus },
+    { label: 'Fee structures', to: '/admin/fee-structures', icon: Icon.folder },
+    // Admissions module (superadmin-only entry — the apply / officer
+    // pipeline isn't in admin's default sidebar today).
+    { label: 'Admissions', to: '/admissions/dashboard', icon: Icon.users },
     { label: 'Reports', to: '/reports', icon: Icon.folder },
-    // M10f — Placement console.
     { label: 'Placement', to: '/admin/placement', icon: Icon.users },
-    // M10e — Internal chat (PR-E1).
     { label: 'Chat', to: '/chat', icon: Icon.feedback },
-    // M10j — Announcements.
     { label: 'Announcements', to: '/announcements', icon: Icon.feedback },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
