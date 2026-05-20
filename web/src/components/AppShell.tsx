@@ -97,6 +97,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Tickets', to: '/student/tickets', icon: Icon.ticket },
     { label: 'Feedback', to: '/student/feedback', icon: Icon.feedback },
     { label: 'Certificates', to: '/student/certificates', icon: Icon.award },
+    // M10f — Placement jobs feed.
+    { label: 'Jobs', to: '/jobs', icon: Icon.users },
   ],
   faculty: [
     { label: 'Dashboard', to: '/faculty/dashboard', icon: Icon.home },
@@ -131,6 +133,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
     // M10 — Cross-batch attendance / assignment / fees reports.
     { label: 'Reports', to: '/reports', icon: Icon.folder },
+    // M10f — Placement console (companies + postings + analytics).
+    { label: 'Placement', to: '/admin/placement', icon: Icon.users },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
   superadmin: [
@@ -147,6 +151,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
     // M10 — Reports for everyone (admin sees all batches).
     { label: 'Reports', to: '/reports', icon: Icon.folder },
+    // M10f — Placement console.
+    { label: 'Placement', to: '/admin/placement', icon: Icon.users },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
   // Admissions M1 — applicant has the LMS shell so they can log out, see

@@ -177,6 +177,9 @@ export function ApplySignupPage() {
           personalAddress: null,
           emergencyContact: null,
           parentGuardian: null,
+          // M10f — Placement resume URL; applicants never have one until
+          // they convert to students and upload via Profile.
+          resumeUrl: null,
           createdAt: result.application.createdAt,
           updatedAt: result.application.updatedAt,
           deletedAt: null,

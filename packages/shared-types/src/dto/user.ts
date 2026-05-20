@@ -44,6 +44,8 @@ export interface UserPublicDto {
   personalAddress: PersonalAddressDto | null;
   emergencyContact: ContactRefDto | null;
   parentGuardian: ContactRefDto | null;
+  // M10f — Placement / Jobs. Single canonical resume URL; null until set.
+  resumeUrl: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -79,6 +81,8 @@ export interface UpdateUserInput {
   personalAddress?: PersonalAddressDto | null;
   emergencyContact?: ContactRefDto | null;
   parentGuardian?: ContactRefDto | null;
+  // M10f — Placement / Jobs resume.
+  resumeUrl?: string | null;
 }
 
 export interface UserListQuery {

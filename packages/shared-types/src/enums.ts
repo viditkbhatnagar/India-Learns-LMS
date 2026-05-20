@@ -374,6 +374,34 @@ export const APPLICATION_DOCUMENT_TYPE_LABELS: Record<ApplicationDocumentType, s
   referee_letter: 'Letter of recommendation',
 };
 
+// M10 — Placement / Jobs module (LMS_Requirements §3).
+//
+// `JobPosting` lifecycle: draft (admin curating) → published (visible to
+// students) → closed (deadline passed or filled). `JobApplication`
+// lifecycle is the typical funnel from applied through to selected /
+// rejected / withdrawn; statuses align with what placement teams already
+// track in spreadsheets so the import path is short.
+export const JOB_EMPLOYMENT_TYPES = [
+  'full_time',
+  'part_time',
+  'internship',
+  'contract',
+] as const;
+export type JobEmploymentType = (typeof JOB_EMPLOYMENT_TYPES)[number];
+
+export const JOB_POSTING_STATES = ['draft', 'published', 'closed'] as const;
+export type JobPostingState = (typeof JOB_POSTING_STATES)[number];
+
+export const JOB_APPLICATION_STATUSES = [
+  'applied',
+  'shortlisted',
+  'interview_scheduled',
+  'selected',
+  'rejected',
+  'withdrawn',
+] as const;
+export type JobApplicationStatus = (typeof JOB_APPLICATION_STATUSES)[number];
+
 // Admissions module (M1+) — application lifecycle state.
 // Decisions are recorded on the Application as terminal transitions; the
 // state machine guards in routes/services enforce legal transitions.
