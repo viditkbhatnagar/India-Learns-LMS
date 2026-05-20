@@ -13,7 +13,6 @@ import {
   makeFeeStructure,
   makeProgram,
   makeStudent,
-  makeUser,
 } from '../helpers/factories.js';
 import { generateForEnrollment } from '../../src/services/invoiceGenerationService.js';
 
@@ -75,10 +74,10 @@ describe('GET /v1/students/me/fees (and /:id alias)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('finance can fetch any student\'s fees', async () => {
+  it('admin can fetch any student\'s fees (M10r — admin owns finance)', async () => {
     const { student } = await seed();
-    const finance = await makeUser({ role: 'finance' });
-    const at = await tokenFor(finance);
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
     const res = await http()
       .get(`/v1/students/${String(student._id)}/fees`)
       .set(bearer(at));

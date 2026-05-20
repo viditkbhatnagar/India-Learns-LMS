@@ -46,7 +46,7 @@ export function StudentFees() {
             <p className="font-semibold">Access status: {fees.accessState}</p>
             <p className="text-sm opacity-90 mt-0.5">
               {fees.accessState === 'suspended'
-                ? 'Your access has been suspended due to unpaid fees. Please contact finance.'
+                ? 'Your access has been suspended due to unpaid fees. Please contact the office.'
                 : 'Your account is flagged for overdue fees. Pay soon to keep your access.'}
             </p>
           </div>

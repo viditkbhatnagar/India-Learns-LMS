@@ -173,14 +173,40 @@ export async function createCourse(
   return doc;
 }
 
+// M10r — Course-level content vs. structural split.
+//   Content fields (faculty can edit on assigned courses): `summary`.
+//   Structural fields (admin / superadmin only): everything else.
+const FACULTY_COURSE_PATCH_FIELDS = new Set<keyof UpdateCourseInput>(['summary']);
+
 export async function updateCourse(
   id: string,
   patch: UpdateCourseInput,
-  actor: { role: Role } & ActorContext,
+  actor: { role: Role; userId?: Types.ObjectId } & ActorContext,
 ): Promise<HydratedCourse> {
-  assertAdmin(actor.role, 'update');
   const doc = await Course.findOne({ _id: requireId(id), deletedAt: null });
   if (!doc) throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
+
+  const isAdmin = actor.role === 'admin' || actor.role === 'superadmin';
+  if (!isAdmin) {
+    // Faculty path — must be assigned to this course and may only touch
+    // content fields. Block as 403 if any structural field is included.
+    if (actor.role !== 'faculty' || !actor.userId) {
+      throw new HttpError(403, 'FORBIDDEN', 'Only staff may update courses.');
+    }
+    if (!facultyAssignedToCourse(doc, actor.userId)) {
+      throw new HttpError(403, 'FORBIDDEN', 'Not assigned to this course.');
+    }
+    for (const key of Object.keys(patch) as (keyof UpdateCourseInput)[]) {
+      if (patch[key] !== undefined && !FACULTY_COURSE_PATCH_FIELDS.has(key)) {
+        throw new HttpError(
+          403,
+          'FORBIDDEN',
+          `Faculty can only edit course summary; "${key}" is admin-only.`,
+        );
+      }
+    }
+  }
+
   const before = doc.toObject();
   if (patch.name !== undefined) doc.name = patch.name.trim();
   if (patch.slug !== undefined) {

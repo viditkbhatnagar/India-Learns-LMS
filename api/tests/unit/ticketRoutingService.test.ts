@@ -74,13 +74,22 @@ describe('ticketRoutingService.routeTicket', () => {
     expect(result.assigneeUserId?.toString()).toBe(admin._id.toString());
   });
 
-  it('routes finance tickets to finance role users', async () => {
-    const fin = await makeUser({ role: 'finance' });
+  it('routes finance tickets to admin with deptTag=finance (M10r)', async () => {
+    const fin = await makeUser({ role: 'admin', deptTag: 'finance' });
     const result = await routeTicket({
       category: 'finance',
       linkedCourseId: null,
     });
     expect(result.assigneeUserId?.toString()).toBe(fin._id.toString());
+  });
+
+  it('falls back to any admin when no admin has deptTag=finance', async () => {
+    const someAdmin = await makeUser({ role: 'admin' });
+    const result = await routeTicket({
+      category: 'finance',
+      linkedCourseId: null,
+    });
+    expect(result.assigneeUserId?.toString()).toBe(someAdmin._id.toString());
   });
 
   it('routes complaints to first superadmin and notifies the whole pool', async () => {

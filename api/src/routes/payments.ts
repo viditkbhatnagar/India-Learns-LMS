@@ -35,7 +35,7 @@ export function paymentsRouter(): Router {
 
   router.post(
     '/',
-    requireRole('finance', 'admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = RecordPaymentBody.parse(req.body);
@@ -61,7 +61,7 @@ export function paymentsRouter(): Router {
 
   router.post(
     '/:id/reverse',
-    requireRole('finance', 'admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = ReverseBody.parse(req.body);

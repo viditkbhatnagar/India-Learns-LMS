@@ -303,14 +303,14 @@ export function App() {
             }
           />
 
-          {/* M10 — Reports module. Admin, finance, faculty + admissions
-              officer can hit it; faculty are further scoped server-side to
-              batches they teach. */}
+          {/* M10 — Reports module. Admin, faculty + admissions officer can
+              hit it; faculty are further scoped server-side to batches they
+              teach. (M10r: finance role removed; admin owns finance reports.) */}
           <Route
             path="/reports"
             element={
               <RequireAuth>
-                <RequireRole roles={['admin', 'superadmin', 'finance', 'faculty', 'admissions_officer']}>
+                <RequireRole roles={['admin', 'superadmin', 'faculty', 'admissions_officer']}>
                   <ReportsPage />
                 </RequireRole>
               </RequireAuth>
@@ -411,12 +411,14 @@ export function App() {
             }
           />
 
-          {/* Finance */}
+          {/* Finance screens — M10r: admin handles all finance work now. URLs
+              kept under /finance/* so existing bookmarks survive; sidebar nav
+              surfaces them under the admin section. */}
           <Route
             path="/finance/*"
             element={
               <RequireAuth>
-                <RequireRole roles={['finance', 'superadmin']}>
+                <RequireRole roles={['admin', 'superadmin']}>
                   <Routes>
                     <Route path="dashboard" element={<FinanceDashboard />} />
                     <Route path="students" element={<FinanceStudentsPage />} />

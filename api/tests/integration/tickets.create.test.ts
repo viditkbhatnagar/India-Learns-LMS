@@ -16,7 +16,8 @@ async function seedRouting(): Promise<void> {
   const { user: faculty } = await makeFaculty();
   faculty.isCourseCoordinator = true;
   await faculty.save();
-  await makeUser({ role: 'finance' });
+  // M10r — finance-category tickets route to admin (deptTag='finance' preferred).
+  await makeUser({ role: 'admin', deptTag: 'finance' });
   await makeUser({ role: 'superadmin' });
 }
 

@@ -444,7 +444,7 @@ export async function searchChatTargets(
   const docs = await User.find({
     _id: { $ne: callerId },
     deletedAt: null,
-    role: { $in: ['student', 'faculty', 'admin', 'superadmin', 'finance', 'admissions_officer'] },
+    role: { $in: ['student', 'faculty', 'admin', 'superadmin', 'admissions_officer'] },
     $or: [
       { name: { $regex: safe, $options: 'i' } },
       { email: { $regex: safe, $options: 'i' } },

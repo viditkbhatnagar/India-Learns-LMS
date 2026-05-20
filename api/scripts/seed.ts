@@ -219,24 +219,9 @@ async function seedOverride(
   return { inserted: 1, skipped: 0 };
 }
 
-async function seedFinanceStaff(): Promise<{ inserted: number; skipped: number }> {
-  const email = 'finance-seed-1@luc.local';
-  let user = await User.findOne({ email });
-  if (user) return { inserted: 0, skipped: 1 };
-  const passwordHash = await hashPassword('Finance#12345');
-  user = await User.create({
-    role: 'finance',
-    code: null,
-    name: 'Seed Finance One',
-    email,
-    phoneE164: '+911234567891',
-    status: 'active',
-    passwordHash,
-    passwordUpdatedAt: new Date(),
-    deptTag: 'finance',
-  });
-  return { inserted: 1, skipped: 0 };
-}
+// M10r — `finance` role removed. The admin user picks up everything the
+// finance seed used to do (record payments, view collections, issue
+// receipts). Helper deleted; the main() runner no longer calls it.
 
 async function seedFeeStructure(
   programSlug: string,
@@ -460,6 +445,7 @@ async function seedTickets(
   }
 
   // 3. Finance ticket — proves the fees-suspension whitelist (D-052).
+  //    M10r — finance role removed; ticket is routed to admin.
   const financeSubject = 'Installment receipt missing my name';
   const financeExists = await Ticket.findOne({
     studentId: student._id,
@@ -467,7 +453,7 @@ async function seedTickets(
   });
   if (!financeExists) {
     const code = await nextTicketCode('finance', year);
-    const finance = await User.findOne({ email: 'finance-seed-1@luc.local' });
+    const admin = await User.findOne({ role: 'admin', deletedAt: null });
     await Ticket.create({
       code,
       category: 'finance',
@@ -475,9 +461,9 @@ async function seedTickets(
       studentId: student._id,
       subject: financeSubject,
       description: 'Name mis-spelled on the registration receipt — please reissue.',
-      state: finance ? 'assigned' : 'open',
-      assigneeUserId: finance?._id ?? null,
-      assignedAt: finance ? now : null,
+      state: admin ? 'assigned' : 'open',
+      assigneeUserId: admin?._id ?? null,
+      assignedAt: admin ? now : null,
       slaAckDeadline: new Date(now.getTime() + 24 * 60 * 60 * 1000),
       slaResolveDeadline: new Date(now.getTime() + 5 * DAY),
     });
@@ -608,9 +594,7 @@ async function main(): Promise<void> {
   const holidayRes = await seedHoliday();
   logger.info(holidayRes, 'holiday seeded');
 
-  const financeRes = await seedFinanceStaff();
-  logger.info(financeRes, 'finance user seeded');
-
+  // M10r — finance user removed; admin records seed payments.
   const feeStructureRes = await seedFeeStructure('aviation-diploma');
   logger.info(feeStructureRes, 'fee structure seeded');
 
@@ -621,12 +605,12 @@ async function main(): Promise<void> {
     );
   logger.info({ inserted: sInserted, skipped: sSkipped }, 'student + enrolment seeded');
 
-  const finance = await User.findOne({ email: 'finance-seed-1@luc.local' });
-  if (student && enrolment && finance) {
-    const feesRes = await seedSampleFees(student, enrolment._id, finance._id);
+  const admin = await User.findOne({ role: 'admin' });
+  if (student && enrolment && admin) {
+    const feesRes = await seedSampleFees(student, enrolment._id, admin._id);
     logger.info(feesRes, 'invoices + installments seeded');
 
-    const payRes = await seedSamplePayment(student, finance._id);
+    const payRes = await seedSamplePayment(student, admin._id);
     logger.info(payRes, 'sample payment seeded');
   }
 

@@ -30,8 +30,7 @@ export function defaultRouteForRole(role: Role): string {
       return '/student/dashboard';
     case 'faculty':
       return '/faculty/dashboard';
-    case 'finance':
-      return '/finance/dashboard';
+    // M10r — `finance` role removed; admin owns finance now.
     case 'admin':
     case 'superadmin':
       return '/admin/dashboard';

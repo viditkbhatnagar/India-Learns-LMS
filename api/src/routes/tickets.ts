@@ -171,19 +171,19 @@ export function ticketsRouter(): Router {
   };
   router.post(
     '/:id/state',
-    requireRole('faculty', 'finance', 'admin', 'superadmin'),
+    requireRole('faculty', 'admin', 'superadmin'),
     stateHandler,
   );
   router.patch(
     '/:id/state',
-    requireRole('faculty', 'finance', 'admin', 'superadmin'),
+    requireRole('faculty', 'admin', 'superadmin'),
     stateHandler,
   );
 
   // Staff reopen (7-day window)
   router.post(
     '/:id/reopen',
-    requireRole('faculty', 'finance', 'admin', 'superadmin'),
+    requireRole('faculty', 'admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = ReopenBody.parse(req.body ?? {});

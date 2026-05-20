@@ -290,14 +290,7 @@ Anything blocked on Logan / Vidit / external input. Reference Q-numbers when rai
 **Context:** 3 `student-journey.spec.ts` assertions failed after login now works: (1) `dashboard tiles render with seeded data` — the expected tile text didn't match the current dashboard copy; (2) `navigates to courses, fees, tickets` — sidebar link label regex didn't match (app renders "My Courses" vs test expects "Courses", or similar drift); (3) `opens the new-ticket form` — `getByLabel(/description/i)` doesn't find the textarea (might be rendered as an aria-label or placeholder, not a `<label>`). Each is ~5 minutes of either aligning the test regex to the current copy or adding a matching `<label>` on the form. Not a launch blocker — the app itself works in the browser; this is test brittleness.
 **Impact:** Low. Playwright coverage is reduced until fixed; real users are unaffected.
 
-## Q-VERIFY-02 — Atlas cluster region not yet verified for BRD BR-11 (DPDP Act)
+## Q-VERIFY-02 — Atlas cluster region — **DECIDED 2026-05-20 (operator)**
+**Decided:** 2026-05-20 — operator confirmed the existing Atlas cluster stays as-is for Phase 1. No fresh provisioning. M10q (GridFS) also uses this same cluster for file storage. Region confirmation for BRD BR-11 (DPDP Act) is something the operator will validate against the Atlas dashboard themselves; not a code or config blocker.
 **Raised:** 2026-04-22 (pre-launch verification).
-**Owner:** Vidit.
-**Context:** B1 used a pre-existing `dev.gdddmth.mongodb.net` cluster (user `agi_admin`, db `india_learns`) rather than provisioning a fresh `india-learns-verify` in AWS ap-south-1. BRD BR-11 (DPDP Act 2023) requires Indian data residency for student PII. Before pointing prod at this cluster, confirm region = ap-south-1 (Mumbai) in Atlas UI → Database → Cluster info, OR provision a new cluster in the right region for prod.
-**Impact:** Medium. Dev/verification safe; cannot be the prod cluster without region confirmation.
-
-## Q-VERIFY-02 — Atlas cluster region not yet verified for BRD BR-11 (DPDP Act)
-**Raised:** 2026-04-22 (pre-launch verification).
-**Owner:** Vidit.
-**Context:** B1 used a pre-existing `dev.gdddmth.mongodb.net` cluster (user `agi_admin`, db `india_learns`) rather than provisioning a fresh `india-learns-verify` in AWS ap-south-1. BRD BR-11 (DPDP Act 2023) requires Indian data residency for student PII. Before pointing prod at this cluster, confirm region = ap-south-1 (Mumbai) in Atlas UI → Database → Cluster info, OR provision a new cluster in the right region for prod.
-**Impact:** Medium. Dev/verification safe; cannot be the prod cluster without region confirmation.
+**Owner:** Vidit (closed by operator).

@@ -49,7 +49,7 @@ export function AdminTicketDetailPage() {
   const staffQ = useQuery({
     queryKey: ['admin', 'ticket-staff'],
     queryFn: async () => {
-      const roles = ['admin', 'superadmin', 'faculty', 'finance'] as const;
+      const roles = ['admin', 'superadmin', 'faculty'] as const;
       const lists = await Promise.all(roles.map((r) => usersApi.list({ role: r })));
       return lists.flat();
     },

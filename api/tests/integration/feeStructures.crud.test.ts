@@ -4,7 +4,7 @@ import { useMongo } from '../helpers/db.js';
 import { useIntegrationSpies } from '../helpers/integrations.js';
 import { http } from '../helpers/http.js';
 import { bearer, tokenFor } from '../helpers/auth.js';
-import { makeAdmin, makeProgram, makeStudent, makeUser } from '../helpers/factories.js';
+import { makeAdmin, makeProgram, makeStudent } from '../helpers/factories.js';
 
 describe('POST /v1/fee-structures', () => {
   useMongo();
@@ -80,30 +80,9 @@ describe('POST /v1/fee-structures', () => {
     expect(res.status).toBe(403);
   });
 
-  it('finance can list but cannot create', async () => {
-    const finance = await makeUser({ role: 'finance' });
-    const program = await makeProgram();
-    const at = await tokenFor(finance);
-    const list = await http().get('/v1/fee-structures').set(bearer(at));
-    expect(list.status).toBe(200);
-    const create = await http()
-      .post('/v1/fee-structures')
-      .set(bearer(at))
-      .send({
-        programId: String(program._id),
-        name: 'X',
-        components: [
-          {
-            kind: 'registration',
-            label: 'Reg',
-            amountPaise: 100,
-            cadence: 'one_time',
-            dueRule: 'on_enrolment',
-          },
-        ],
-      });
-    expect(create.status).toBe(403);
-  });
+  // M10r — `finance` role removed. Admin can both list AND create fee
+  // structures (already covered by the "admin can create" tests above);
+  // no separate finance-can-list test needed.
 
   it('rejects monthly_x without monthlyCount', async () => {
     const { user: admin } = await makeAdmin();

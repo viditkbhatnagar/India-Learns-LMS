@@ -75,28 +75,8 @@ const TABS_BY_ROLE: Record<Role, Tab[]> = {
       icon: <Icon><path d="M21 12a9 9 0 11-3.6-7.2L21 3v6h-6" /></Icon>,
     },
   ],
-  finance: [
-    {
-      label: 'Home',
-      to: '/finance/dashboard',
-      icon: <Icon><path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1z" /></Icon>,
-    },
-    {
-      label: 'Record',
-      to: '/finance/payments/new',
-      icon: <Icon><path d="M12 5v14M5 12h14" /></Icon>,
-    },
-    {
-      label: 'Payments',
-      to: '/finance/payments',
-      icon: <Icon><path d="M3 7h18v10H3z" /><path d="M3 11h18" /></Icon>,
-    },
-    {
-      label: 'Students',
-      to: '/finance/students',
-      icon: <Icon><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0116 0" /></Icon>,
-    },
-  ],
+  // M10r — `finance` role removed; admin's bottom-tab gets the "Record
+  // payment" shortcut so the mobile finance workflow is one tap away.
   admin: [
     {
       label: 'Home',
@@ -114,9 +94,9 @@ const TABS_BY_ROLE: Record<Role, Tab[]> = {
       icon: <Icon><path d="M3 7h18v4a2 2 0 000 4v4H3v-4a2 2 0 000-4z" /></Icon>,
     },
     {
-      label: 'Analytics',
-      to: '/admin/dashboard',
-      icon: <Icon><path d="M3 17l6-6 4 4 8-8" /></Icon>,
+      label: 'Record',
+      to: '/finance/payments/new',
+      icon: <Icon><path d="M12 5v14M5 12h14" /></Icon>,
     },
   ],
   superadmin: [

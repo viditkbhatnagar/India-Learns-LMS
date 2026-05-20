@@ -87,7 +87,6 @@ const UserSchema = new Schema<UserDoc>(
       enum: [
         'admin',
         'superadmin',
-        'finance',
         'faculty',
         'student',
         'applicant',

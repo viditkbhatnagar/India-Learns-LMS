@@ -71,10 +71,10 @@ describe('POST /v1/enrollments/:id/generate-fees', () => {
     expect(installments.length).toBe(4);
   });
 
-  it('rejects finance role (admin-only)', async () => {
+  it('rejects non-admin role (admin-only)', async () => {
     const { enrolment } = await seed();
-    const { user: finance } = await makeStudent(); // any non-admin role; use student
-    const at = await tokenFor(finance);
+    const { user: student } = await makeStudent();
+    const at = await tokenFor(student);
     const res = await http()
       .post(`/v1/enrollments/${String(enrolment._id)}/generate-fees`)
       .set(bearer(at));

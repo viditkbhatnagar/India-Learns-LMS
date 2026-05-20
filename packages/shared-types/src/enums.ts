@@ -1,7 +1,11 @@
+// M10r — `finance` role removed (D-095). Admin handles every finance
+// responsibility now (payments, receipts, fee structures, suspension
+// overrides, finance-category tickets). `'finance'` survives as a
+// ticket category + dept tag (subject-matter labels), but no user has
+// `role: 'finance'` any more.
 export const ROLES = [
   'admin',
   'superadmin',
-  'finance',
   'faculty',
   'student',
   'applicant',

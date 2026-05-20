@@ -51,11 +51,16 @@ export function meFeeRouter(): Router {
   return router;
 }
 
-/** Mounted at `/v1/admissions/finance` — finance staff record payments. */
+/**
+ * Mounted at `/v1/admissions/finance` — admin records application payments.
+ * (M10r: the dedicated `finance` role is gone; admin owns this surface now.
+ * Route URL keeps the `/finance` segment for backward compatibility with any
+ * external links / docs that already point here.)
+ */
 export function financeAdmissionsRouter(): Router {
   const router = Router();
   router.use(requireAuth);
-  router.use(requireRole('finance', 'admin', 'superadmin'));
+  router.use(requireRole('admin', 'superadmin'));
 
   router.get(
     '/applications/:id/fee',
@@ -99,7 +104,7 @@ export function financeAdmissionsRouter(): Router {
 export function officerFeeRoutes(): Router {
   const router = Router();
   router.use(requireAuth);
-  router.use(requireRole('admissions_officer', 'admin', 'superadmin', 'finance'));
+  router.use(requireRole('admissions_officer', 'admin', 'superadmin'));
 
   router.get(
     '/applications/:id/fee',
