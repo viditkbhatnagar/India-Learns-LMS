@@ -687,3 +687,41 @@ Append-only log. Every entry: ID, date, decision, why, source.
 - 'finance' as a TICKET_CATEGORY survives — students still raise fee questions under that label; tickets just route to admin instead of a dedicated finance role.
 
 **How to apply:** Faculty editing capability is enforced server-side (field allowlist + facultyAssignedToCourse check). Frontend can call existing endpoints (modulesApi.update, coursesApi.update) with content fields; admin retains full access. Migration note for any DB rows that still have `role: 'finance'`: those users will fail `User.role` enum validation on save. Pre-launch this isn't a real concern (no production finance users); if any creep in, run a one-time `db.users.updateMany({ role: 'finance' }, { $set: { role: 'admin', deptTag: 'finance' } })` migration.
+
+## D-096 — Visitor Leads + manual installments + faculty publish + completion notifications
+**Date:** 2026-05-20 (M10s)
+**Why:** Logan's "LMS Visitor List Template" telegram message + the attached Student_Fee_Structure_and_Schedule.xlsx + the explicit role split ("Admin (IT/System Contact): records payments, generates receipts, receives course-completion notifications" + "Faculty: adds and edits content, publishes courses to students"). User explicitly excluded: online payments (D-090 still stands) and OTP-send for visitor leads.
+
+**Changes — Visitor Leads (admin-captured prospect funnel):**
+- New `VisitorLead` Mongoose model + DTO + service + admin CRUD routes (`/v1/visitor-leads`).
+- Schema fields: firstName / lastName / highestQualification / dateOfBirth / currentAddress / phoneE164 / email / parentGuardianContact / leadSource / socialMediaId / otpVerificationStatus / status / notes / assignedToUserId / convertedApplicationId / createdByUserId.
+- Lead source enum: `reference | google | social_media | walk_in | meta | agent | other` (mirrors the Excel "Source" column + the screenshot dropdown).
+- Status enum: `new | contacted | qualified | converted | dropped`.
+- Partial unique index on `phoneE164` (active rows only) so soft-deleted leads free the phone for re-capture.
+- `otpVerificationStatus` is a manual flag — no OTP send in V1; admin toggles Pending → Verified after a phone call.
+- AdminVisitorLeadsPage (web) — list + filters (q / status / source) + create/edit modal + soft-delete.
+- Sidebar entry under admin section.
+
+**Changes — Manual installment management:**
+- New `installmentService.ts` + `/v1/installments` routes (admin-only): `POST` add custom row, `PATCH /:id` edit label/amount/dueDate/status, `POST /:id/waive` shorthand.
+- Every mutation recomputes the parent invoice's `totalPaise` / `paidPaise` / `balancePaise` + flips `status` to `'settled'` when fully paid. Waived rows excluded from totals.
+- Audit log entries (`fees.installment.created`, `fees.installment.updated`) added to AUDIT_ACTIONS.
+- FinanceStudentDetailPage rebuilt with an Installments card that surfaces Edit / Waive on every row + an "Add installment to an invoice" button per existing invoice.
+- Use case (from Logan's Excel): admin auto-generates installments from FeeStructure templates, then adds custom rows like "Registration Fee — Seat Reservation" and "Admission Fee — Upon Admission" with their own amounts + due dates.
+
+**Changes — Faculty publishes courses:**
+- `publishCourse` + `unpublishCourse` opened to faculty assigned to the course (via `facultyAssignedToCourse`). Admin / superadmin still unrestricted.
+- New `assertCanPublishCourse(course, actor)` guard in courseService.
+- PATCH route gate widened from `requireRole('admin', 'superadmin')` to include `'faculty'`; service layer enforces the assignment.
+- CourseShell header now shows "Publish course" / "Unpublish" buttons to anyone with `canWrite=true` (faculty on roster OR admin/superadmin).
+
+**Changes — Course completion notification to admin:**
+- Sibling listener on `course.completed` domain event in `certificateService.ts`. Pings every active admin + superadmin via `enqueueNotification` with type `'student.course_completed'`. Failure is isolated from certificate issuance — admin notif failure doesn't block the cert.
+- New NotificationType added to enum + CHANNELS_BY_TYPE map (inapp + email, no WhatsApp since no template approved).
+
+**What stays the same:**
+- Online payments — still declined (D-090).
+- OTP send for visitor leads — explicitly excluded by Logan ("except sending otp build everything").
+- Course creation / deletion / faculty roster assignment — still admin-only (structural).
+
+**Deliverable:** `docs/guides/India_Learns_Admin_Faculty_Guide.docx` — step-by-step user guide for admin + faculty covering every feature shipped in PRs A–S. Generated at the end of the session and saved to the repo + the operator's Downloads.

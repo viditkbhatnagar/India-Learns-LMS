@@ -227,6 +227,7 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] **PR #38 / m10p** — Interview scheduling modal (replace window.prompt)
 - [x] **PR #39 / m10q** — MongoDB GridFS file storage (D-094) — direct file upload via `/v1/files/upload`; resume / student-documents / chat-attachments all now upload through GridFS by default. No Cloudinary credentials needed.
 - [x] **PR #40 / m10r** — Finance role removed; admin owns finance now (D-095). Faculty content perms expanded: assigned faculty can PATCH module title/order + DELETE modules + PATCH course `summary`. Sweep covers 60+ files: enum, routes, services, models, seeds, frontend, tests, memory.
+- [x] **PR #41 / m10s** — Visitor Leads admin CRUD module (pre-application funnel, no OTP send); manual installment management (add/edit/waive on top of auto-gen); faculty can publish + unpublish courses on assigned courses; admin gets a notification when any student completes a course; Admin & Faculty User Guide docx generated to `docs/guides/`. (D-096)
 
 ### Deferred to follow-up session (D-093)
 - [ ] **PR-E — Internal Chat (real-time, full).** Planned as 3-4 sub-PRs:

@@ -72,6 +72,26 @@ export function CourseShell(): JSX.Element {
     onError: (e) => setDeleteError(e instanceof ApiHttpError ? e.message : 'Delete failed.'),
   });
 
+  // M10s — Publish + Unpublish. Faculty on roster can now do this too
+  // (backend enforces facultyAssignedToCourse).
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const publishMut = useMutation({
+    mutationFn: () => coursesApi.publish(id),
+    onSuccess: () => {
+      setPublishError(null);
+      qc.invalidateQueries({ queryKey: ['course', id, 'shell'] });
+    },
+    onError: (e) => setPublishError(e instanceof ApiHttpError ? e.message : 'Publish failed.'),
+  });
+  const unpublishMut = useMutation({
+    mutationFn: () => coursesApi.unpublish(id),
+    onSuccess: () => {
+      setPublishError(null);
+      qc.invalidateQueries({ queryKey: ['course', id, 'shell'] });
+    },
+    onError: (e) => setPublishError(e instanceof ApiHttpError ? e.message : 'Unpublish failed.'),
+  });
+
   if (!id) {
     return <RequestErrorState error={new Error('Course id missing from URL.')} />;
   }
@@ -123,6 +143,33 @@ export function CourseShell(): JSX.Element {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {canWrite && course.state === 'sandbox' && (
+              <Button
+                size="sm"
+                loading={publishMut.isPending}
+                onClick={() => publishMut.mutate()}
+              >
+                Publish course
+              </Button>
+            )}
+            {canWrite && course.state === 'published' && (
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={unpublishMut.isPending}
+                onClick={() => {
+                  if (
+                    confirm(
+                      'Unpublish this course? Students will lose access until you publish again.',
+                    )
+                  ) {
+                    unpublishMut.mutate();
+                  }
+                }}
+              >
+                Unpublish
+              </Button>
+            )}
             {canDelete && !confirmDelete && (
               <Button
                 size="sm"
@@ -135,6 +182,16 @@ export function CourseShell(): JSX.Element {
             )}
           </div>
         </div>
+        {publishError && (
+          <div className="px-5 pb-3">
+            <div
+              role="alert"
+              className="rounded-xl border border-danger/30 bg-red-50 p-2.5 text-sm text-danger"
+            >
+              {publishError}
+            </div>
+          </div>
+        )}
         {confirmDelete && canDelete && (
           <div className="px-5 pb-3">
             <div className="rounded-xl border border-danger/30 bg-red-50 p-3 text-sm text-danger flex items-center justify-between gap-3 flex-wrap">

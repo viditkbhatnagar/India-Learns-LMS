@@ -254,6 +254,46 @@ export function registerCertificateListener(): void {
       );
     }
   });
+
+  // M10s — Admin notification on course completion. Logan 2026-05-20:
+  // "Receives notifications when students complete a course." Sits next
+  // to the certificate listener so both fire from the same domain event;
+  // failure here MUST NOT block certificate issuance.
+  registerListener('course.completed', async (payload) => {
+    try {
+      const enrolmentId = payload.enrolmentId as string | undefined;
+      const studentId = payload.studentId as string | undefined;
+      const courseId = payload.courseId as string | undefined;
+      if (!enrolmentId || !studentId || !courseId) return;
+      const [student, course, admins] = await Promise.all([
+        User.findById(studentId).select('name email code'),
+        Course.findById(courseId).select('name'),
+        User.find({
+          role: { $in: ['admin', 'superadmin'] },
+          status: 'active',
+          deletedAt: null,
+        }).select('_id'),
+      ]);
+      if (!student || !course || admins.length === 0) return;
+      const studentLabel = student.code ? `${student.name} (${student.code})` : student.name;
+      await enqueueNotification({
+        type: 'student.course_completed',
+        title: `${studentLabel} completed ${course.name}`,
+        body:
+          `${studentLabel} just finished the ${course.name} course. ` +
+          'A certificate is being issued; you can verify on the enrolment page.',
+        recipients: admins.map((a) => a._id),
+        data: {
+          enrolmentId,
+          studentId,
+          courseId,
+        },
+      });
+    } catch (err) {
+      logger.warn({ err, payload }, 'course.completed.admin_notify_failed');
+    }
+  });
+
   listenerRegistered = true;
 }
 

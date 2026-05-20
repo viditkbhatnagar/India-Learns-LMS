@@ -245,13 +245,26 @@ export async function updateCourse(
   return doc;
 }
 
+// M10s — Faculty (when assigned to the course) can publish + unpublish their
+// own courses. Logan 2026-05-20: "Faculty: Adds and edits course content...
+// Publishes courses to students." Admin / superadmin remain unrestricted.
+function assertCanPublishCourse(course: HydratedCourse, actor: { role: Role; userId?: Types.ObjectId }) {
+  if (actor.role === 'admin' || actor.role === 'superadmin') return;
+  if (actor.role === 'faculty' && actor.userId && facultyAssignedToCourse(course, actor.userId)) return;
+  throw new HttpError(
+    403,
+    'FORBIDDEN',
+    'Only admins or faculty assigned to this course may publish/unpublish it.',
+  );
+}
+
 export async function publishCourse(
   id: string,
-  actor: { role: Role } & ActorContext,
+  actor: { role: Role; userId?: Types.ObjectId } & ActorContext,
 ): Promise<HydratedCourse> {
-  assertAdmin(actor.role, 'publish');
   const doc = await Course.findOne({ _id: requireId(id), deletedAt: null });
   if (!doc) throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
+  assertCanPublishCourse(doc, actor);
   if (doc.state === 'published') {
     throw new HttpError(
       409,
@@ -279,11 +292,11 @@ export async function publishCourse(
 
 export async function unpublishCourse(
   id: string,
-  actor: { role: Role } & ActorContext,
+  actor: { role: Role; userId?: Types.ObjectId } & ActorContext,
 ): Promise<HydratedCourse> {
-  assertAdmin(actor.role, 'unpublish');
   const doc = await Course.findOne({ _id: requireId(id), deletedAt: null });
   if (!doc) throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
+  assertCanPublishCourse(doc, actor);
   if (doc.state === 'sandbox') {
     throw new HttpError(
       409,

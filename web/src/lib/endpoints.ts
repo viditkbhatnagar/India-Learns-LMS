@@ -73,6 +73,12 @@ import type {
   TicketState,
   TimetableOccurrenceDto,
   UserPublicDto,
+  VisitorLeadDto,
+  CreateVisitorLeadInput,
+  UpdateVisitorLeadInput,
+  VisitorLeadSource,
+  VisitorLeadStatus,
+  VisitorOtpStatus,
 } from 'india-learns-shared-types';
 import { api, unwrap } from './api.js';
 import { getDeviceId } from './deviceId.js';
@@ -1769,6 +1775,75 @@ export const chatApi = {
       { params: { q } },
     );
     return res.data.data.items;
+  },
+};
+
+// M10s — Visitor Leads (admin-captured prospect funnel).
+export const visitorLeadsApi = {
+  async list(params: {
+    q?: string;
+    status?: VisitorLeadStatus;
+    leadSource?: VisitorLeadSource;
+    otpStatus?: VisitorOtpStatus;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<{ items: VisitorLeadDto[]; total: number; page: number; limit: number }> {
+    const res = await api.get<{
+      data: { items: VisitorLeadDto[]; total: number; page: number; limit: number };
+    }>('/visitor-leads', { params });
+    return res.data.data;
+  },
+  async get(id: string): Promise<VisitorLeadDto> {
+    const res = await api.get<{ data: { lead: VisitorLeadDto } }>(`/visitor-leads/${id}`);
+    return res.data.data.lead;
+  },
+  async create(input: CreateVisitorLeadInput): Promise<VisitorLeadDto> {
+    const res = await api.post<{ data: { lead: VisitorLeadDto } }>('/visitor-leads', input);
+    return res.data.data.lead;
+  },
+  async update(id: string, patch: UpdateVisitorLeadInput): Promise<VisitorLeadDto> {
+    const res = await api.patch<{ data: { lead: VisitorLeadDto } }>(`/visitor-leads/${id}`, patch);
+    return res.data.data.lead;
+  },
+  async remove(id: string): Promise<VisitorLeadDto> {
+    const res = await api.delete<{ data: { lead: VisitorLeadDto } }>(`/visitor-leads/${id}`);
+    return res.data.data.lead;
+  },
+};
+
+// M10s — Manual installment editing on top of auto-gen.
+export const installmentsApi = {
+  async create(input: {
+    invoiceId: string;
+    label: string;
+    amountPaise: number;
+    dueDate: string;
+    status?: 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
+  }): Promise<{ installment: Record<string, unknown>; invoice: Record<string, unknown> }> {
+    const res = await api.post<{
+      data: { installment: Record<string, unknown>; invoice: Record<string, unknown> };
+    }>('/installments', input);
+    return res.data.data;
+  },
+  async update(
+    id: string,
+    patch: {
+      label?: string;
+      amountPaise?: number;
+      dueDate?: string;
+      status?: 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
+    },
+  ): Promise<{ installment: Record<string, unknown>; invoice: Record<string, unknown> }> {
+    const res = await api.patch<{
+      data: { installment: Record<string, unknown>; invoice: Record<string, unknown> };
+    }>(`/installments/${id}`, patch);
+    return res.data.data;
+  },
+  async waive(id: string): Promise<{ installment: Record<string, unknown>; invoice: Record<string, unknown> }> {
+    const res = await api.post<{
+      data: { installment: Record<string, unknown>; invoice: Record<string, unknown> };
+    }>(`/installments/${id}/waive`, {});
+    return res.data.data;
   },
 };
 

@@ -135,6 +135,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
     { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
+    // M10s — Visitor Leads (pre-application funnel; admin captures prospects).
+    { label: 'Visitor Leads', to: '/admin/visitor-leads', icon: Icon.users },
     // M10r — Finance screens (record payment, payments list, fee
     // structures) live under /finance/* and are admin-gated now.
     { label: 'Finance', to: '/finance/dashboard', icon: Icon.rupee },

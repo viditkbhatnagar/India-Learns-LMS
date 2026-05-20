@@ -164,11 +164,14 @@ export function coursesRouter(): Router {
 
   router.post(
     '/:id/publish',
-    requireRole('admin', 'superadmin'),
+    // M10s — Faculty assigned to the course can publish + unpublish.
+    // Service-layer assertCanPublishCourse() enforces the assignment.
+    requireRole('admin', 'superadmin', 'faculty'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await publishCourse(req.params.id ?? '', {
           role: req.auth!.role,
+          userId: req.auth!.userId,
           actorUserId: req.auth!.userId,
           ...requestContext(req),
         });
@@ -181,11 +184,12 @@ export function coursesRouter(): Router {
 
   router.post(
     '/:id/unpublish',
-    requireRole('admin', 'superadmin'),
+    requireRole('admin', 'superadmin', 'faculty'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await unpublishCourse(req.params.id ?? '', {
           role: req.auth!.role,
+          userId: req.auth!.userId,
           actorUserId: req.auth!.userId,
           ...requestContext(req),
         });
