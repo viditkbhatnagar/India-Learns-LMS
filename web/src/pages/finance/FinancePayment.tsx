@@ -1,32 +1,30 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import type { PaymentMethod } from 'india-learns-shared-types';
-import { studentsApi, feesApi, usersApi } from '../../lib/endpoints.js';
+import type { PaymentMethod, UserPublicDto } from 'india-learns-shared-types';
+import { studentsApi, feesApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { PageHeader } from '../../components/ui/PageHeader.js';
+import { UserPicker } from '../../components/ui/UserPicker.js';
 import { formatMoney, formatIstDate } from '../../lib/format.js';
 import { ApiHttpError } from '../../lib/api.js';
 
 const METHODS: PaymentMethod[] = ['cash', 'upi', 'bank_transfer', 'cheque', 'other'];
 
 export function FinancePaymentNew() {
-  const [q, setQ] = useState('');
-  const [studentId, setStudentId] = useState<string | null>(null);
+  // M10w — Replaced the text-input + result-list with a real combobox
+  // (UserPicker). Click to open, type to filter, pick to select.
+  const [student, setStudent] = useState<UserPublicDto | null>(null);
+  const studentId = student?.id ?? null;
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('upi');
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
-  const usersQ = useQuery({
-    queryKey: ['finance', 'students', q],
-    queryFn: () => usersApi.list({ role: 'student', q }),
-    enabled: q.length >= 2,
-  });
   const feesQ = useQuery({
     queryKey: ['finance', 'student-fees', studentId],
     queryFn: () => studentsApi.feesFor(studentId!),
@@ -67,55 +65,22 @@ export function FinancePaymentNew() {
         back={{ to: '/finance/dashboard', label: 'Back to dashboard' }}
       />
 
-      {/* Step 1 */}
+      {/* Step 1 — UserPicker combobox. */}
       <Card accent="navy">
-        <CardHeader title="1 · Find the student" subtitle="Search by name, email, or student code." />
-        <Input
-          placeholder="Search name, email or code (min 2 chars)"
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setStudentId(null);
-          }}
+        <CardHeader
+          title="1 · Find the student"
+          subtitle="Click the picker, then type to filter by name, email, or student code."
         />
-        {q.length >= 2 && usersQ.data && usersQ.data.length > 0 && (
-          <ul className="mt-4 divide-y divide-black/5 border border-black/5 rounded-xl overflow-hidden max-h-72 overflow-y-auto shadow-elev-1">
-            {usersQ.data.map((u) => {
-              const selected = studentId === u.id;
-              return (
-                <li key={u.id}>
-                  <button
-                    type="button"
-                    onClick={() => setStudentId(u.id)}
-                    className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors focus:outline-none focus-visible:bg-surface-muted ${
-                      selected ? 'bg-navy-50' : 'bg-white hover:bg-surface-muted'
-                    }`}
-                  >
-                    <span
-                      aria-hidden
-                      className="shrink-0 h-8 w-8 rounded-lg bg-navy-100 text-brand-navy font-bold grid place-items-center text-sm"
-                    >
-                      {(u.name ?? '?').trim().charAt(0).toUpperCase()}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-brand-navy truncate">{u.name}</p>
-                      <p className="text-xs text-muted truncate">
-                        {u.email}
-                        {u.code && (
-                          <>
-                            {' '}
-                            · <span className="font-mono">{u.code}</span>
-                          </>
-                        )}
-                      </p>
-                    </div>
-                    {selected && <Badge tone="accent" size="sm">Selected</Badge>}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        <div className="relative">
+          <UserPicker
+            label="Student"
+            placeholder="Pick a student…"
+            role="student"
+            value={student}
+            onChange={setStudent}
+            required
+          />
+        </div>
       </Card>
 
       {/* Step 2 */}

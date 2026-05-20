@@ -3,14 +3,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   STAFF_ATTENDANCE_STATUSES,
   type StaffAttendanceStatus,
+  type UserPublicDto,
 } from 'india-learns-shared-types';
-import { staffAttendanceApi, usersApi } from '../../lib/endpoints.js';
+import { staffAttendanceApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { PageHeader } from '../../components/ui/PageHeader.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
+import { UserPicker } from '../../components/ui/UserPicker.js';
 import { ApiHttpError } from '../../lib/api.js';
 
 // M10u — Admin staff attendance page. List + filter + mark on behalf.
@@ -186,15 +188,9 @@ export function AdminStaffAttendancePage() {
 }
 
 function MarkForm({ onSaved }: { onSaved: () => void }) {
-  const [query, setQuery] = useState('');
-  const usersQ = useQuery({
-    queryKey: ['admin', 'staff-attendance', 'staff-search', query],
-    queryFn: () => usersApi.list({ q: query.trim() || undefined }),
-    enabled: query.trim().length >= 2,
-  });
-
-  const [userId, setUserId] = useState<string>('');
-  const [userLabel, setUserLabel] = useState<string>('');
+  // M10w — Replaced inline search box + result list with UserPicker.
+  // Filter to staff roles so admin can't pick a student by accident.
+  const [staff, setStaff] = useState<UserPublicDto | null>(null);
   const [date, setDate] = useState(todayIso());
   const [status, setStatus] = useState<StaffAttendanceStatus>('present');
   const [notes, setNotes] = useState('');
@@ -203,7 +199,7 @@ function MarkForm({ onSaved }: { onSaved: () => void }) {
   const save = useMutation({
     mutationFn: () =>
       staffAttendanceApi.mark({
-        userId: userId || undefined,
+        userId: staff?.id ?? undefined,
         date,
         status,
         notes: notes.trim() || null,
@@ -215,7 +211,7 @@ function MarkForm({ onSaved }: { onSaved: () => void }) {
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!userId) {
+    if (!staff) {
       setError('Pick a staff member first.');
       return;
     }
@@ -227,41 +223,19 @@ function MarkForm({ onSaved }: { onSaved: () => void }) {
     <Card>
       <CardHeader title="Mark attendance" subtitle="On behalf of a staff member." />
       <form onSubmit={submit} className="space-y-3">
-        <Input
-          label="Find staff (name / email / code)"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="At least 2 characters"
-        />
-        {usersQ.data && usersQ.data.length > 0 && (
-          <ul className="divide-y divide-black/5 max-h-48 overflow-y-auto border border-black/5 rounded-xl">
-            {usersQ.data
-              .filter((u) => ['admin', 'superadmin', 'faculty'].includes(u.role))
-              .map((u) => (
-                <li key={u.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUserId(u.id);
-                      setUserLabel(`${u.name} (${u.role}${u.code ? ` · ${u.code}` : ''})`);
-                    }}
-                    className={`w-full text-left px-3 py-2 hover:bg-surface-muted/60 ${
-                      userId === u.id ? 'bg-navy-50' : ''
-                    }`}
-                  >
-                    <span className="font-medium text-brand-navy">{u.name}</span>
-                    <span className="block text-xs text-muted">
-                      {u.role} · {u.email}
-                      {u.code ? ` · ${u.code}` : ''}
-                    </span>
-                  </button>
-                </li>
-              ))}
-          </ul>
-        )}
-        {userLabel && (
-          <p className="text-sm text-success font-medium">Selected: {userLabel}</p>
-        )}
+        <div className="relative">
+          <UserPicker
+            label="Staff member"
+            placeholder="Pick a faculty / admin…"
+            value={staff}
+            onChange={setStaff}
+            filter={(u) =>
+              ['admin', 'superadmin', 'faculty'].includes(u.role)
+            }
+            hint="Click to open, type to filter by name, email, or code."
+            required
+          />
+        </div>
         <div className="grid sm:grid-cols-3 gap-3">
           <Input
             type="date"
