@@ -14,6 +14,8 @@ import { nowUtc } from './clockService.js';
 import { enqueueNotification } from './notificationService.js';
 import { formatPaiseAsRupees } from './amountInWordsService.js';
 import { recordAudit } from './auditService.js';
+import { getIntegrations } from '../integrations/index.js';
+import { logger } from '../config/logger.js';
 
 const DAY_MS = 86_400_000;
 
@@ -162,6 +164,32 @@ export async function sendReminderForInstallment(
     targetId: installment._id,
     details: { template, studentId: student._id.toString() },
   });
+
+  // M10i — Parent CC (LMS_Requirements §4). When the student's profile
+  // carries a `parentGuardian.email`, send the same reminder text to
+  // them as well. The in-app `enqueueNotification` above is the student
+  // channel; this is a parallel email-only send so the parent's inbox
+  // gets it without our notification engine treating them as a User row.
+  // Best-effort: a bad parent email doesn't trap the student reminder.
+  const parentEmail =
+    (student as { parentGuardian?: { email?: string | null } | null }).parentGuardian?.email ?? null;
+  if (parentEmail) {
+    try {
+      const { email } = getIntegrations();
+      await email.send({
+        to: parentEmail,
+        subject: `India Learns — ${title} for ${student.name}`,
+        text: `Hello,\n\n${body}\n\nThis is sent because ${student.name} has listed you as their parent / guardian. Please contact the programme office for any questions.\n\nIndia Learns`,
+        html: `<p>Hello,</p><p>${body.replace(/\n/g, '<br>')}</p><p>This is sent because ${student.name} has listed you as their parent / guardian. Please contact the programme office for any questions.</p>`,
+        tag: `${template}.parent`,
+      });
+    } catch (err) {
+      logger.warn(
+        { err, studentId: student._id.toString(), template },
+        'fee_reminder.parent_email_failed',
+      );
+    }
+  }
 
   return true;
 }

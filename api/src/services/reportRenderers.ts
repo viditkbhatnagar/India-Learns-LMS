@@ -1,17 +1,17 @@
 import ExcelJS from 'exceljs';
+import PDFDocument from 'pdfkit';
 import type {
   AssignmentSubmissionsReportDto,
   AttendanceReportDto,
   BatchSummaryReportDto,
 } from 'india-learns-shared-types';
 
-// M10 — Excel renderers for the three Reports (LMS_Faculty_Features §4).
-// Each function returns a Buffer ready to stream from an Express handler
-// with the right Content-Type and Content-Disposition headers.
+// M10 — Excel + PDF renderers for the three Reports (LMS_Faculty_Features
+// §4). Each function returns a Buffer ready to stream from an Express
+// handler with the right Content-Type + Content-Disposition.
 //
-// PDF rendering (pdfkit) is intentionally deferred to a follow-up PR; the
-// requirements doc says "PDF or Excel" and Excel is the one ops teams use
-// the most.
+// PDF is a simpler, single-page-per-report layout suitable for sharing
+// over WhatsApp / printing; XLSX is the analyst-grade format.
 
 function paiseToRupees(p: number): number {
   return Math.round(p) / 100;
@@ -252,4 +252,229 @@ export async function renderAssignmentSubmissionsReportXlsx(
   ws2.getColumn(9).width = 8;
 
   return Buffer.from(await wb.xlsx.writeBuffer());
+}
+
+// --------- PDF renderers ----------------------------------------------
+//
+// pdfkit is already a dep (it powers receipts in receiptService.ts). The
+// three reports each render as a single-A4 page with a brand-coloured
+// header, a metadata block, and a table or summary grid. Long tables
+// flow to additional pages automatically — pdfkit handles pagination
+// when y exceeds the page's bottom margin.
+
+function streamToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    doc.end();
+  });
+}
+
+function pdfHeader(
+  doc: PDFKit.PDFDocument,
+  title: string,
+  meta: Array<[string, string]>,
+): void {
+  doc
+    .fillColor('#0F2F4F') // brand-navy
+    .fontSize(20)
+    .text('India Learns', { align: 'left' });
+  doc
+    .fillColor('#0F2F4F')
+    .fontSize(14)
+    .text(title);
+  doc.moveDown(0.5);
+  doc.fontSize(9).fillColor('#6B6B6B');
+  for (const [k, v] of meta) {
+    doc.text(`${k}: `, { continued: true }).fillColor('#0F2F4F').text(v).fillColor('#6B6B6B');
+  }
+  doc.moveDown(0.5);
+  // Separator
+  doc
+    .strokeColor('#E85D2C') // brand-orange
+    .lineWidth(1.5)
+    .moveTo(doc.page.margins.left, doc.y)
+    .lineTo(doc.page.width - doc.page.margins.right, doc.y)
+    .stroke();
+  doc.moveDown(0.75);
+  doc.fillColor('#1A1A1A');
+}
+
+export async function renderAttendanceReportPdf(
+  report: AttendanceReportDto,
+): Promise<Buffer> {
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  pdfHeader(doc, 'Attendance report', [
+    ['Batch', report.batchCode],
+    ['Programme', report.programName],
+    ['Date range', `${report.filters.from} → ${report.filters.to}`],
+    ['Sessions in range', String(report.sessionCount)],
+    ['Generated', new Date(report.generatedAt).toLocaleString('en-IN')],
+  ]);
+
+  // Table header
+  const cols = [
+    { label: 'Code', x: 40, w: 75 },
+    { label: 'Student', x: 115, w: 195 },
+    { label: 'P', x: 310, w: 30, align: 'right' as const },
+    { label: 'A', x: 340, w: 30, align: 'right' as const },
+    { label: 'L', x: 370, w: 30, align: 'right' as const },
+    { label: 'E', x: 400, w: 30, align: 'right' as const },
+    { label: 'Marked', x: 430, w: 55, align: 'right' as const },
+    { label: 'Rate', x: 485, w: 70, align: 'right' as const },
+  ];
+  doc.fontSize(9).fillColor('#0F2F4F').font('Helvetica-Bold');
+  const headerY = doc.y;
+  for (const c of cols) {
+    doc.text(c.label, c.x, headerY, { width: c.w, align: c.align ?? 'left' });
+  }
+  doc.font('Helvetica').fillColor('#1A1A1A');
+  doc.moveDown(0.4);
+
+  for (const r of report.rows) {
+    if (doc.y > doc.page.height - 80) {
+      doc.addPage();
+    }
+    const { y } = doc;
+    doc.fontSize(8).text(r.studentCode ?? '—', cols[0]!.x, y, { width: cols[0]!.w });
+    doc.text(r.studentName, cols[1]!.x, y, { width: cols[1]!.w });
+    doc.text(String(r.presentCount), cols[2]!.x, y, { width: cols[2]!.w, align: 'right' });
+    doc.text(String(r.absentCount), cols[3]!.x, y, { width: cols[3]!.w, align: 'right' });
+    doc.text(String(r.lateCount), cols[4]!.x, y, { width: cols[4]!.w, align: 'right' });
+    doc.text(String(r.excusedCount), cols[5]!.x, y, { width: cols[5]!.w, align: 'right' });
+    doc.text(String(r.totalMarked), cols[6]!.x, y, { width: cols[6]!.w, align: 'right' });
+    doc.text(
+      r.totalMarked > 0 ? `${r.attendanceRate.toFixed(1)}%` : '—',
+      cols[7]!.x,
+      y,
+      { width: cols[7]!.w, align: 'right' },
+    );
+    doc.moveDown(0.35);
+  }
+
+  return streamToBuffer(doc);
+}
+
+export async function renderBatchSummaryReportPdf(
+  report: BatchSummaryReportDto,
+): Promise<Buffer> {
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  pdfHeader(doc, 'Batch summary', [
+    ['Batch', report.batchCode],
+    ['Programme', report.programName],
+    ['Generated', new Date(report.generatedAt).toLocaleString('en-IN')],
+  ]);
+
+  const sections: Array<[string, Array<[string, string]>]> = [
+    [
+      'Enrolment',
+      [
+        ['Enrolled students', String(report.enrolledStudentCount)],
+        ['Active students', String(report.activeStudentCount)],
+      ],
+    ],
+    [
+      'Attendance',
+      [
+        ['Total sessions held', String(report.totalSessions)],
+        ['Average attendance', `${report.averageAttendanceRate.toFixed(1)}%`],
+      ],
+    ],
+    [
+      'Assignments',
+      [
+        ['Total assignments', String(report.totalAssignments)],
+        ['Submissions published', String(report.publishedSubmissionCount)],
+        ['Submissions graded (draft)', String(report.draftSubmissionCount)],
+        ['Submissions awaiting grading', String(report.needsGradingCount)],
+      ],
+    ],
+    [
+      'Fees (INR)',
+      [
+        ['Total billed', `₹${(report.totalBilledPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`],
+        ['Total collected', `₹${(report.totalCollectedPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`],
+        ['Total outstanding', `₹${(report.totalOutstandingPaise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`],
+      ],
+    ],
+  ];
+
+  for (const [title, rows] of sections) {
+    doc.fontSize(11).fillColor('#E85D2C').font('Helvetica-Bold').text(title);
+    doc.moveDown(0.2);
+    doc.font('Helvetica').fillColor('#1A1A1A').fontSize(10);
+    for (const [k, v] of rows) {
+      const { y } = doc;
+      doc.fillColor('#6B6B6B').text(k, 40, y, { width: 280 });
+      doc.fillColor('#0F2F4F').text(v, 320, y, { width: 220, align: 'right' });
+      doc.moveDown(0.25);
+    }
+    doc.moveDown(0.5);
+  }
+
+  return streamToBuffer(doc);
+}
+
+export async function renderAssignmentSubmissionsReportPdf(
+  report: AssignmentSubmissionsReportDto,
+): Promise<Buffer> {
+  const doc = new PDFDocument({ size: 'A4', margin: 40, layout: 'landscape' });
+  pdfHeader(doc, 'Assignment submissions', [
+    ['Batch', report.batchCode],
+    ['Programme', report.programName],
+    ['Due-by range', `${report.filters.from} → ${report.filters.to}`],
+    ['Assignments in range', String(report.assignments.length)],
+    ['Students enrolled', String(report.students.length)],
+    ['Generated', new Date(report.generatedAt).toLocaleString('en-IN')],
+  ]);
+
+  if (report.assignments.length === 0 || report.students.length === 0) {
+    doc.fontSize(10).fillColor('#6B6B6B').text('Nothing to show for these filters.');
+    return streamToBuffer(doc);
+  }
+
+  // Use the flat cell list — much simpler than reproducing the matrix
+  // in PDF land when the column count can be large.
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#0F2F4F');
+  const cols = [
+    { label: 'Student', x: 40, w: 160 },
+    { label: 'Code', x: 200, w: 80 },
+    { label: 'Assignment', x: 280, w: 220 },
+    { label: 'Course', x: 500, w: 140 },
+    { label: 'Status', x: 640, w: 90 },
+    { label: 'Score', x: 730, w: 60, align: 'right' as const },
+  ];
+  const headerY = doc.y;
+  for (const c of cols) {
+    doc.text(c.label, c.x, headerY, { width: c.w, align: c.align ?? 'left' });
+  }
+  doc.font('Helvetica').fillColor('#1A1A1A');
+  doc.moveDown(0.4);
+
+  const aMap = new Map(report.assignments.map((a) => [a.id, a]));
+  const sMap = new Map(report.students.map((s) => [s.id, s]));
+  for (const c of report.cells) {
+    const a = aMap.get(c.assignmentId);
+    const s = sMap.get(c.studentId);
+    if (!a || !s) continue;
+    if (doc.y > doc.page.height - 60) doc.addPage();
+    const { y } = doc;
+    doc.fontSize(8);
+    doc.text(s.name, cols[0]!.x, y, { width: cols[0]!.w });
+    doc.text(s.code ?? '—', cols[1]!.x, y, { width: cols[1]!.w });
+    doc.text(a.title, cols[2]!.x, y, { width: cols[2]!.w });
+    doc.text(a.courseName, cols[3]!.x, y, { width: cols[3]!.w });
+    doc.text(c.status.replace('_', ' '), cols[4]!.x, y, { width: cols[4]!.w });
+    doc.text(
+      typeof c.score === 'number' ? `${c.score} / ${a.maxScore}` : '—',
+      cols[5]!.x,
+      y,
+      { width: cols[5]!.w, align: 'right' },
+    );
+    doc.moveDown(0.3);
+  }
+
+  return streamToBuffer(doc);
 }

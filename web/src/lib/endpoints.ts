@@ -908,6 +908,18 @@ export const reportsApi = {
     });
     return res.data;
   },
+  // M10i — Generic download for either Excel or PDF format.
+  async download(
+    kind: 'attendance' | 'batch-summary' | 'assignment-submissions',
+    format: 'xlsx' | 'pdf',
+    query: Record<string, string>,
+  ): Promise<Blob> {
+    const res = await api.get<Blob>(`/reports/${kind}`, {
+      params: { ...query, format },
+      responseType: 'blob',
+    });
+    return res.data;
+  },
 };
 
 export const timetableEntriesApi = {
