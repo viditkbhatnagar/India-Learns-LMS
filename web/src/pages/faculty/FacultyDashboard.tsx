@@ -194,28 +194,42 @@ export function FacultyDashboard() {
           )}
           {timetableQ.data && timetableQ.data.length > 0 && (
             <ul className="space-y-3">
-              {timetableQ.data.slice(0, 5).map((occ) => (
-                <li
-                  key={(occ.entryId ?? occ.overrideId ?? '') + occ.startAt}
-                  className="flex items-start gap-3 rounded-xl bg-surface-muted p-3"
-                >
-                  <div className="shrink-0 w-12 text-center rounded-lg bg-white shadow-elev-1 py-1">
-                    <p className="text-[10px] uppercase tracking-widest text-muted font-bold">
-                      {formatIstDateTime(occ.startAt, 'MMM')}
-                    </p>
-                    <p className="text-base font-bold text-brand-navy leading-none">
-                      {formatIstDateTime(occ.startAt, 'd')}
-                    </p>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-brand-navy truncate">{occ.courseName}</p>
-                    <p className="text-xs text-muted mt-0.5">
-                      {formatIstDateTime(occ.startAt, 'EEE · h:mm a')}
-                      {occ.room && ` · ${occ.room}`}
-                    </p>
-                  </div>
-                </li>
-              ))}
+              {timetableQ.data.slice(0, 5).map((occ) => {
+                // M10o — Each "This week" card links to the per-batch
+                // attendance landing page filtered to that occurrence's
+                // date. One click on the dashboard, one click on the
+                // session = ready to mark attendance.
+                const dateIsoYmd = occ.date || occ.startAt.slice(0, 10);
+                const href = `/faculty/batches/${occ.batchId}/attendance?date=${dateIsoYmd}`;
+                return (
+                  <li
+                    key={(occ.entryId ?? occ.overrideId ?? '') + occ.startAt}
+                  >
+                    <Link
+                      to={href}
+                      className="flex items-start gap-3 rounded-xl bg-surface-muted p-3 hover:bg-surface-muted/80 transition-colors group"
+                    >
+                      <div className="shrink-0 w-12 text-center rounded-lg bg-white shadow-elev-1 py-1">
+                        <p className="text-[10px] uppercase tracking-widest text-muted font-bold">
+                          {formatIstDateTime(occ.startAt, 'MMM')}
+                        </p>
+                        <p className="text-base font-bold text-brand-navy leading-none">
+                          {formatIstDateTime(occ.startAt, 'd')}
+                        </p>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-brand-navy truncate group-hover:text-brand-orange transition-colors">
+                          {occ.courseName}
+                        </p>
+                        <p className="text-xs text-muted mt-0.5">
+                          {formatIstDateTime(occ.startAt, 'EEE · h:mm a')}
+                          {occ.room && ` · ${occ.room}`}
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>

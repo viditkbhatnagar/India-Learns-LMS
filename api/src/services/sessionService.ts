@@ -4,6 +4,7 @@ import {
   Assignment,
   AttendanceRecord,
   Course,
+  Enrollment,
   Material,
   ModuleModel,
   SessionModel,
@@ -115,6 +116,123 @@ async function loadSessionForStaff(
   if (!session) throw new HttpError(404, 'NOT_FOUND', 'Session not found.');
   await assertFacultyOwnsCourse(actor.userId, actor.role, session.courseId);
   return session;
+}
+
+/**
+ * M10o — Sessions in a batch on a specific IST date. Used by the
+ * "click batch → attendance" flow on the Faculty Dashboard: we resolve
+ * every course enrolled to this batch, then return today's sessions
+ * across all those courses. Each session shows the course name so
+ * faculty can pick the right one to mark attendance on.
+ */
+export interface BatchSessionSummary {
+  id: string;
+  courseId: string;
+  courseName: string;
+  moduleId: string;
+  title: string;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  status: 'planned' | 'completed' | 'cancelled' | 'unscheduled';
+  attendanceRecorded: number;
+  enrolledStudents: number;
+}
+
+export async function listSessionsForBatchOnDate(
+  actor: AuthContext,
+  batchIdStr: string,
+  dateIsoYmd: string,
+): Promise<BatchSessionSummary[]> {
+  if (!Types.ObjectId.isValid(batchIdStr)) {
+    throw new HttpError(404, 'NOT_FOUND', 'Batch not found.');
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIsoYmd)) {
+    throw new HttpError(422, 'VALIDATION_FAILED', 'date must be YYYY-MM-DD.');
+  }
+  const batchId = new Types.ObjectId(batchIdStr);
+
+  // The day window is in UTC; close enough for IST-school scheduling
+  // (covers IST 05:30 → next-day 05:30 which includes the entire school
+  // day).
+  const dayFrom = new Date(`${dateIsoYmd}T00:00:00.000Z`);
+  const dayTo = new Date(`${dateIsoYmd}T23:59:59.999Z`);
+
+  // Resolve every enrolment for this batch → course IDs the batch is on.
+  const enrolments = await Enrollment.find({ batchId, status: { $ne: 'revoked' } })
+    .select({ courseId: 1, studentId: 1 })
+    .lean();
+  const courseIds = [...new Set(enrolments.map((e) => String(e.courseId)))].map(
+    (s) => new Types.ObjectId(s),
+  );
+  if (courseIds.length === 0) return [];
+
+  // Faculty can only see sessions of courses they teach. For admin /
+  // admissions_officer / finance we skip the filter.
+  let effectiveCourseIds = courseIds;
+  if (actor.role === 'faculty') {
+    const myCourses = await Course.find({
+      _id: { $in: courseIds },
+      facultyIds: actor.userId,
+      deletedAt: null,
+    })
+      .select({ _id: 1 })
+      .lean();
+    const allowed = new Set(myCourses.map((c) => String(c._id)));
+    effectiveCourseIds = courseIds.filter((id) => allowed.has(id.toString()));
+  }
+  if (effectiveCourseIds.length === 0) return [];
+
+  const courses = await Course.find({ _id: { $in: effectiveCourseIds } })
+    .select({ name: 1 })
+    .lean();
+  const courseNameMap = new Map(
+    courses.map((c) => [String(c._id), c.name as string]),
+  );
+
+  const sessions = await SessionModel.find({
+    courseId: { $in: effectiveCourseIds },
+    deletedAt: null,
+    scheduledStart: { $gte: dayFrom, $lte: dayTo },
+  })
+    .sort({ scheduledStart: 1 })
+    .lean();
+
+  if (sessions.length === 0) return [];
+
+  // Attendance roll-up per session in one aggregation.
+  const sessionIds = sessions.map((s: { _id: Types.ObjectId }) => s._id);
+  const studentIds = [...new Set(enrolments.map((e) => String(e.studentId)))].map(
+    (s) => new Types.ObjectId(s),
+  );
+  const attendanceAgg = await AttendanceRecord.aggregate([
+    { $match: { sessionId: { $in: sessionIds } } },
+    { $group: { _id: '$sessionId', n: { $sum: 1 } } },
+  ]);
+  const attCountMap = new Map<string, number>(
+    attendanceAgg.map((a: { _id: Types.ObjectId; n: number }) => [
+      String(a._id),
+      a.n,
+    ]),
+  );
+
+  return sessions.map((s) => ({
+    id: String(s._id),
+    courseId: String(s.courseId),
+    courseName: courseNameMap.get(String(s.courseId)) ?? '(deleted)',
+    moduleId: String(s.moduleId),
+    title: s.title as string,
+    scheduledStart: s.scheduledStart
+      ? (s.scheduledStart as Date).toISOString()
+      : null,
+    scheduledEnd: s.scheduledEnd ? (s.scheduledEnd as Date).toISOString() : null,
+    status: (s.status ?? 'planned') as
+      | 'planned'
+      | 'completed'
+      | 'cancelled'
+      | 'unscheduled',
+    attendanceRecorded: attCountMap.get(String(s._id)) ?? 0,
+    enrolledStudents: studentIds.length,
+  }));
 }
 
 /** List sessions for a course, ordered by module then number. */

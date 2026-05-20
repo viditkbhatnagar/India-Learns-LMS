@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import {
   getSessionDetail,
+  listSessionsForBatchOnDate,
   listSessionsForCourse,
   markSessionComplete,
   markSessionIncomplete,
@@ -42,6 +43,33 @@ const AttendanceBody = z.object({
     .min(1)
     .max(200),
 });
+
+/** Mounted at /v1/batches/:batchId/sessions (M10o). Returns today's
+ * sessions across every course this batch is enrolled in. Faculty
+ * see only courses they teach; admin/finance see all. */
+export function batchSessionsRouter(): Router {
+  const router = Router({ mergeParams: true });
+  router.use(requireAuth);
+  router.use(requireRole(...STAFF_ROLES));
+
+  router.get('/sessions', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const date =
+        (typeof req.query.date === 'string' && req.query.date) ||
+        new Date().toISOString().slice(0, 10);
+      const sessions = await listSessionsForBatchOnDate(
+        req.auth!,
+        req.params.batchId ?? '',
+        date,
+      );
+      res.json({ data: { sessions, date } });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  return router;
+}
 
 /** Mounted at /v1/courses/:courseId/sessions. */
 export function courseSessionsRouter(): Router {

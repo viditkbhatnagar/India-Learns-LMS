@@ -88,6 +88,7 @@ import { FacultyGradingDetailPage } from './pages/faculty/FacultyGradingDetail.j
 import { FacultyFeedbackPage } from './pages/faculty/FacultyFeedback.js';
 import { FacultyFeedbackNewPage } from './pages/faculty/FacultyFeedbackNew.js';
 import { FacultyTimetablePage } from './pages/faculty/FacultyTimetable.js';
+import { BatchAttendancePage } from './pages/faculty/BatchAttendance.js';
 
 // Shared
 import { ProfilePage, NotificationPrefsPage } from './pages/ProfilePage.js';
@@ -457,6 +458,8 @@ export function App() {
                     <Route path="feedback" element={<FacultyFeedbackPage />} />
                     <Route path="feedback/new" element={<FacultyFeedbackNewPage />} />
                     <Route path="timetable" element={<FacultyTimetablePage />} />
+                    {/* M10o — Per-batch attendance landing page. */}
+                    <Route path="batches/:batchId/attendance" element={<BatchAttendancePage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </RequireRole>
