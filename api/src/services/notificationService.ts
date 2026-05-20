@@ -56,6 +56,9 @@ const CHANNELS_BY_TYPE: Record<NotificationType, NotificationChannel[]> = {
   'placement.job_posted': ['inapp', 'email'],
   // M10j — broad-scope announcements. Email + in-app.
   'announcement.published': ['inapp', 'email'],
+  // M10s — admin ping when a student completes a course. Email + in-app
+  // (no WhatsApp template approved for this event).
+  'student.course_completed': ['inapp', 'email'],
 };
 
 // Only three WABA templates are pre-approved at launch (D-007): `il_fee_due`,

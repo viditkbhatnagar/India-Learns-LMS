@@ -237,3 +237,7 @@ export type { ChatMessageDoc, ChatAttachmentDoc, HydratedChatMessage } from './c
 // M10k — Post-conversion student documents (LMS_Requirements §1).
 export { StudentDocument } from './studentDocument.js';
 export type { StudentDocumentDoc, HydratedStudentDocument } from './studentDocument.js';
+
+// M10s — Visitor Leads (Logan 2026-05-20, "LMS Visitor List Template").
+export { VisitorLead } from './visitorLead.js';
+export type { VisitorLeadDoc, HydratedVisitorLead } from './visitorLead.js';

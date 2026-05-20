@@ -93,6 +93,8 @@ import {
   meStudentDocumentsRouter,
   studentDocumentsRouter,
 } from './studentDocuments.js';
+import { visitorLeadsRouter } from './visitorLeads.js';
+import { installmentsRouter } from './installments.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -124,6 +126,11 @@ export function v1Router(): Router {
   // M10k — Post-conversion student documents (LMS_Requirements §1).
   router.use('/students', studentDocumentsRouter());
   router.use('/me/student-documents', meStudentDocumentsRouter());
+  // M10s — Visitor Leads (admin-captured prospect funnel).
+  router.use('/visitor-leads', visitorLeadsRouter());
+  // M10s — Manual installment editing (after auto-gen) for the
+  // student-by-student fee schedule Logan's template requires.
+  router.use('/installments', installmentsRouter());
   router.use('/users', usersRouter());
   router.use('/users', suspensionOverrideRouter());
   router.use('/programs', programsRouter());

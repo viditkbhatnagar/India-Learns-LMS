@@ -206,6 +206,9 @@ export const NOTIFICATION_TYPES = [
   'placement.job_posted',
   // M10j — broad-scope announcements (LMS_Requirements §2).
   'announcement.published',
+  // M10s — admin gets pinged when a student completes a course (Logan
+  // 2026-05-20 "Receives notifications when students complete a course").
+  'student.course_completed',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -259,6 +262,9 @@ export const AUDIT_ACTIONS = [
   'fees.structure.created',
   'fees.structure.updated',
   'fees.invoice.generated',
+  // M10s — manual installment edits (admin-driven, after auto-gen).
+  'fees.installment.created',
+  'fees.installment.updated',
   'fees.payment.recorded',
   'fees.payment.reversed',
   'fees.receipt.issued',
@@ -335,6 +341,11 @@ export const AUDIT_ACTIONS = [
   // collection with chain-hash (D-A4) — these few in the legacy AuditLog
   // cover only the User-mutation surface (signup creates a User row).
   'admission.applicant.signed_up',
+  // M10s — Visitor Lead lifecycle (admin-captured prospect funnel).
+  'visitor_lead.created',
+  'visitor_lead.updated',
+  'visitor_lead.deleted',
+  'visitor_lead.converted',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -459,3 +470,43 @@ export const ADMISSIONS_AUDIT_ACTIONS = [
   'application_fee.waived',
 ] as const;
 export type AdmissionsAuditAction = (typeof ADMISSIONS_AUDIT_ACTIONS)[number];
+
+// M10s — Visitor Leads (LMS Visitor List Template, per Logan 2026-05-20).
+// Captured by admin / admissions staff; pre-application stage. Convert
+// path: VisitorLead → ApplicationDraft when the lead becomes a real
+// applicant.
+export const VISITOR_QUALIFICATIONS = [
+  'high_school',
+  'bba',
+  'btech',
+  'graduate',
+  'other',
+] as const;
+export type VisitorQualification = (typeof VISITOR_QUALIFICATIONS)[number];
+
+export const VISITOR_LEAD_SOURCES = [
+  'reference',
+  'google',
+  'social_media',
+  'walk_in',
+  'meta',
+  'agent',
+  'other',
+] as const;
+export type VisitorLeadSource = (typeof VISITOR_LEAD_SOURCES)[number];
+
+export const VISITOR_OTP_STATUSES = ['pending', 'verified'] as const;
+export type VisitorOtpStatus = (typeof VISITOR_OTP_STATUSES)[number];
+
+export const VISITOR_LEAD_STATUSES = [
+  'new',
+  'contacted',
+  'qualified',
+  'converted',
+  'dropped',
+] as const;
+export type VisitorLeadStatus = (typeof VISITOR_LEAD_STATUSES)[number];
+
+// M10s — `student.course_completed` extends the existing notification
+// catalogue so admin gets pinged when a student finishes a course
+// (mirrors the certificate-issue flow).

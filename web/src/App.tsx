@@ -64,6 +64,7 @@ import { AdminFeeStructuresPage } from './pages/admin/AdminFeeStructures.js';
 import { AdminTicketDetailPage } from './pages/admin/AdminTicketDetail.js';
 import { AdminSlaBreachesPage } from './pages/admin/AdminSlaBreaches.js';
 import { AdminHolidaysPage } from './pages/admin/AdminHolidays.js';
+import { AdminVisitorLeadsPage } from './pages/admin/AdminVisitorLeads.js';
 
 // Finance
 import { FinanceDashboard } from './pages/finance/FinanceDashboard.js';
@@ -404,6 +405,8 @@ export function App() {
                     />
                     <Route path="fee-structures" element={<AdminFeeStructuresPage />} />
                     <Route path="holidays" element={<AdminHolidaysPage />} />
+                    {/* M10s — Visitor Leads (admin-captured prospect funnel). */}
+                    <Route path="visitor-leads" element={<AdminVisitorLeadsPage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </RequireRole>
