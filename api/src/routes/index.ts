@@ -79,6 +79,7 @@ import {
   meJobApplicationsRouter,
   placementAnalyticsRouter,
 } from './placement.js';
+import { chatRouter, meConversationsRouter } from './chat.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -101,6 +102,9 @@ export function v1Router(): Router {
   router.use('/me/job-applications', meJobApplicationsRouter());
   router.use('/job-applications', jobApplicationsRouter());
   router.use('/placement/analytics', placementAnalyticsRouter());
+  // M10e — Internal chat (LMS_Requirements §2). PR-E1 ships 1:1 + polling.
+  router.use('/me/conversations', meConversationsRouter());
+  router.use('/chat', chatRouter());
   router.use('/users', usersRouter());
   router.use('/users', suspensionOverrideRouter());
   router.use('/programs', programsRouter());

@@ -76,6 +76,7 @@ import { FinanceReportsPage } from './pages/finance/FinanceReports.js';
 import { ReportsPage } from './pages/Reports.js';
 import { AdminPlacementPage } from './pages/AdminPlacement.js';
 import { StudentJobsPage } from './pages/StudentJobs.js';
+import { ChatPage } from './pages/Chat.js';
 
 // Faculty
 import { FacultyDashboard } from './pages/faculty/FacultyDashboard.js';
@@ -257,6 +258,16 @@ export function App() {
           <Route path="/onboarding/set-password" element={<OnbSetPasswordPage />} />
           <Route path="/onboarding/tour" element={<OnbTourPage />} />
           <Route path="/onboarding/arrival" element={<OnbArrivalPage />} />
+
+          {/* M10e — Chat (PR-E1 ships 1:1 polling; real-time + groups in PR-E2). */}
+          <Route
+            path="/chat"
+            element={
+              <RequireAuth>
+                <ChatPage />
+              </RequireAuth>
+            }
+          />
 
           {/* M10f — Placement / Jobs. Admin console + student feed. */}
           <Route
