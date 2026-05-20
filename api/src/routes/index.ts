@@ -71,6 +71,7 @@ import {
 } from './admissions/admissionsFees.js';
 import { jobsAdmissionsRouter } from './jobsAdmissions.js';
 import { reportsRouter } from './reports.js';
+import { jobsDailyAttendanceRouter } from './jobsDailyAttendance.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -81,6 +82,7 @@ export function v1Router(): Router {
   router.use('/jobs', jobsFacultyDigestRouter());
   router.use('/jobs', jobsNotificationsRouter());
   router.use('/jobs', jobsAdmissionsRouter());
+  router.use('/jobs', jobsDailyAttendanceRouter());
 
   router.use('/auth', authRouter());
   // M10 — Reports module (LMS_Faculty_Features §4). Three batch-scoped
