@@ -5,6 +5,7 @@ import {
   JOB_EMPLOYMENT_TYPES,
   JOB_POSTING_STATES,
   type CompanyDto,
+  type JobApplicationDto,
   type JobApplicationStatus,
   type JobEmploymentType,
   type JobPostingState,
@@ -281,6 +282,11 @@ function PostingDetail({
   onUpdated: () => void;
 }) {
   const qc = useQueryClient();
+  // M10p — Inline scheduler modal state. `null` = closed. Set to a
+  // JobApplicationDto to open the modal with that application's current
+  // interviewAt / interviewLocation pre-filled.
+  const [schedulingApp, setSchedulingApp] =
+    useState<JobApplicationDto | null>(null);
   const postingQ = useQuery({
     queryKey: ['placement', 'postings', postingId],
     queryFn: () => placementApi.getJob(postingId),
@@ -408,28 +414,11 @@ function PostingDetail({
                       value={a.status}
                       onChange={(e) => {
                         const next = e.target.value as JobApplicationStatus;
-                        // M10l — When flipping TO interview_scheduled,
-                        // prompt for date + location inline. Ugly but ops-
-                        // grade; a future PR can swap for a modal.
+                        // M10p — When flipping TO interview_scheduled,
+                        // open the InterviewSchedulerModal so the admin
+                        // can pick date + location in a proper form.
                         if (next === 'interview_scheduled') {
-                          const defaultDate = a.interviewAt
-                            ? new Date(a.interviewAt).toISOString().slice(0, 16)
-                            : new Date().toISOString().slice(0, 16);
-                          const dt = window.prompt(
-                            'Interview date + time (YYYY-MM-DDTHH:mm, IST)',
-                            defaultDate,
-                          );
-                          if (!dt) return;
-                          const loc = window.prompt(
-                            'Interview location (room / link / address)',
-                            a.interviewLocation ?? '',
-                          );
-                          setStatus.mutate({
-                            id: a.id,
-                            status: next,
-                            interviewAt: new Date(dt).toISOString(),
-                            interviewLocation: loc ?? null,
-                          });
+                          setSchedulingApp(a);
                           return;
                         }
                         setStatus.mutate({ id: a.id, status: next });
@@ -442,6 +431,15 @@ function PostingDetail({
                         </option>
                       ))}
                     </select>
+                    {a.status === 'interview_scheduled' && (
+                      <button
+                        type="button"
+                        onClick={() => setSchedulingApp(a)}
+                        className="block mt-1 text-[10px] text-brand-orange hover:underline"
+                      >
+                        Edit schedule
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -449,7 +447,118 @@ function PostingDetail({
           </table>
         </div>
       )}
+      {/* M10p — Interview scheduler modal. Mounted at the bottom of
+          PostingDetail so it lives within the table state. Save calls the
+          same setStatus mutation with interviewAt + interviewLocation. */}
+      {schedulingApp && (
+        <InterviewSchedulerModal
+          app={schedulingApp}
+          onClose={() => setSchedulingApp(null)}
+          onSave={(payload) => {
+            setStatus.mutate({
+              id: schedulingApp.id,
+              status: 'interview_scheduled',
+              interviewAt: payload.interviewAt,
+              interviewLocation: payload.interviewLocation,
+            });
+            setSchedulingApp(null);
+          }}
+        />
+      )}
     </Card>
+  );
+}
+
+// M10p — Modal for scheduling an interview (date + time + location).
+// Replaces the two window.prompt calls that previously gathered this
+// info. Renders as a fixed overlay; close-on-backdrop + Esc + Cancel.
+function InterviewSchedulerModal({
+  app,
+  onClose,
+  onSave,
+}: {
+  app: JobApplicationDto;
+  onClose: () => void;
+  onSave: (payload: { interviewAt: string; interviewLocation: string | null }) => void;
+}) {
+  const defaultLocal = app.interviewAt
+    ? // Format an ISO into the YYYY-MM-DDTHH:mm shape the datetime-local
+      // input expects, in the browser's local timezone (matches how
+      // admins think about the interview slot).
+      new Date(app.interviewAt).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16)
+    : '';
+  const [when, setWhen] = useState<string>(defaultLocal);
+  const [location, setLocation] = useState<string>(app.interviewLocation ?? '');
+  const [err, setErr] = useState<string | null>(null);
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!when) {
+      setErr('Pick a date and time.');
+      return;
+    }
+    const iso = new Date(when).toISOString();
+    if (Number.isNaN(new Date(when).getTime())) {
+      setErr('Date is invalid.');
+      return;
+    }
+    onSave({ interviewAt: iso, interviewLocation: location.trim() || null });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm grid place-items-center px-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+    >
+      <div className="bg-white rounded-2xl shadow-elev-3 w-full max-w-md p-6">
+        <h3 className="text-lg font-semibold text-brand-navy mb-1">
+          Schedule interview
+        </h3>
+        <p className="text-xs text-muted mb-4">
+          {app.studentName ?? 'Student'}
+          {app.studentCode && ` · ${app.studentCode}`}
+        </p>
+        <form onSubmit={submit} className="space-y-3">
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="text-xs uppercase tracking-wider text-muted font-bold">
+              Date &amp; time
+            </span>
+            <input
+              type="datetime-local"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+              required
+              className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+            />
+          </label>
+          <Input
+            label="Location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Conf Rm A, Zoom link, or full address"
+            maxLength={240}
+          />
+          {err && (
+            <div role="alert" className="rounded-xl p-3 text-sm bg-red-50 border border-danger/30 text-danger">
+              {err}
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/5">
+            <Button type="button" onClick={onClose} variant="secondary">
+              Cancel
+            </Button>
+            <Button type="submit">Save schedule</Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
