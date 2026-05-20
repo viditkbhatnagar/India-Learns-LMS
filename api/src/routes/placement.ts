@@ -75,6 +75,10 @@ const ApplyBody = z.object({
 const UpdateApplicationBody = z.object({
   status: z.enum(JOB_APPLICATION_STATUSES),
   interviewNote: z.string().max(2000).nullable().optional(),
+  // M10l — Structured interview scheduling. Pass an ISO timestamp +
+  // free-text location when flipping status to interview_scheduled.
+  interviewAt: z.string().datetime().nullable().optional(),
+  interviewLocation: z.string().max(240).nullable().optional(),
 });
 
 // Roles that can manage the placement directory + postings. `admin` and

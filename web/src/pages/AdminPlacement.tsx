@@ -298,8 +298,22 @@ function PostingDetail({
     },
   });
   const setStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: JobApplicationStatus }) =>
-      placementApi.updateApplicationStatus(id, { status }),
+    mutationFn: ({
+      id,
+      status,
+      interviewAt,
+      interviewLocation,
+    }: {
+      id: string;
+      status: JobApplicationStatus;
+      interviewAt?: string | null;
+      interviewLocation?: string | null;
+    }) =>
+      placementApi.updateApplicationStatus(id, {
+        status,
+        interviewAt,
+        interviewLocation,
+      }),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['placement', 'postings', postingId, 'apps'] }),
   });
@@ -378,16 +392,48 @@ function PostingDetail({
                     <Badge tone={STATUS_TONES[a.status]} dot size="sm">
                       {a.status.replace('_', ' ')}
                     </Badge>
+                    {/* M10l — Interview schedule shown inline when set */}
+                    {a.status === 'interview_scheduled' && a.interviewAt && (
+                      <p className="text-[10px] text-muted mt-1">
+                        {new Date(a.interviewAt).toLocaleString('en-IN', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                        {a.interviewLocation && ` · ${a.interviewLocation}`}
+                      </p>
+                    )}
                   </td>
                   <td className="py-2 pr-3">
                     <select
                       value={a.status}
-                      onChange={(e) =>
-                        setStatus.mutate({
-                          id: a.id,
-                          status: e.target.value as JobApplicationStatus,
-                        })
-                      }
+                      onChange={(e) => {
+                        const next = e.target.value as JobApplicationStatus;
+                        // M10l — When flipping TO interview_scheduled,
+                        // prompt for date + location inline. Ugly but ops-
+                        // grade; a future PR can swap for a modal.
+                        if (next === 'interview_scheduled') {
+                          const defaultDate = a.interviewAt
+                            ? new Date(a.interviewAt).toISOString().slice(0, 16)
+                            : new Date().toISOString().slice(0, 16);
+                          const dt = window.prompt(
+                            'Interview date + time (YYYY-MM-DDTHH:mm, IST)',
+                            defaultDate,
+                          );
+                          if (!dt) return;
+                          const loc = window.prompt(
+                            'Interview location (room / link / address)',
+                            a.interviewLocation ?? '',
+                          );
+                          setStatus.mutate({
+                            id: a.id,
+                            status: next,
+                            interviewAt: new Date(dt).toISOString(),
+                            interviewLocation: loc ?? null,
+                          });
+                          return;
+                        }
+                        setStatus.mutate({ id: a.id, status: next });
+                      }}
                       className="rounded-lg border border-black/10 px-2 py-1.5 bg-white text-xs"
                     >
                       {JOB_APPLICATION_STATUSES.map((s) => (

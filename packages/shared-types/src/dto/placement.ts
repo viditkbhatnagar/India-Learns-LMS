@@ -106,6 +106,10 @@ export interface JobApplicationDto {
   // Optional free-text scheduling note attached by the placement team
   // when status === 'interview_scheduled'.
   interviewNote: string | null;
+  // M10l — Structured interview scheduling (LMS_Requirements §3
+  // "Interview status"). ISO timestamp + free-text location.
+  interviewAt: string | null;
+  interviewLocation: string | null;
   appliedAt: string;
   updatedAt: string;
 }
@@ -121,6 +125,10 @@ export interface ApplyToJobInput {
 export interface UpdateJobApplicationInput {
   status: JobApplicationStatus;
   interviewNote?: string | null;
+  // M10l — Set when status flips to 'interview_scheduled'. Pass null to
+  // clear when status moves elsewhere.
+  interviewAt?: string | null;
+  interviewLocation?: string | null;
 }
 
 // M10 — Placement analytics dashboard (LMS_Requirements §3).
