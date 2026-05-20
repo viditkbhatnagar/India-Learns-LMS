@@ -1,8 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { useState, type FormEvent } from 'react';
-import type { Role } from 'india-learns-shared-types';
-import { usersApi, programsApi } from '../../lib/endpoints.js';
+import { useEffect, useState, type FormEvent } from 'react';
+import type {
+  ContactRefDto,
+  PersonalAddressDto,
+  Role,
+  UserPublicDto,
+} from 'india-learns-shared-types';
+import { usersApi, programsApi, batchesApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
@@ -378,8 +383,40 @@ export function AdminUserDetail() {
         <dl className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-y-2.5 text-sm border-t border-black/5 pt-4">
           <dt className="text-muted">Phone</dt>
           <dd className="font-mono">{u.phoneE164 || '—'}</dd>
+          <dt className="text-muted">Email</dt>
+          <dd>{u.email}</dd>
+          {u.dateOfBirth && (
+            <>
+              <dt className="text-muted">Date of birth</dt>
+              <dd>{new Date(u.dateOfBirth).toLocaleDateString('en-IN')}</dd>
+            </>
+          )}
+          {u.enrolmentValidFrom && u.enrolmentValidTo && (
+            <>
+              <dt className="text-muted">Enrolment window</dt>
+              <dd>
+                {new Date(u.enrolmentValidFrom).toLocaleDateString('en-IN')} –{' '}
+                {new Date(u.enrolmentValidTo).toLocaleDateString('en-IN')}
+              </dd>
+            </>
+          )}
         </dl>
       </Card>
+
+      {/* M10h — Admin-side academic-data edit. Mirrors the student
+          Profile screen so admin / admissions team can correct details
+          on behalf of a student without asking them to log in. The PATCH
+          /v1/users/:id endpoint already accepts all these fields (PR-B);
+          this is the missing admin UI. */}
+      {!isReadOnly && (
+        <>
+          <AdmissionDetailsEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
+          <PersonalDetailsEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
+          <EmergencyContactEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
+          <ParentGuardianEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
+          <ResumeUrlEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
+        </>
+      )}
 
       {!isReadOnly && (
         <Card accent="orange">
@@ -407,5 +444,378 @@ export function AdminUserDetail() {
         </Card>
       )}
     </div>
+  );
+}
+
+// M10h — Admin-side editors for academic data. Each card has its own
+// save mutation + status banner so one failing block doesn't trap the
+// others. The PATCH endpoint accepts each field independently — missing
+// keys are left untouched, so passing only the subdoc you're editing
+// is safe.
+
+interface EditorProps {
+  user: UserPublicDto;
+  onSaved: () => void;
+}
+
+function useFieldMsg() {
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  return [msg, setMsg] as const;
+}
+
+function StatusBanner({ msg }: { msg: { kind: 'ok' | 'err'; text: string } | null }) {
+  if (!msg) return null;
+  return (
+    <div
+      role={msg.kind === 'ok' ? 'status' : 'alert'}
+      className={`rounded-xl p-3 text-sm ${
+        msg.kind === 'ok'
+          ? 'bg-emerald-50 border border-emerald-200 text-success'
+          : 'bg-red-50 border border-danger/30 text-danger'
+      }`}
+    >
+      {msg.text}
+    </div>
+  );
+}
+
+function errMsg(err: unknown): string {
+  return err instanceof ApiHttpError ? err.message : 'Failed to save.';
+}
+
+function AdmissionDetailsEditor({ user, onSaved }: EditorProps) {
+  const [programId, setProgramId] = useState(user.programId ?? '');
+  const [batchId, setBatchId] = useState(user.batchId ?? '');
+  const [validFrom, setValidFrom] = useState(
+    user.enrolmentValidFrom ? user.enrolmentValidFrom.slice(0, 10) : '',
+  );
+  const [validTo, setValidTo] = useState(
+    user.enrolmentValidTo ? user.enrolmentValidTo.slice(0, 10) : '',
+  );
+  const [msg, setMsg] = useFieldMsg();
+  const programsQ = useQuery({ queryKey: ['programs'], queryFn: programsApi.list });
+  const batchesQ = useQuery({
+    queryKey: ['batches'],
+    queryFn: () => batchesApi.list() as Promise<Array<{ id: string; name: string; programId: string }>>,
+  });
+  const filteredBatches = (batchesQ.data ?? []).filter((b) => !programId || b.programId === programId);
+
+  const save = useMutation({
+    mutationFn: () =>
+      usersApi.update(user.id, {
+        programId: programId || null,
+        batchId: batchId || null,
+        enrolmentValidFrom: validFrom ? new Date(`${validFrom}T00:00:00Z`).toISOString() : null,
+        enrolmentValidTo: validTo ? new Date(`${validTo}T00:00:00Z`).toISOString() : null,
+      }),
+    onSuccess: () => {
+      setMsg({ kind: 'ok', text: 'Admission details saved.' });
+      onSaved();
+    },
+    onError: (err) => setMsg({ kind: 'err', text: errMsg(err) }),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Admission details"
+        subtitle="Programme, batch, and enrolment window. Changing programme triggers re-enrolment downstream — confirm with finance first."
+      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setMsg(null);
+          save.mutate();
+        }}
+        className="space-y-3"
+      >
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="text-xs uppercase tracking-wider text-muted font-bold">Programme</span>
+            <select
+              value={programId}
+              onChange={(e) => {
+                setProgramId(e.target.value);
+                setBatchId('');
+              }}
+              className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+            >
+              <option value="">— None —</option>
+              {(programsQ.data ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="text-xs uppercase tracking-wider text-muted font-bold">Batch</span>
+            <select
+              value={batchId}
+              onChange={(e) => setBatchId(e.target.value)}
+              className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+            >
+              <option value="">— None —</option>
+              {filteredBatches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Input
+            label="Joining date (enrolment from)"
+            type="date"
+            value={validFrom}
+            onChange={(e) => setValidFrom(e.target.value)}
+          />
+          <Input
+            label="Enrolment until"
+            type="date"
+            value={validTo}
+            onChange={(e) => setValidTo(e.target.value)}
+          />
+        </div>
+        <StatusBanner msg={msg} />
+        <Button type="submit" loading={save.isPending}>
+          Save admission details
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
+function PersonalDetailsEditor({ user, onSaved }: EditorProps) {
+  const [dob, setDob] = useState(user.dateOfBirth ?? '');
+  const blankAddr: PersonalAddressDto = {
+    street: '',
+    city: '',
+    stateProvince: '',
+    postalCode: '',
+    country: '',
+  };
+  const [addr, setAddr] = useState<PersonalAddressDto>(user.personalAddress ?? blankAddr);
+  const [msg, setMsg] = useFieldMsg();
+  useEffect(() => {
+    setDob(user.dateOfBirth ?? '');
+    setAddr(user.personalAddress ?? blankAddr);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      usersApi.update(user.id, {
+        dateOfBirth: dob.trim() ? dob.trim() : null,
+        personalAddress:
+          addr.street.trim() && addr.city.trim() && addr.country.trim()
+            ? {
+                street: addr.street.trim(),
+                city: addr.city.trim(),
+                stateProvince: addr.stateProvince.trim(),
+                postalCode: addr.postalCode.trim(),
+                country: addr.country.trim(),
+              }
+            : null,
+      }),
+    onSuccess: () => {
+      setMsg({ kind: 'ok', text: 'Personal details saved.' });
+      onSaved();
+    },
+    onError: (err) => setMsg({ kind: 'err', text: errMsg(err) }),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Personal details"
+        subtitle="Date of birth and full residential address. Leaving address blank clears it."
+      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setMsg(null);
+          save.mutate();
+        }}
+        className="space-y-3"
+      >
+        <Input
+          label="Date of birth"
+          type="date"
+          value={dob}
+          onChange={(e) => setDob(e.target.value)}
+        />
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="Street" value={addr.street} onChange={(e) => setAddr({ ...addr, street: e.target.value })} maxLength={200} />
+          <Input label="City" value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })} maxLength={120} />
+          <Input label="State / province" value={addr.stateProvince} onChange={(e) => setAddr({ ...addr, stateProvince: e.target.value })} maxLength={120} />
+          <Input label="Postal code" value={addr.postalCode} onChange={(e) => setAddr({ ...addr, postalCode: e.target.value })} maxLength={32} />
+          <Input label="Country" value={addr.country} onChange={(e) => setAddr({ ...addr, country: e.target.value })} maxLength={80} />
+        </div>
+        <StatusBanner msg={msg} />
+        <Button type="submit" loading={save.isPending}>
+          Save personal details
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
+function ContactEditor({
+  user,
+  field,
+  title,
+  subtitle,
+  onSaved,
+}: EditorProps & {
+  field: 'emergencyContact' | 'parentGuardian';
+  title: string;
+  subtitle: string;
+}) {
+  const blank: ContactRefDto = { name: '', relationship: '', phoneE164: '', email: null };
+  const [contact, setContact] = useState<ContactRefDto>(user[field] ?? blank);
+  const [msg, setMsg] = useFieldMsg();
+  useEffect(() => {
+    setContact(user[field] ?? blank);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id, field]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      usersApi.update(user.id, {
+        [field]:
+          contact.name.trim() && contact.phoneE164.trim()
+            ? {
+                name: contact.name.trim(),
+                relationship: contact.relationship.trim(),
+                phoneE164: contact.phoneE164.trim(),
+                email: contact.email?.trim() || null,
+              }
+            : null,
+      }),
+    onSuccess: () => {
+      setMsg({ kind: 'ok', text: `${title} saved.` });
+      onSaved();
+    },
+    onError: (err) => setMsg({ kind: 'err', text: errMsg(err) }),
+  });
+
+  return (
+    <Card>
+      <CardHeader title={title} subtitle={subtitle} />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setMsg(null);
+          save.mutate();
+        }}
+        className="space-y-3"
+      >
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Input label="Name" value={contact.name} onChange={(e) => setContact({ ...contact, name: e.target.value })} maxLength={120} />
+          <Input
+            label="Relationship"
+            value={contact.relationship}
+            onChange={(e) => setContact({ ...contact, relationship: e.target.value })}
+            maxLength={60}
+          />
+          <Input
+            label="Phone"
+            value={contact.phoneE164}
+            onChange={(e) => setContact({ ...contact, phoneE164: e.target.value })}
+            placeholder="+919812345678"
+            hint="E.164 format"
+          />
+          <Input
+            label="Email (optional)"
+            type="email"
+            value={contact.email ?? ''}
+            onChange={(e) => setContact({ ...contact, email: e.target.value || null })}
+            maxLength={254}
+          />
+        </div>
+        <StatusBanner msg={msg} />
+        <Button type="submit" loading={save.isPending}>
+          Save {title.toLowerCase()}
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
+function EmergencyContactEditor(props: EditorProps) {
+  return (
+    <ContactEditor
+      {...props}
+      field="emergencyContact"
+      title="Emergency contact"
+      subtitle="Whom we call if something happens during class or on campus."
+    />
+  );
+}
+
+function ParentGuardianEditor(props: EditorProps) {
+  return (
+    <ContactEditor
+      {...props}
+      field="parentGuardian"
+      title="Parent / guardian"
+      subtitle="Primary contact for programme updates, fee reminders, attendance summaries."
+    />
+  );
+}
+
+function ResumeUrlEditor({ user, onSaved }: EditorProps) {
+  const [url, setUrl] = useState(user.resumeUrl ?? '');
+  const [msg, setMsg] = useFieldMsg();
+  useEffect(() => {
+    setUrl(user.resumeUrl ?? '');
+  }, [user.id, user.resumeUrl]);
+
+  const save = useMutation({
+    mutationFn: () => usersApi.update(user.id, { resumeUrl: url.trim() || null }),
+    onSuccess: () => {
+      setMsg({ kind: 'ok', text: 'Resume URL saved.' });
+      onSaved();
+    },
+    onError: (err) => setMsg({ kind: 'err', text: errMsg(err) }),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Resume"
+        subtitle="Canonical link shown to the placement team on every job application. Drive / Dropbox / portfolio URL."
+      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setMsg(null);
+          save.mutate();
+        }}
+        className="space-y-3"
+      >
+        <Input
+          label="Resume URL"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://drive.google.com/..."
+          hint="Leave blank to clear."
+        />
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-brand-orange hover:underline"
+          >
+            Open current resume →
+          </a>
+        )}
+        <StatusBanner msg={msg} />
+        <Button type="submit" loading={save.isPending}>
+          Save resume URL
+        </Button>
+      </form>
+    </Card>
   );
 }

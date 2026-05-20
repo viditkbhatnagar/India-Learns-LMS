@@ -130,7 +130,27 @@ export const usersApi = {
     const res = await api.post<{ data: { user: UserPublicDto } }>('/users', input);
     return res.data.data.user;
   },
-  async update(id: string, input: Partial<{ name: string; email: string; phoneE164: string; address: string | null; programId: string; batchId: string }>) {
+  // M10h — Admin can edit the full set of student personal + admission
+  // details. Pass null on a subdoc field to clear it; the server's Zod
+  // schema enforces shape.
+  async update(
+    id: string,
+    input: Partial<{
+      name: string;
+      email: string;
+      phoneE164: string;
+      address: string | null;
+      programId: string | null;
+      batchId: string | null;
+      enrolmentValidFrom: string | null;
+      enrolmentValidTo: string | null;
+      dateOfBirth: string | null;
+      personalAddress: UserPublicDto['personalAddress'];
+      emergencyContact: UserPublicDto['emergencyContact'];
+      parentGuardian: UserPublicDto['parentGuardian'];
+      resumeUrl: string | null;
+    }>,
+  ) {
     const res = await api.patch<{ data: { user: UserPublicDto } }>(`/users/${id}`, input);
     return res.data.data.user;
   },
