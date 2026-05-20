@@ -588,3 +588,58 @@ Append-only log. Every entry: ID, date, decision, why, source.
 
 **Source:** Logan's screenshot + chat (2026-05-14); Explore findings on Apply.tsx, admissions.ts route schema, error.ts middleware, Input.tsx; CLAUDE.md §5 error envelope.
 **How to apply:** Other public forms (login, password reset) have the same single-banner pattern and will need the same refactor in a follow-up PR — flagged as deferred, not blocking this fix. Verify via [docs/smoke/apply-signup-errors.md](docs/smoke/apply-signup-errors.md). `npm run typecheck -w web && npm run lint -w web` clean.
+
+## D-090 — M10 scope decisions (additional features from May 2026 docs)
+**Date:** 2026-05-20
+**Why:** Two new requirements docs landed (`LMS_Requirements.docx`, `LMS_Faculty_Features_Requirements_.docx`) covering academic profile, internal chat, placement, payments, attendance, assignments, courseware, reports, faculty dashboard. Some asks contradict Phase-1 scope and need explicit go/no-go.
+
+**Decisions (Vidit + Logan, AskUserQuestion 2026-05-20):**
+1. **Timing:** ship all of it together — "Phase 1 + 2 both, commit by commit, then test on production."
+2. **Online payment gateway — OUT.** Keep manual finance entry (cash / UPI / bank_transfer / cheque). BRD §6 ban stands.
+3. **Internal chat — FULL** (1:1 + group + files + real-time + notifications). Architecturally large enough that this slice is deferred to a follow-up session — see [memory/milestones/M10-additional-features.md](memory/milestones/M10-additional-features.md) §"Deferred work".
+4. **Placement / Jobs — FULL.** Job posts + applications + companies + analytics + per-student resume URL.
+
+**Why this matters:** The BRD §6 ban on payment gateways is now explicitly confirmed under M10 (was previously a Phase-1 default). If a Phase-2 review later wants to add Razorpay, this entry is the rollback point.
+
+**What landed across PRs #24–#28 + #29 (m10g memory):**
+- New Indian-school doc types (SSLC / +2 / Degree / TC / Passport photo) + faculty quick-access tiles
+- Student personal details — DOB, structured address, emergency contact, parent/guardian + Profile screen sections
+- Reports module — Attendance / Batch summary / Assignment submissions, JSON + XLSX (exceljs new dep)
+- Daily attendance auto-report cron (student + parent email at 18:30 IST)
+- Placement / Jobs module — Company + JobPosting + JobApplication models, admin console, student feed, resume snapshot at apply time
+
+**Source:** `LMS_Requirements.docx`, `LMS_Faculty_Features_Requirements_.docx` (both 2026-05-20).
+**How to apply:** All M10 PRs share the `claude/m10*` branch prefix. Production at `india-learns-lms.onrender.com` deploys each merge automatically via `autoDeploy: true` in `render.yaml`. 501/501 tests passing across the merged set.
+
+## D-091 — Doc-type single-source-of-truth in shared-types
+**Date:** 2026-05-20
+**Why:** Three different `documentType` enum definitions had drifted across `applicationDocument.ts` (the storage list, 7 items including `referee_letter`), `program.ts` (the admin-configurable list, 6 items), and `applicationDocumentService.ts` `TYPE_LABEL` map. Adding 5 new types meant touching 6+ files; future additions would risk drift.
+
+**Change:** Consolidated into `packages/shared-types/src/enums.ts`:
+- `PROGRAM_REQUIRED_DOC_TYPES` (11 items) — what admins can mark required + applicants upload in Step 6.
+- `APPLICATION_DOCUMENT_TYPES` (12 items) — storage superset that also accepts `referee_letter`.
+- `APPLICATION_DOCUMENT_TYPE_LABELS` — friendly labels reused by api + web.
+
+`applicationDocument.ts` re-exports for backwards compat; `program.ts`, `admissions.ts` route, `programs.ts` route, `applicationDocumentService.ts`, `endpoints.ts`, `AdminProgramAdmissions.tsx`, and `Steps.tsx` all import from shared-types. `ApplicationDocumentDto.documentType` is now `ProgramRequiredDocType` (narrowed); the `referee_letter → other` mask in `toApplicationDocumentDto` is preserved.
+
+**How to apply:** Add a new doc type by appending to `PROGRAM_REQUIRED_DOC_TYPES` + `APPLICATION_DOCUMENT_TYPE_LABELS` and rebuilding shared-types. No other file needs to change.
+
+## D-092 — Resume URL on User (single canonical) + snapshot on JobApplication
+**Date:** 2026-05-20
+**Why:** Placement workflow needs (a) a resume the placement team can reach via the admin console, and (b) historical fidelity — past applications must not retroactively change if the student updates their resume later.
+
+**Change:** `User.resumeUrl: string | null` — one canonical resume URL per student, paste-only for V1 (Drive / Dropbox / portfolio). `JobApplication.resumeUrl: string | null` — snapshot captured at `applyToJob()` time (preferring an explicit `resumeUrl` input override, else `User.resumeUrl`). Apply 422s `RESUME_REQUIRED` if neither is set.
+
+**How to apply:** Direct file upload via Cloudinary is a follow-up; the contract here means `resumeUrl` can later point at a signed URL without an API change.
+
+## D-093 — Internal chat deferred to follow-up session
+**Date:** 2026-05-20
+**Why:** Real-time chat (Socket.IO, sticky sessions on Render, possibly Redis pub/sub for multi-instance, JWT socket auth, file upload, in-app notifications) is a major architectural addition. Shipping it alongside 5 other PRs in one session would be reckless.
+
+**Change:** Tracked as PR-E in M10 backlog. Planned as a 3-4 sub-PR sequence in a follow-up session:
+1. Models + REST + polling (Conversation, Membership, ChatMessage, ChatAttachment)
+2. Socket.IO server + JWT socket auth + real-time delivery
+3. Web UI (chat list, thread view, composer, file upload)
+4. Polish + notifications integration
+
+**How to apply:** Next session: read `memory/milestones/M10-additional-features.md` §"Deferred work" for the design notes and entry point.

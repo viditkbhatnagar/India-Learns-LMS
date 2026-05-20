@@ -18,6 +18,7 @@ Quick map of cross-session memory. Load these at every session start per [`/CLAU
 | [milestones/M7-assessments.md](milestones/M7-assessments.md) | M7 — Quiz + QuizAttempt + Exam + ExamAttempt + Rubric + FeedbackEntry + DomainEvent + course completion + Mon 09:00 IST faculty digest cron |
 | [milestones/M8-certificates-notifications-analytics.md](milestones/M8-certificates-notifications-analytics.md) | M8 — Certificate + CertificateAdapter + NotificationPrefs + ApiCostLedger + AnalyticsService + retry sweep cron + M2–M8 web UI port |
 | [milestones/M9-polish-deploy.md](milestones/M9-polish-deploy.md) | M9 — Email adapters live (Resend/SendGrid/Brevo) + Sentry + /healthz + render.yaml + sign-job script + DEPLOY.md + 30+ UI screens + PWA + Playwright + Lighthouse |
+| [milestones/M10-additional-features.md](milestones/M10-additional-features.md) | M10 — Indian-school doc types + student personal details + Reports module + daily attendance cron + Placement / Jobs module (May 2026 requirements) |
 
 ## Conventions
 
