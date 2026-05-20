@@ -170,6 +170,13 @@ export function ApplySignupPage() {
           deptTag: null,
           isCourseCoordinator: false,
           address: null,
+          // M10 — Personal-detail fields. The applicant hasn't completed
+          // Step 2/3 yet, so all four are null at signup; they get
+          // populated by the time they accept an offer.
+          dateOfBirth: null,
+          personalAddress: null,
+          emergencyContact: null,
+          parentGuardian: null,
           createdAt: result.application.createdAt,
           updatedAt: result.application.updatedAt,
           deletedAt: null,

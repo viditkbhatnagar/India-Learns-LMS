@@ -41,6 +41,28 @@ const CreateBody = z.object({
   isCourseCoordinator: z.boolean().optional(),
 });
 
+// M10 — Personal-detail subschemas (Profile screen + apply→convert copy).
+// Phones are E.164 (`+` + 6–15 digits). Email is optional on the contact
+// subdocs since parents/guardians often don't have one to give.
+const PersonalAddressBody = z.object({
+  street: z.string().min(1).max(200),
+  city: z.string().min(1).max(120),
+  stateProvince: z.string().max(120).default(''),
+  postalCode: z.string().max(32).default(''),
+  country: z.string().min(1).max(80),
+});
+
+const ContactRefBody = z
+  .object({
+    name: z.string().min(1).max(120),
+    relationship: z.string().max(60).default(''),
+    phoneE164: z.string().regex(/^\+\d{6,15}$/),
+    email: z.string().email().max(254).nullable().optional(),
+  })
+  // Normalise `email` to the DTO shape (`string | null`, never `undefined`)
+  // so service-layer and Mongoose see one canonical form.
+  .transform((v) => ({ ...v, email: v.email ?? null }));
+
 const UpdateBody = z.object({
   name: z.string().min(1).max(120).optional(),
   phoneE164: z.string().regex(/^\+\d{6,15}$/).optional(),
@@ -51,6 +73,16 @@ const UpdateBody = z.object({
   enrolmentValidTo: z.string().datetime().nullable().optional(),
   deptTag: DeptEnum.nullable().optional(),
   isCourseCoordinator: z.boolean().optional(),
+  // M10 — Personal details (LMS_Requirements §1). Accept YYYY-MM-DD or
+  // full ISO; the service truncates to a UTC date-only value.
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}(T.*)?$/, 'dateOfBirth must be YYYY-MM-DD or ISO.')
+    .nullable()
+    .optional(),
+  personalAddress: PersonalAddressBody.nullable().optional(),
+  emergencyContact: ContactRefBody.nullable().optional(),
+  parentGuardian: ContactRefBody.nullable().optional(),
 });
 
 const ListQuery = z.object({

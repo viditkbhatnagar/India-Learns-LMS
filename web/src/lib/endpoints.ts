@@ -118,7 +118,18 @@ export const usersApi = {
     const res = await api.patch<{ data: { user: UserPublicDto } }>(`/users/${id}`, input);
     return res.data.data.user;
   },
-  async updateMe(input: { name?: string; phoneE164?: string; address?: string | null }) {
+  // M10 — Profile-screen fields included: dateOfBirth (YYYY-MM-DD or null),
+  // structured personalAddress, emergencyContact, parentGuardian. Pass null
+  // on any subdoc to clear it.
+  async updateMe(input: {
+    name?: string;
+    phoneE164?: string;
+    address?: string | null;
+    dateOfBirth?: string | null;
+    personalAddress?: UserPublicDto['personalAddress'];
+    emergencyContact?: UserPublicDto['emergencyContact'];
+    parentGuardian?: UserPublicDto['parentGuardian'];
+  }) {
     // Server accepts PATCH /users/:id where :id === self.
     const me = await api.get<{ data: { user: UserPublicDto } }>('/users/me');
     const res = await api.patch<{ data: { user: UserPublicDto } }>(

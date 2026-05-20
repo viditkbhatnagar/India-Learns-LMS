@@ -1,8 +1,13 @@
 import { Types } from 'mongoose';
-import type { AcceptOfferResult } from 'india-learns-shared-types';
+import type {
+  AcceptOfferResult,
+  ApplicationDraftStep2Personal,
+  ApplicationDraftStep3Contact,
+} from 'india-learns-shared-types';
 import { HttpError } from '../../middleware/error.js';
 import {
   Application,
+  ApplicationDraft,
   Batch,
   Course,
   Enrollment,
@@ -13,6 +18,92 @@ import {
 import { nextUserCode } from '../counterService.js';
 import { recordAudit } from '../auditService.js';
 import { appendAdmissionsAudit } from './admissionsAuditService.js';
+
+// M10 — Copy the personal-detail fields captured at apply time
+// (ApplicationDraft step2_personal + step3_contact) onto the User doc.
+// Each block is best-effort: a missing/malformed step doesn't block the
+// conversion, it just leaves that User field null for the student to fill
+// in via the Profile screen later.
+function copyPersonalDetailsFromDraft(
+  draftData: Record<string, unknown>,
+  user: {
+    name: string;
+    dateOfBirth: Date | null;
+    personalAddress: unknown;
+    emergencyContact: unknown;
+    parentGuardian: unknown;
+  },
+): void {
+  const step2 = draftData.step2_personal as Partial<ApplicationDraftStep2Personal> | undefined;
+  const step3 = draftData.step3_contact as Partial<ApplicationDraftStep3Contact> | undefined;
+
+  // Date of birth — Step 2 stores ISO date (YYYY-MM-DD). Persist as UTC
+  // midnight Date so the toDto slug renders deterministically.
+  if (user.dateOfBirth === null && step2?.dateOfBirthIst) {
+    const slug = step2.dateOfBirthIst.slice(0, 10);
+    const parsed = new Date(`${slug}T00:00:00.000Z`);
+    if (!Number.isNaN(parsed.getTime())) {
+      user.dateOfBirth = parsed;
+    }
+  }
+
+  // Prefer the applicant's legal name combo on the User if the User name
+  // still matches the freeform signup name (rare collision risk; this is
+  // a no-op if an admin already curated User.name).
+  if (step2?.legalFirstName && step2.legalLastName) {
+    const composed = [step2.legalFirstName, step2.middleName, step2.legalLastName]
+      .map((s) => (typeof s === 'string' ? s.trim() : ''))
+      .filter(Boolean)
+      .join(' ');
+    if (composed && user.name.trim() !== composed) {
+      // Don't overwrite — admins may have edited the signup name. The
+      // student can update their own name from the Profile screen.
+    }
+  }
+
+  // Structured address — copied as-is. The DocSlot validates required
+  // fields at upload time; here we trust the draft (step3 won't have
+  // marked complete without these).
+  if (user.personalAddress == null && step3?.address) {
+    const addr = step3.address;
+    if (addr.street && addr.city && addr.country) {
+      user.personalAddress = {
+        street: addr.street,
+        city: addr.city,
+        stateProvince: addr.stateProvince ?? '',
+        postalCode: addr.postalCode ?? '',
+        country: addr.country,
+      };
+    }
+  }
+
+  // Emergency contact — step3 emergency block.
+  if (user.emergencyContact == null && step3?.emergency) {
+    const em = step3.emergency;
+    if (em.name && em.phoneE164) {
+      user.emergencyContact = {
+        name: em.name,
+        relationship: em.relationship ?? '',
+        phoneE164: em.phoneE164,
+        email: null,
+      };
+    }
+  }
+
+  // Parent/guardian — optional step3 block added in M10. Falls back to
+  // null when the applicant didn't fill it; student can add later.
+  if (user.parentGuardian == null && step3?.parentGuardian) {
+    const pg = step3.parentGuardian;
+    if (pg.name && pg.phoneE164) {
+      user.parentGuardian = {
+        name: pg.name,
+        relationship: pg.relationship ?? '',
+        phoneE164: pg.phoneE164,
+        email: pg.email ?? null,
+      };
+    }
+  }
+}
 
 // M7 — Applicant → Student conversion.
 //
@@ -82,6 +173,17 @@ export async function acceptOffer(
     user.enrolmentValidFrom = claimedBatch.startDate;
     user.enrolmentValidTo = claimedBatch.endDate;
     user.status = user.status === 'pending' ? 'active' : user.status;
+
+    // M10 — Lift personal details from the applicant's draft onto the
+    // student User doc so the Profile screen can render them immediately
+    // post-acceptance. Best-effort: a missing draft is fine (existing
+    // students predate M10 anyway). We only fill fields that are still
+    // null, so an admin who already curated the User doc isn't overwritten.
+    const draft = await ApplicationDraft.findOne({ applicantUserId });
+    if (draft?.data && typeof draft.data === 'object') {
+      copyPersonalDetailsFromDraft(draft.data as Record<string, unknown>, user);
+    }
+
     await user.save();
 
     // Create one Enrollment per course in the program. If the program has

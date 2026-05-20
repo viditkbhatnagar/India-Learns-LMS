@@ -66,6 +66,19 @@ function toDto(doc: HydratedUser): UserPublicDto {
     deptTag: (json.deptTag as UserPublicDto['deptTag']) ?? null,
     isCourseCoordinator: Boolean(json.isCourseCoordinator),
     address: (json.address as string | null) ?? null,
+    // M10 — Personal-detail expansion. dateOfBirth is serialized as a
+    // YYYY-MM-DD slug (no time portion) since hours/minutes are noise on
+    // a birthdate. Subdocs are nulled when absent so the web side can
+    // skip rendering instead of checking for shape.
+    dateOfBirth: (() => {
+      const v = json.dateOfBirth;
+      if (v instanceof Date) return v.toISOString().slice(0, 10);
+      if (typeof v === 'string' && v.length >= 10) return v.slice(0, 10);
+      return null;
+    })(),
+    personalAddress: (json.personalAddress as UserPublicDto['personalAddress']) ?? null,
+    emergencyContact: (json.emergencyContact as UserPublicDto['emergencyContact']) ?? null,
+    parentGuardian: (json.parentGuardian as UserPublicDto['parentGuardian']) ?? null,
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -184,7 +197,19 @@ export async function listUsers(query: UserListQuery): Promise<{
   return { items, total, page, limit };
 }
 
-const SELF_PATCH_FIELDS = new Set<keyof UpdateUserInput>(['name', 'phoneE164', 'address']);
+// M10 — Personal-detail fields students can self-edit on their Profile
+// screen. dateOfBirth is technically self-editable too; in practice the
+// admissions team sets it during apply and students rarely need to change
+// it, but we allow it for the case where it was entered wrong.
+const SELF_PATCH_FIELDS = new Set<keyof UpdateUserInput>([
+  'name',
+  'phoneE164',
+  'address',
+  'dateOfBirth',
+  'personalAddress',
+  'emergencyContact',
+  'parentGuardian',
+]);
 
 export async function updateUser(
   id: string,
@@ -211,6 +236,55 @@ export async function updateUser(
   if (patch.phoneE164 !== undefined) doc.phoneE164 = patch.phoneE164.trim();
   if (patch.address !== undefined) {
     doc.address = patch.address === null ? null : patch.address.trim() || null;
+  }
+  // M10 — Personal details. Pass null to clear; the contact subdocs
+  // require all required fields if set (Mongoose enforces via the
+  // subdoc validators). dateOfBirth accepts YYYY-MM-DD; we parse into
+  // a UTC Date — the date is what matters, not the time.
+  if (patch.dateOfBirth !== undefined) {
+    if (patch.dateOfBirth === null) {
+      doc.dateOfBirth = null;
+    } else {
+      const trimmed = patch.dateOfBirth.trim();
+      // Tolerate full ISO strings but persist as a date-only UTC value.
+      const slug = trimmed.length >= 10 ? trimmed.slice(0, 10) : trimmed;
+      const parsed = new Date(`${slug}T00:00:00.000Z`);
+      if (Number.isNaN(parsed.getTime())) {
+        throw new HttpError(422, 'VALIDATION_FAILED', 'dateOfBirth must be a valid date.');
+      }
+      doc.dateOfBirth = parsed;
+    }
+  }
+  if (patch.personalAddress !== undefined) {
+    doc.personalAddress = patch.personalAddress
+      ? {
+          street: patch.personalAddress.street.trim(),
+          city: patch.personalAddress.city.trim(),
+          stateProvince: patch.personalAddress.stateProvince.trim(),
+          postalCode: patch.personalAddress.postalCode.trim(),
+          country: patch.personalAddress.country.trim(),
+        }
+      : null;
+  }
+  if (patch.emergencyContact !== undefined) {
+    doc.emergencyContact = patch.emergencyContact
+      ? {
+          name: patch.emergencyContact.name.trim(),
+          relationship: patch.emergencyContact.relationship.trim(),
+          phoneE164: patch.emergencyContact.phoneE164.trim(),
+          email: patch.emergencyContact.email?.trim() || null,
+        }
+      : null;
+  }
+  if (patch.parentGuardian !== undefined) {
+    doc.parentGuardian = patch.parentGuardian
+      ? {
+          name: patch.parentGuardian.name.trim(),
+          relationship: patch.parentGuardian.relationship.trim(),
+          phoneE164: patch.parentGuardian.phoneE164.trim(),
+          email: patch.parentGuardian.email?.trim() || null,
+        }
+      : null;
   }
   if (isAdmin) {
     if (patch.programId !== undefined) {

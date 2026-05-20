@@ -1,5 +1,25 @@
 import type { DeptTag, Role, SuspensionKind, UserStatus } from '../enums.js';
 
+// M10 — Structured personal-address shape. Captured at apply time on
+// ApplicationDraft step3_contact and copied to User at acceptOffer; also
+// editable post-conversion via PATCH /v1/users/:id.
+export interface PersonalAddressDto {
+  street: string;
+  city: string;
+  stateProvince: string;
+  postalCode: string;
+  country: string;
+}
+
+// M10 — Shared shape for emergency contact + parent/guardian. Phone is
+// E.164. Email is optional (parents often don't volunteer one).
+export interface ContactRefDto {
+  name: string;
+  relationship: string;
+  phoneE164: string;
+  email: string | null;
+}
+
 export interface UserPublicDto {
   id: string;
   role: Role;
@@ -18,6 +38,12 @@ export interface UserPublicDto {
   deptTag: DeptTag | null;
   isCourseCoordinator: boolean;
   address: string | null;
+  // M10 — Personal details (nullable for M1–M9 users). dateOfBirth is
+  // serialized as an ISO date (YYYY-MM-DD) since hours/minutes are noise.
+  dateOfBirth: string | null;
+  personalAddress: PersonalAddressDto | null;
+  emergencyContact: ContactRefDto | null;
+  parentGuardian: ContactRefDto | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -46,6 +72,13 @@ export interface UpdateUserInput {
   enrolmentValidTo?: string | null;
   deptTag?: DeptTag | null;
   isCourseCoordinator?: boolean;
+  // M10 — Personal details. dateOfBirth accepts YYYY-MM-DD; pass null to
+  // clear. The contact subdocs require all required fields when set
+  // (server validates); pass null to clear an entire subdoc.
+  dateOfBirth?: string | null;
+  personalAddress?: PersonalAddressDto | null;
+  emergencyContact?: ContactRefDto | null;
+  parentGuardian?: ContactRefDto | null;
 }
 
 export interface UserListQuery {

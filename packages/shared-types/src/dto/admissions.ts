@@ -128,6 +128,15 @@ export interface ApplicationDraftStep3Contact {
     relationship: string;
     phoneE164: string;
   };
+  // M10 — Optional parent/guardian capture during apply. If filled, copied
+  // to User.parentGuardian at acceptOffer. Students can also fill this
+  // later via the Profile screen.
+  parentGuardian?: {
+    name: string;
+    relationship: string;
+    phoneE164: string;
+    email?: string | null;
+  } | null;
 }
 
 export interface ApplicationDraftStep4Program {
