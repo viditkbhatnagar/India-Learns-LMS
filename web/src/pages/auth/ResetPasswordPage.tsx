@@ -6,32 +6,56 @@ import { Input } from '../../components/ui/Input.js';
 import { ApiHttpError } from '../../lib/api.js';
 import { AuthLayout, AuthCard } from '../../components/AuthHero.js';
 
+type ResetFieldErrors = Partial<Record<'password' | 'confirm' | 'token', string>>;
+
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
   const token = params.get('t') ?? '';
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // M10u — split banner-level and field-level error state.
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ResetFieldErrors>({});
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
+    setFieldErrors({});
+
+    // Client-side checks land as inline errors first.
     if (password.length < 10) {
-      setError('Password must be at least 10 characters.');
+      setFieldErrors({ password: 'Password must be at least 10 characters.' });
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match.');
+      setFieldErrors({ confirm: 'Passwords do not match.' });
       return;
     }
+
     setLoading(true);
     try {
       await authApi.confirmPasswordReset(token, password);
       navigate('/login?reset=ok', { replace: true });
     } catch (err) {
-      setError(err instanceof ApiHttpError ? err.message : 'Reset failed.');
+      if (err instanceof ApiHttpError) {
+        const details = err.details as
+          | { fieldErrors?: Record<string, string[]> }
+          | undefined;
+        const fe = details?.fieldErrors;
+        if (fe && Object.keys(fe).length > 0) {
+          setFieldErrors({
+            password: fe.password?.[0],
+            token: fe.token?.[0],
+          });
+          setFormError('Please fix the highlighted fields below.');
+        } else {
+          setFormError(err.message);
+        }
+      } else {
+        setFormError('Reset failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -72,6 +96,7 @@ export function ResetPasswordPage() {
             required
             autoFocus
             autoComplete="new-password"
+            error={fieldErrors.password}
           />
           <Input
             type="password"
@@ -81,13 +106,14 @@ export function ResetPasswordPage() {
             onChange={(e) => setConfirm(e.target.value)}
             required
             autoComplete="new-password"
+            error={fieldErrors.confirm}
           />
-          {error && (
+          {formError && (
             <div
               role="alert"
               className="rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm animate-fade-in"
             >
-              {error}
+              {formError}
             </div>
           )}
           <Button type="submit" loading={loading} className="w-full" size="lg">

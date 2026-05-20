@@ -95,6 +95,8 @@ import {
 } from './studentDocuments.js';
 import { visitorLeadsRouter } from './visitorLeads.js';
 import { installmentsRouter } from './installments.js';
+import { staffAttendanceRouter } from './staffAttendance.js';
+import { publicVisitorRouter } from './publicVisitor.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -131,6 +133,8 @@ export function v1Router(): Router {
   // M10s — Manual installment editing (after auto-gen) for the
   // student-by-student fee schedule Logan's template requires.
   router.use('/installments', installmentsRouter());
+  // M10u — Staff attendance (faculty self-mark + admin override).
+  router.use('/staff-attendance', staffAttendanceRouter());
   router.use('/users', usersRouter());
   router.use('/users', suspensionOverrideRouter());
   router.use('/programs', programsRouter());
@@ -213,6 +217,8 @@ export function v1Router(): Router {
   // Public referee upload — separate router because it's unauthenticated and
   // validated only by the tokenized URL. M3b.
   router.use('/admissions/referee', refereeRouter());
+  // M10u — Public visitor lead self-registration (no auth, IP rate-limited).
+  router.use('/public/visitor', publicVisitorRouter());
   router.use('/admissions/me', meAdmissionsRouter());
   // M6 — applicant view of their own fee + finance staff record-payment.
   router.use('/admissions/me/fee', meFeeRouter());

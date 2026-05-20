@@ -42,6 +42,10 @@ type Step3State = {
   altPhoneE164?: string | null;
   address: Partial<ApplicationDraftStep3Contact['address']>;
   emergency: Partial<ApplicationDraftStep3Contact['emergency']>;
+  // M10u — Optional parent/guardian capture during apply. Field already
+  // exists in the DTO; this surfaces it in the UI so applicants can fill
+  // it at apply time instead of waiting for the Profile screen post-admit.
+  parentGuardian?: Partial<NonNullable<ApplicationDraftStep3Contact['parentGuardian']>> | null;
 };
 
 interface DraftState {
@@ -139,6 +143,7 @@ export function ApplyFormPage() {
           altPhoneE164: string | null;
           address: Partial<ApplicationDraftStep3Contact['address']>;
           emergency: Partial<ApplicationDraftStep3Contact['emergency']>;
+          parentGuardian?: ApplicationDraftStep3Contact['parentGuardian'] | null;
         }>
       | undefined;
     setDraft({
@@ -148,6 +153,7 @@ export function ApplyFormPage() {
         altPhoneE164: incomingStep3?.altPhoneE164 ?? null,
         address: incomingStep3?.address ?? {},
         emergency: incomingStep3?.emergency ?? {},
+        parentGuardian: incomingStep3?.parentGuardian ?? null,
       },
       step4: (data.step4_program as DraftState['step4']) ?? {},
       step5: ((data.step5_academic as DraftState['step5']) ?? []) as ApplicationDraftStep5Academic,
@@ -471,10 +477,18 @@ function Step3Contact({
   const s = draft.step3;
   const addr = s.address ?? {};
   const em = s.emergency ?? {};
+  const pg = s.parentGuardian ?? {};
   const updateAddr = (patch: Partial<ApplicationDraftStep3Contact['address']>) =>
     setDraft({ ...draft, step3: { ...s, address: { ...addr, ...patch } } });
   const updateEm = (patch: Partial<ApplicationDraftStep3Contact['emergency']>) =>
     setDraft({ ...draft, step3: { ...s, emergency: { ...em, ...patch } } });
+  const updatePg = (
+    patch: Partial<NonNullable<ApplicationDraftStep3Contact['parentGuardian']>>,
+  ) =>
+    setDraft({
+      ...draft,
+      step3: { ...s, parentGuardian: { ...pg, ...patch } },
+    });
   return (
     <div className="space-y-6">
       <div className="grid sm:grid-cols-2 gap-4">
@@ -558,6 +572,50 @@ function Step3Contact({
             required
             pattern="^\+\d{6,15}$"
             placeholder="+919876543210"
+          />
+        </div>
+      </fieldset>
+
+      {/* M10u — Parent / guardian fieldset. Optional during apply; if
+          filled, copied to User.parentGuardian on offer acceptance so
+          fee reminders + the daily attendance auto-email can CC them
+          without an admin having to re-enter the info. */}
+      <fieldset className="rounded-xl border border-black/10 p-4">
+        <legend className="px-2 text-sm font-semibold text-brand-navy">
+          Parent / guardian <span className="text-muted font-normal">(optional)</span>
+        </legend>
+        <p className="text-xs text-muted mb-3">
+          We'll CC them on fee reminders and the daily attendance summary if
+          you fill this in. You can also add or change it later from your
+          profile.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Input
+            label="Name"
+            value={pg.name ?? ''}
+            onChange={(e) => updatePg({ name: e.target.value })}
+            placeholder="Full name"
+          />
+          <Input
+            label="Relationship"
+            value={pg.relationship ?? ''}
+            onChange={(e) => updatePg({ relationship: e.target.value })}
+            placeholder="Father / Mother / Guardian"
+          />
+          <Input
+            type="tel"
+            label="Phone"
+            value={pg.phoneE164 ?? ''}
+            onChange={(e) => updatePg({ phoneE164: e.target.value })}
+            pattern="^\+\d{6,15}$"
+            placeholder="+919876543210"
+          />
+          <Input
+            type="email"
+            label="Email"
+            value={pg.email ?? ''}
+            onChange={(e) => updatePg({ email: e.target.value || null })}
+            placeholder="parent@example.com"
           />
         </div>
       </fieldset>
@@ -820,8 +878,17 @@ function payloadForStep(
   switch (step) {
     case 'step2_personal':
       return draft.step2;
-    case 'step3_contact':
-      return draft.step3;
+    case 'step3_contact': {
+      // M10u — Strip out an empty parentGuardian object so the server
+      // doesn't store a placeholder with empty strings. Send `null` when
+      // nothing useful was entered.
+      const pg = draft.step3.parentGuardian;
+      const hasPg = !!(pg && (pg.name || pg.relationship || pg.phoneE164 || pg.email));
+      return {
+        ...draft.step3,
+        parentGuardian: hasPg ? pg : null,
+      };
+    }
     case 'step4_program':
       return draft.step4;
     case 'step5_academic':

@@ -29,7 +29,7 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Integration adapter interfaces + Console* stubs (Resend/SendGrid/Meta WABA deferred to their own milestones)
 - [x] `seed:superadmin` npm script + env hooks
 - [x] Vitest + mongodb-memory-server harness; 48 tests green; services coverage 89% lines
-- [ ] Admin screens: create/edit/suspend student; create/edit faculty; finance staff (deferred — surfaces this API, but the UI ships alongside M3 when the web client lands)
+- [x] Admin screens: create/edit/suspend student; create/edit faculty — shipped (AdminUsers + AdminUserDetail). Finance role removed entirely in PR-R; admin handles all finance work.
 
 ## M3 — Course + enrollment core (day 8–12) — BACKEND DONE 2026-04-21
 
@@ -46,7 +46,7 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Seed script `npm run seed -w api` — Aviation + Retail & Fashion Diploma, idempotent (D-033)
 - [x] 24 test files / 115 tests green; services coverage 81.89% lines (exceeds 70% gate)
 - [x] Session-end memory checkpoint (D-024 … D-034 + Q-M3-01/02/03 + M3 milestone file)
-- [ ] M3 web client (deferred with M2 admin screens — ships alongside M4 UI per TASKS M2 backlog)
+- [x] M3 web client — shipped over M8 + M10 (Programs / Courses / Modules / Batches / Enrolments admin pages, Student dashboard, Faculty dashboard)
 
 ## M4 — Timetable (day 13–15) — BACKEND DONE 2026-04-21
 
@@ -61,7 +61,7 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Seed extended: Aviation Batch 1 + 2 entries + 1 reschedule override + 15 Aug holiday (D-042)
 - [x] 166 tests green (35 files, +11 new) · services coverage 81.3% lines / 93.16% functions / 64.15% branches
 - [x] `docs/smoke/m4-timetable.md` + memory checkpoint (D-036…D-042, Q-M4-01…05)
-- [ ] M4 web client (deferred with M2/M3 UI backlog per TASKS M3 note)
+- [x] M4 web client — shipped (Timetable builder, holidays, weekly view, faculty/student timetable pages)
 
 ## M5 — Fees + suspension (day 16–22) — BACKEND DONE 2026-04-21
 
@@ -87,7 +87,7 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] 83 new tests (48 files / 249 tests total) · services coverage 83.56% lines
 - [x] `docs/smoke/m5-fees.md`
 - [x] Memory checkpoint (D-043 … D-051 + Q-M5-01…06 + M5 milestone file)
-- [ ] M5 web client (deferred with M2/M3/M4 UI backlog; Finance + student fees screens map 1:1 to the API contract per plan research)
+- [x] M5 web client — shipped (Finance dashboard + record payment + payment detail + student fees view + manual installments PR-S)
 
 ## M6 — Tickets (day 23–28) — BACKEND DONE 2026-04-22
 
@@ -110,7 +110,7 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] 67 new tests (59 files / 316 total) · services coverage 84.5% lines / 66.81% branches / 94.8% functions (gates 70/55/70 — all pass)
 - [x] `docs/smoke/m6-tickets.md`
 - [x] Memory checkpoint (D-052 … D-059, Q-M6-01…04, M6 milestone file)
-- [ ] Admin ticket dashboard UI (deferred with M2/M3/M4/M5 UI backlog; API contract ready)
+- [x] Admin ticket dashboard UI — shipped (AdminTickets, AdminTicketDetail, AdminSlaBreaches)
 
 ## M7 — Assessments + feedback (day 29–33) — BACKEND DONE 2026-04-22
 
@@ -129,7 +129,7 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] 48 new tests (69 files / 364 total) · services coverage 81.05% lines / 65.59% branches / 90.35% functions (gates 70/55/70 — all pass)
 - [x] `docs/smoke/m7-assessments.md`
 - [x] Memory checkpoint (D-060 … D-067, Q-M7-01…05, M7 milestone file)
-- [ ] Faculty + student M7 UI screens (deferred with M2/M3/M4/M5/M6 UI backlog; API contract ready, approved webapp mockups in-place)
+- [x] Faculty + student M7 UI screens — shipped (Faculty Grading queue, Feedback editor, Student Feedback, Student Quizzes / Exam attempt pages)
 
 ## M8 — Certificates + notifications + analytics (day 34–38) — BACKEND + UI BUILDOUT DONE 2026-04-22
 
@@ -162,10 +162,10 @@ Live task list. Update at every session start (mark new) and every session end (
   - [x] PWA manifest present (full workbox + offline routes remain M9)
   - [x] Lint + typecheck + Vite build green
 - [x] Memory checkpoint (D-069 … D-075 + M8 milestone file + open-questions update)
-- [ ] Quiz/exam attempt screens (deferred to M9 UI polish — API contract ready)
-- [ ] Deep admin CRUD: Batches, Timetable builder, Enrollment detail with "Issue Certificate", Audit-log browser (deferred to M9 polish)
-- [ ] Finance payments list + reverse + CSV reports UI (deferred to M9 polish)
-- [ ] Faculty grading + feedback editor (deferred to M9 polish)
+- [x] Quiz/exam attempt screens — shipped
+- [x] Deep admin CRUD — Batches / Timetable builder / Enrolment detail (with Issue Certificate) / Audit-log browser all live
+- [x] Finance payments list + reverse + CSV reports UI — shipped under /finance/* (admin-gated)
+- [x] Faculty grading + feedback editor — shipped (CourseGradebookTab + Feedback)
 
 ## M9 — Polish + deploy (day 39–42) — ARTIFACTS DONE 2026-04-22; STAGING DEPLOY: OPERATOR
 
@@ -228,13 +228,14 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] **PR #39 / m10q** — MongoDB GridFS file storage (D-094) — direct file upload via `/v1/files/upload`; resume / student-documents / chat-attachments all now upload through GridFS by default. No Cloudinary credentials needed.
 - [x] **PR #40 / m10r** — Finance role removed; admin owns finance now (D-095). Faculty content perms expanded: assigned faculty can PATCH module title/order + DELETE modules + PATCH course `summary`. Sweep covers 60+ files: enum, routes, services, models, seeds, frontend, tests, memory.
 - [x] **PR #41 / m10s** — Visitor Leads admin CRUD module (pre-application funnel, no OTP send); manual installment management (add/edit/waive on top of auto-gen); faculty can publish + unpublish courses on assigned courses; admin gets a notification when any student completes a course; Admin & Faculty User Guide docx generated to `docs/guides/`. (D-096)
+- [x] **PR-U / m10u** — Staff attendance module (faculty self-mark + admin override + admin list/filter); `parentGuardian` fieldset on Apply Form step 3; field-level errors on Login / Reset / Accept-invite; sessions-held filter on attendance report; public visitor self-registration at `/visitor-register` (rate-limited per-IP); TASKS.md cleanup. (D-097)
 
-### Deferred to follow-up session (D-093)
-- [ ] **PR-E — Internal Chat (real-time, full).** Planned as 3-4 sub-PRs:
-  - [ ] Models + REST + polling (Conversation, Membership, ChatMessage, ChatAttachment)
-  - [ ] Socket.IO server + JWT socket auth + real-time delivery
-  - [ ] Web UI (chat list, thread view, composer, file upload)
-  - [ ] Polish + notifications integration
+### Deferred to follow-up session (D-093) — **NOW SHIPPED**
+- [x] **PR-E — Internal Chat (real-time, full).** Shipped over four sub-PRs:
+  - [x] PR-E1 — Models + REST + polling (Conversation, Membership, ChatMessage, ChatAttachment)
+  - [x] PR-M — Socket.IO server + JWT socket auth + real-time delivery
+  - [x] PR-E1 / PR-Q — Web UI (chat list, thread view, composer, file upload via GridFS)
+  - [x] PR-N — Polish + notifications integration (chat unread in NotificationBell)
 
 ### M10 follow-ups (not blocking, low priority)
 - [x] Direct resume file upload — shipped via PR-Q (M10q, GridFS)

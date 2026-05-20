@@ -97,14 +97,36 @@ export async function buildAttendanceReport(
   const courseObjIds = [...courseIdSet].map((c) => new Types.ObjectId(c));
 
   // 2. Sessions in range — bounds the universe of attendance rows we count.
+  //    M10u — optional "sessions held" window narrows to sessions whose
+  //    actual held-date (completedAt fallback to scheduledStart) falls in
+  //    [sessionsHeldFrom, sessionsHeldTo]. We post-filter in JS because
+  //    Mongo can't easily $or across two date fields with a single index.
   const sessions = await SessionModel.find({
     courseId: { $in: courseObjIds },
     scheduledStart: { $gte: from, $lte: to },
   })
-    .select({ _id: 1 })
+    .select({ _id: 1, scheduledStart: 1, completedAt: 1 })
     .lean();
-  const sessionObjIds = sessions.map((s: { _id: Types.ObjectId }) => s._id);
-  const sessionCount = sessions.length;
+  const heldFrom = filters.sessionsHeldFrom
+    ? dayBoundsUtc(filters.sessionsHeldFrom, filters.sessionsHeldFrom).from
+    : null;
+  const heldTo = filters.sessionsHeldTo
+    ? dayBoundsUtc(filters.sessionsHeldTo, filters.sessionsHeldTo).to
+    : null;
+  const filteredSessions =
+    heldFrom || heldTo
+      ? sessions.filter((s) => {
+          const held =
+            (s.completedAt as Date | null | undefined) ??
+            (s.scheduledStart as Date | null | undefined);
+          if (!held) return false;
+          if (heldFrom && held < heldFrom) return false;
+          if (heldTo && held > heldTo) return false;
+          return true;
+        })
+      : sessions;
+  const sessionObjIds = filteredSessions.map((s: { _id: Types.ObjectId }) => s._id);
+  const sessionCount = filteredSessions.length;
 
   // 3. Attendance for that universe, restricted to roster students.
   const records = await AttendanceRecord.find({

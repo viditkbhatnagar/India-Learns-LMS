@@ -13,6 +13,13 @@ export interface AttendanceReportFilters {
   to: string;
   // Optional course filter — limits sessions counted to this course only.
   courseId?: string | null;
+  // M10u — Optional "sessions held" window. When set, the report counts
+  // only sessions whose actual held-date (completedAt for finished
+  // sessions, else scheduledStart) falls in this window. Useful when
+  // admin wants "attendance for the sessions actually held in May",
+  // not just "every enrolled session in May".
+  sessionsHeldFrom?: string | null;
+  sessionsHeldTo?: string | null;
 }
 
 export interface AttendanceReportRow {

@@ -241,3 +241,7 @@ export type { StudentDocumentDoc, HydratedStudentDocument } from './studentDocum
 // M10s — Visitor Leads (Logan 2026-05-20, "LMS Visitor List Template").
 export { VisitorLead } from './visitorLead.js';
 export type { VisitorLeadDoc, HydratedVisitorLead } from './visitorLead.js';
+
+// M10u — Staff attendance (LMS_Requirements §4 "students and staff").
+export { StaffAttendance } from './staffAttendance.js';
+export type { StaffAttendanceDoc, HydratedStaffAttendance } from './staffAttendance.js';

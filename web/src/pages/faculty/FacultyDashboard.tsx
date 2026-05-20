@@ -1,12 +1,23 @@
-import type { ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, type ReactNode } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { coursesApi, timetableApi, facultyApi } from '../../lib/endpoints.js';
+import {
+  STAFF_ATTENDANCE_STATUSES,
+  type StaffAttendanceStatus,
+} from 'india-learns-shared-types';
+import {
+  coursesApi,
+  timetableApi,
+  facultyApi,
+  staffAttendanceApi,
+} from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Badge } from '../../components/ui/Badge.js';
+import { Button } from '../../components/ui/Button.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { formatIstDateTime } from '../../lib/format.js';
 import { useAuthStore } from '../../store/auth.js';
+import { ApiHttpError } from '../../lib/api.js';
 
 export function FacultyDashboard() {
   const me = useAuthStore((s) => s.user)!;
@@ -59,6 +70,10 @@ export function FacultyDashboard() {
         />
         <StatTile label="Students" value="—" tone="neutral" sub="Coming soon" />
       </div>
+
+      {/* M10u — Self-mark attendance for today. Faculty taps Present /
+          Absent / Late / Leave on arrival. */}
+      <SelfAttendanceCard />
 
       {/* M10 — Quick-access tiles. Faculty doc (LMS_Faculty_Features_Requirements_§5)
           asks for one-tap routes to the workflows they use most. Each tile links
@@ -326,4 +341,76 @@ function isoWeekString(d: Date): string {
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   const week = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+// M10u — Faculty self-marks their own attendance for today. Calls
+// upsert so tapping a different status overwrites the same row (no
+// dupes per day per faculty).
+function SelfAttendanceCard() {
+  const qc = useQueryClient();
+  const [msg, setMsg] = useState<string | null>(null);
+  const todayQ = useQuery({
+    queryKey: ['me', 'staff-attendance-today'],
+    queryFn: () => staffAttendanceApi.meToday(),
+  });
+  const mark = useMutation({
+    mutationFn: (status: StaffAttendanceStatus) =>
+      staffAttendanceApi.mark({ status }),
+    onSuccess: () => {
+      setMsg('Saved — thanks for marking.');
+      qc.invalidateQueries({ queryKey: ['me', 'staff-attendance-today'] });
+    },
+    onError: (err) =>
+      setMsg(err instanceof ApiHttpError ? err.message : 'Could not save.'),
+  });
+  const STATUS_LABEL: Record<StaffAttendanceStatus, string> = {
+    present: 'Present',
+    absent: 'Absent',
+    late: 'Late',
+    leave: 'Leave',
+    half_day: 'Half day',
+  };
+  const current = todayQ.data?.status;
+  return (
+    <Card accent="orange">
+      <CardHeader
+        title="My attendance — today"
+        subtitle={
+          current
+            ? `Marked ${STATUS_LABEL[current]} · last updated ${formatIstDateTime(
+                todayQ.data!.markedAt,
+              )}`
+            : 'Not marked yet — tap one of the buttons below.'
+        }
+      />
+      <div className="flex flex-wrap gap-2">
+        {STAFF_ATTENDANCE_STATUSES.map((s) => {
+          const active = current === s;
+          return (
+            <Button
+              key={s}
+              size="sm"
+              variant={active ? 'primary' : 'secondary'}
+              loading={mark.isPending && mark.variables === s}
+              disabled={mark.isPending}
+              onClick={() => {
+                setMsg(null);
+                mark.mutate(s);
+              }}
+            >
+              {STATUS_LABEL[s]}
+            </Button>
+          );
+        })}
+      </div>
+      {msg && (
+        <p
+          role="status"
+          className="mt-3 text-sm text-muted"
+        >
+          {msg}
+        </p>
+      )}
+    </Card>
+  );
 }
