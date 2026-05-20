@@ -1,5 +1,6 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
+import { PROGRAM_REQUIRED_DOC_TYPES } from 'india-learns-shared-types';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import { HttpError } from '../middleware/error.js';
@@ -20,7 +21,9 @@ const CreateBody = z.object({
   isActive: z.boolean().optional(),
 });
 
-const DocReqEnum = z.enum(['govid', 'transcript', 'resume', 'portfolio', 'test_score', 'other']);
+// M10 — Sourced from shared-types so SSLC / Plus Two / Degree / Transfer
+// Certificate / Passport Photo become first-class program-required docs.
+const DocReqEnum = z.enum(PROGRAM_REQUIRED_DOC_TYPES);
 
 const UpdateBody = z.object({
   name: z.string().min(1).max(160).optional(),
@@ -40,7 +43,7 @@ const UpdateBody = z.object({
         required: z.boolean(),
       }),
     )
-    .max(10)
+    .max(15)
     .optional(),
   requiresStatement: z.boolean().optional(),
   requiresReferences: z.boolean().optional(),

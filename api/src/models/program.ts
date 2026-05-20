@@ -1,16 +1,19 @@
 import mongoose, { Schema, model, type HydratedDocument, type Types } from 'mongoose';
-import type { AdmissionMode } from 'india-learns-shared-types';
+import {
+  PROGRAM_REQUIRED_DOC_TYPES,
+  type AdmissionMode,
+  type ProgramRequiredDocType,
+} from 'india-learns-shared-types';
 
 // M2 — Document type slot per program. The applicant uploads one file per
 // slot in Step 6. Required slots block submit; conditional ones don't.
+//
+// M10 — `documentType` now reuses the shared `ProgramRequiredDocType`
+// enum so the SSLC / Plus Two / Degree / Transfer Certificate / Passport
+// Photo additions land in one place. Existing programs continue to use
+// govid + transcript by default.
 export interface ProgramAdmissionsDocReqDoc {
-  documentType:
-    | 'govid'
-    | 'transcript'
-    | 'resume'
-    | 'portfolio'
-    | 'test_score'
-    | 'other';
+  documentType: ProgramRequiredDocType;
   label: string;
   required: boolean;
 }
@@ -45,7 +48,7 @@ const DocReqSchema = new Schema<ProgramAdmissionsDocReqDoc>(
   {
     documentType: {
       type: String,
-      enum: ['govid', 'transcript', 'resume', 'portfolio', 'test_score', 'other'],
+      enum: PROGRAM_REQUIRED_DOC_TYPES,
       required: true,
     },
     label: { type: String, required: true },

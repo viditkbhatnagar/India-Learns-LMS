@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ApplicationDocumentDto,
+  ProgramRequiredDocType,
   PublicProgramDto,
   RefereeDto,
 } from 'india-learns-shared-types';
@@ -190,13 +191,10 @@ function DocSlot({
   onChange,
   setError,
 }: {
-  documentType:
-    | 'govid'
-    | 'transcript'
-    | 'resume'
-    | 'portfolio'
-    | 'test_score'
-    | 'other';
+  // M10 — Accepts the full ProgramRequiredDocType union so SSLC / Plus Two /
+  // Degree / Transfer Certificate / Passport Photo render as legitimate
+  // upload slots on Step 6.
+  documentType: ProgramRequiredDocType;
   label: string;
   required: boolean;
   existing: ApplicationDocumentDto | null;
