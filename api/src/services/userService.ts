@@ -432,23 +432,32 @@ export async function softDeleteUser(
   const doc = await User.findById(targetId);
   if (!doc) throw new HttpError(404, 'NOT_FOUND', 'User not found.');
   const before = scrubUser(doc.toObject());
-  doc.status = 'revoked';
-  doc.deletedAt = new Date();
-  doc.email = `deleted+${String(doc._id)}@removed.invalid`;
-  doc.phoneE164 = '+10000000000';
-  doc.passwordHash = null;
-  doc.passwordHistoryHashes = [];
-  await doc.save();
-  await revokeAllForUser(doc._id);
+  // M10r — use updateOne so legacy enum values on untouched fields (e.g.
+  // a stale `role: 'finance'` after D-095) don't block the soft-delete.
+  // We still PII-scrub email/phone and revoke credentials. Validators on
+  // the fields we DO touch run via the explicit `runValidators` flag.
+  const update = {
+    status: 'revoked' as const,
+    deletedAt: new Date(),
+    email: `deleted+${String(doc._id)}@removed.invalid`,
+    phoneE164: '+10000000000',
+    passwordHash: null,
+    passwordHistoryHashes: [] as string[],
+  };
+  await User.updateOne({ _id: doc._id }, { $set: update }, { runValidators: true });
+  // Hydrate the saved state for the audit + return value.
+  const after = await User.findById(doc._id);
+  if (!after) throw new HttpError(500, 'INTERNAL', 'Soft-deleted user vanished.');
+  await revokeAllForUser(after._id);
   await recordAudit({
     actorUserId: actor.actorUserId,
     action: 'user.deleted',
     targetType: 'User',
-    targetId: doc._id,
+    targetId: after._id,
     before,
-    after: scrubUser(doc.toObject()),
+    after: scrubUser(after.toObject()),
     ip: actor.ip,
     ua: actor.ua,
   });
-  return doc;
+  return after;
 }
