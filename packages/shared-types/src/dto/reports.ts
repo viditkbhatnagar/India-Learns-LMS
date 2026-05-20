@@ -124,5 +124,5 @@ export interface AssignmentSubmissionsReportDto {
 
 // ---------- Format negotiation ----------------------------------------
 
-export const REPORT_FORMATS = ['json', 'xlsx'] as const;
+export const REPORT_FORMATS = ['json', 'xlsx', 'pdf'] as const;
 export type ReportFormat = (typeof REPORT_FORMATS)[number];

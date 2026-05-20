@@ -52,6 +52,11 @@ const CHANNELS_BY_TYPE: Record<NotificationType, NotificationChannel[]> = {
   'assignment.created': ['inapp', 'email'],
   'assignment.submitted': ['inapp', 'email'],
   'assignment.graded': ['inapp', 'email'],
+  // M10i — placement job-posted + M10j announcement broadcast. Email +
+  // in-app; WhatsApp gated behind WABA template approval (none in the
+  // launch allowlist).
+  'placement.job_posted': ['inapp', 'email'],
+  'announcement.published': ['inapp', 'email'],
 };
 
 // Only three WABA templates are pre-approved at launch (D-007): `il_fee_due`,

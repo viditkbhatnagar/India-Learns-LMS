@@ -16,6 +16,7 @@ import {
   type UpdateJobPostingInput,
 } from 'india-learns-shared-types';
 import { HttpError } from '../middleware/error.js';
+import { enqueueNotification } from './notificationService.js';
 import {
   Company,
   Enrollment,
@@ -302,8 +303,44 @@ export async function updateJobPosting(
       ? new Date(patch.applicationDeadline)
       : null;
   }
+  const previousState = doc.state;
   if (patch.state !== undefined) doc.state = patch.state;
   await doc.save();
+
+  // M10i — Notification when a posting flips from draft → published.
+  // Fan out to students in the target programmes (or all students if
+  // the posting is open to all). Best-effort: enqueue failure doesn't
+  // unwind the save.
+  if (previousState !== 'published' && doc.state === 'published') {
+    try {
+      const programFilter =
+        doc.targetProgramIds.length > 0 ? { programId: { $in: doc.targetProgramIds } } : {};
+      const students = await User.find({
+        role: 'student',
+        status: 'active',
+        ...programFilter,
+      })
+        .select({ _id: 1 })
+        .lean();
+      if (students.length > 0) {
+        const company = await Company.findById(doc.companyId).select({ name: 1 }).lean();
+        await enqueueNotification({
+          type: 'placement.job_posted',
+          recipients: students.map((s: { _id: Types.ObjectId }) => s._id),
+          title: `New job opening: ${doc.title}`,
+          body: `${company?.name ?? 'A company'} is hiring for ${doc.title}${
+            doc.location ? ` in ${doc.location}` : ''
+          }. View details on the Jobs page.`,
+          data: { jobPostingId: doc._id.toString() },
+        });
+      }
+    } catch (err) {
+      // Silent — placement should not 500 because the notification fan-out
+      // hiccuped. The audit row + JobPosting state change still landed.
+      console.warn('[placement] job_posted notification failed', err);
+    }
+  }
+
   const [ctx] = await hydratePostingsCtx([doc]);
   return toJobPostingDto(doc, ctx);
 }

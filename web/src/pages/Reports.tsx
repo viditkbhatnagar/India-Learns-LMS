@@ -103,7 +103,7 @@ export function ReportsPage() {
     },
   });
 
-  async function handleDownload() {
+  async function handleDownload(format: 'xlsx' | 'pdf') {
     setDownloadErr(null);
     setDownloading(true);
     try {
@@ -113,11 +113,11 @@ export function ReportsPage() {
         params.to = to;
         if (courseId) params.courseId = courseId;
       }
-      const blob = await reportsApi.downloadXlsx(kind, params);
+      const blob = await reportsApi.download(kind, format, params);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${kind}-${batchId}-${needsRange ? `${from}-to-${to}` : 'summary'}.xlsx`;
+      a.download = `${kind}-${batchId}-${needsRange ? `${from}-to-${to}` : 'summary'}.${format}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -243,13 +243,20 @@ export function ReportsPage() {
           </div>
         )}
 
-        <div className="flex items-center gap-3 mt-5 pt-5 border-t border-black/5">
+        <div className="flex flex-wrap items-center gap-3 mt-5 pt-5 border-t border-black/5">
           <Button
-            onClick={handleDownload}
+            onClick={() => handleDownload('xlsx')}
             loading={downloading}
             disabled={!filtersReady || reportQ.isLoading}
           >
-            Download Excel (.xlsx)
+            Download Excel
+          </Button>
+          <Button
+            onClick={() => handleDownload('pdf')}
+            loading={downloading}
+            disabled={!filtersReady || reportQ.isLoading}
+          >
+            Download PDF
           </Button>
           {downloadErr && (
             <span role="alert" className="text-sm text-danger">

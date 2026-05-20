@@ -12,16 +12,20 @@ import {
   buildBatchSummaryReport,
 } from '../services/reportsService.js';
 import {
+  renderAssignmentSubmissionsReportPdf,
   renderAssignmentSubmissionsReportXlsx,
+  renderAttendanceReportPdf,
   renderAttendanceReportXlsx,
+  renderBatchSummaryReportPdf,
   renderBatchSummaryReportXlsx,
 } from '../services/reportRenderers.js';
 
 // M10 — Reports module routes (LMS_Faculty_Features §4).
 //
-// Three endpoints, each accepting `?format=json|xlsx`. JSON is the default
-// so the web Reports page can render a preview before the user downloads
-// the spreadsheet.
+// Three endpoints, each accepting `?format=json|xlsx|pdf`. JSON is the
+// default so the web Reports page can render a preview before the user
+// downloads. XLSX is for analyst workflows; PDF is the shareable
+// summary (M10i).
 //
 // Auth model:
 // - admin / superadmin / finance / admissions_officer → any batch
@@ -29,9 +33,6 @@ import {
 //   one course in the batch via Enrollment-by-courseId lookup against
 //   FacultyCourse if the model exists; v1 takes the pragmatic shortcut of
 //   "faculty is listed on the course assigned to this batch")
-//
-// PDF rendering is intentionally deferred — `format=pdf` returns 501 with
-// a Retry-After-style hint so the UI can disable the button cleanly.
 
 const FormatQuery = z.object({
   format: z.enum(REPORT_FORMATS).default('json'),
@@ -83,6 +84,14 @@ function sendXlsx(res: Response, filename: string, buf: Buffer): void {
     .send(buf);
 }
 
+function sendPdf(res: Response, filename: string, buf: Buffer): void {
+  res
+    .status(200)
+    .setHeader('Content-Type', 'application/pdf')
+    .setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    .send(buf);
+}
+
 export function reportsRouter(): Router {
   const router = Router();
   router.use(requireAuth);
@@ -109,6 +118,11 @@ export function reportsRouter(): Router {
           sendXlsx(res, `attendance-${report.batchCode}-${filters.from}-to-${filters.to}.xlsx`, buf);
           return;
         }
+        if (format === 'pdf') {
+          const buf = await renderAttendanceReportPdf(report);
+          sendPdf(res, `attendance-${report.batchCode}-${filters.from}-to-${filters.to}.pdf`, buf);
+          return;
+        }
         res.status(200).json({ data: report });
       } catch (err) {
         next(err);
@@ -128,6 +142,11 @@ export function reportsRouter(): Router {
         if (format === 'xlsx') {
           const buf = await renderBatchSummaryReportXlsx(report);
           sendXlsx(res, `batch-summary-${report.batchCode}.xlsx`, buf);
+          return;
+        }
+        if (format === 'pdf') {
+          const buf = await renderBatchSummaryReportPdf(report);
+          sendPdf(res, `batch-summary-${report.batchCode}.pdf`, buf);
           return;
         }
         res.status(200).json({ data: report });
@@ -156,6 +175,15 @@ export function reportsRouter(): Router {
           sendXlsx(
             res,
             `assignments-${report.batchCode}-${filters.from}-to-${filters.to}.xlsx`,
+            buf,
+          );
+          return;
+        }
+        if (format === 'pdf') {
+          const buf = await renderAssignmentSubmissionsReportPdf(report);
+          sendPdf(
+            res,
+            `assignments-${report.batchCode}-${filters.from}-to-${filters.to}.pdf`,
             buf,
           );
           return;
