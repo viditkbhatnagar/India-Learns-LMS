@@ -101,6 +101,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Jobs', to: '/jobs', icon: Icon.users },
     // M10e — Internal chat (PR-E1).
     { label: 'Chat', to: '/chat', icon: Icon.feedback },
+    // M10j — Announcements.
+    { label: 'Announcements', to: '/announcements', icon: Icon.feedback },
   ],
   faculty: [
     { label: 'Dashboard', to: '/faculty/dashboard', icon: Icon.home },
@@ -112,6 +114,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Reports', to: '/reports', icon: Icon.folder },
     // M10e — Internal chat (PR-E1).
     { label: 'Chat', to: '/chat', icon: Icon.feedback },
+    // M10j — Announcements.
+    { label: 'Announcements', to: '/announcements', icon: Icon.feedback },
   ],
   finance: [
     { label: 'Dashboard', to: '/finance/dashboard', icon: Icon.home },
@@ -122,6 +126,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Reports', to: '/reports', icon: Icon.folder },
     // M10e — Internal chat (PR-E1).
     { label: 'Chat', to: '/chat', icon: Icon.feedback },
+    // M10j — Announcements.
+    { label: 'Announcements', to: '/announcements', icon: Icon.feedback },
   ],
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
@@ -143,6 +149,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Placement', to: '/admin/placement', icon: Icon.users },
     // M10e — Internal chat (PR-E1).
     { label: 'Chat', to: '/chat', icon: Icon.feedback },
+    // M10j — Announcements.
+    { label: 'Announcements', to: '/announcements', icon: Icon.feedback },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
   superadmin: [
@@ -163,6 +171,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Placement', to: '/admin/placement', icon: Icon.users },
     // M10e — Internal chat (PR-E1).
     { label: 'Chat', to: '/chat', icon: Icon.feedback },
+    // M10j — Announcements.
+    { label: 'Announcements', to: '/announcements', icon: Icon.feedback },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
   // Admissions M1 — applicant has the LMS shell so they can log out, see

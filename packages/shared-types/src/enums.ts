@@ -192,8 +192,9 @@ export const NOTIFICATION_TYPES = [
   'assignment.submitted',
   'assignment.graded',
   // M10i — Placement (LMS_Requirements §3 "Notification alerts for new
-  // job opportunities") + announcement broadcast (M10j).
+  // job opportunities").
   'placement.job_posted',
+  // M10j — broad-scope announcements (LMS_Requirements §2).
   'announcement.published',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

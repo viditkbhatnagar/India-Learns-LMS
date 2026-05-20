@@ -52,10 +52,9 @@ const CHANNELS_BY_TYPE: Record<NotificationType, NotificationChannel[]> = {
   'assignment.created': ['inapp', 'email'],
   'assignment.submitted': ['inapp', 'email'],
   'assignment.graded': ['inapp', 'email'],
-  // M10i — placement job-posted + M10j announcement broadcast. Email +
-  // in-app; WhatsApp gated behind WABA template approval (none in the
-  // launch allowlist).
+  // M10i — placement job-posted (LMS_Requirements §3). Email + in-app.
   'placement.job_posted': ['inapp', 'email'],
+  // M10j — broad-scope announcements. Email + in-app.
   'announcement.published': ['inapp', 'email'],
 };
 

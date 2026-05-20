@@ -1,8 +1,23 @@
 import mongoose, { Schema, type HydratedDocument, type Types } from 'mongoose';
 
+// M10j — extends original course-only announcements with broader scope:
+//   - course (legacy default): targets a single course, courseId set
+//   - batch: targets a single batch, batchId set
+//   - program: targets all students in a programme, programId set
+//   - global: targets every active user (admin only)
+//
+// Existing course-announcements created pre-M10j default to scope='course'
+// when the field is missing — schema default + a backfill query handles it.
+export const ANNOUNCEMENT_SCOPES = ['course', 'batch', 'program', 'global'] as const;
+export type AnnouncementScope = (typeof ANNOUNCEMENT_SCOPES)[number];
+
 export interface AnnouncementDoc {
   _id: Types.ObjectId;
-  courseId: Types.ObjectId;
+  // M10j — all three FK fields are nullable; the active one matches `scope`.
+  courseId: Types.ObjectId | null;
+  batchId: Types.ObjectId | null;
+  programId: Types.ObjectId | null;
+  scope: AnnouncementScope;
   authorUserId: Types.ObjectId;
   subject: string;
   body: string;
@@ -13,10 +28,21 @@ export interface AnnouncementDoc {
 
 const AnnouncementSchema = new Schema<AnnouncementDoc>(
   {
+    // courseId stays required at the schema level for legacy course
+    // announcements; M10j writes use the broader factory in
+    // announcementService which sets it conditionally.
     courseId: {
       type: Schema.Types.ObjectId,
       ref: 'Course',
-      required: true,
+      default: null,
+      index: true,
+    },
+    batchId: { type: Schema.Types.ObjectId, ref: 'Batch', default: null, index: true },
+    programId: { type: Schema.Types.ObjectId, ref: 'Program', default: null, index: true },
+    scope: {
+      type: String,
+      enum: ANNOUNCEMENT_SCOPES,
+      default: 'course',
       index: true,
     },
     authorUserId: {

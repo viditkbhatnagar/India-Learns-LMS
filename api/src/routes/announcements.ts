@@ -21,7 +21,10 @@ const CreateBody = z.object({
 function toDto(doc: HydratedAnnouncement) {
   return {
     id: doc._id.toString(),
-    courseId: doc.courseId.toString(),
+    // M10j — courseId is nullable on the model now (broad-scope
+    // announcements). The legacy course router only ever creates with
+    // courseId set, so this is non-null for any doc returned here.
+    courseId: doc.courseId ? doc.courseId.toString() : '',
     authorUserId: doc.authorUserId.toString(),
     subject: doc.subject,
     body: doc.body,
