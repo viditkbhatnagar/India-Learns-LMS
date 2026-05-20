@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import {
+  getOrCreateBatchGroupConversation,
   getOrCreateDirectConversation,
   listMessages,
   listMyConversations,
@@ -16,6 +17,10 @@ import {
 
 const CreateDirectBody = z.object({
   otherUserId: z.string().min(1),
+});
+
+const BatchGroupBody = z.object({
+  batchId: z.string().min(1),
 });
 
 const SendMessageBody = z.object({
@@ -70,6 +75,26 @@ export function chatRouter(): Router {
         const { q } = SearchQuery.parse(req.query);
         const items = await searchChatTargets(req.auth!.userId, q);
         res.status(200).json({ data: { items } });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // M10m — Get or create the batch-group conversation. Idempotent:
+  // every batch has at most one group_batch room. Auto-adds every
+  // active student in the batch (and the caller) on first access.
+  router.post(
+    '/conversations/batch',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { batchId } = BatchGroupBody.parse(req.body);
+        const conversation = await getOrCreateBatchGroupConversation(
+          batchId,
+          req.auth!.userId,
+          req.auth!.role,
+        );
+        res.status(200).json({ data: { conversation } });
       } catch (err) {
         next(err);
       }

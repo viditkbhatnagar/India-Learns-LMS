@@ -1,9 +1,11 @@
+import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { connectDb, disconnectDb } from './config/db.js';
 import { loadEnv } from './config/env.js';
 import { logger } from './config/logger.js';
 import { registerCertificateListener } from './services/certificateService.js';
 import { recoverStrandedSessions } from './services/sessionService.js';
+import { initSocketServer } from './chat/socketServer.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -24,7 +26,13 @@ async function main(): Promise<void> {
   }
   const app = createApp();
 
-  const server = app.listen(env.PORT, () => {
+  // M10m — Use an explicit http.Server so Socket.IO can attach to the
+  // same listener as Express. Express alone exposes `app.listen()` which
+  // returns a Server, but Socket.IO is happier when you pass it the
+  // server reference up-front.
+  const server = createServer(app);
+  initSocketServer(server);
+  server.listen(env.PORT, () => {
     logger.info({ port: env.PORT, commit: env.GIT_SHA }, 'il-api listening');
   });
 
