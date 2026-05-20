@@ -201,3 +201,36 @@ Live task list. Update at every session start (mark new) and every session end (
 - [ ] Once Q-PENDING-08 (Certifier.io key) lands → flip `CERTIFIER_ENABLED=true`
 - [ ] Generate raster PWA icons (sharp-cli) if Lighthouse PWA flags SVG-only — v1.1 polish
 - [ ] Bundle-split web chunk (recharts + sentry are heaviest) — v1.1 polish
+
+---
+
+## M10 — Additional features from May 2026 requirements docs
+
+**Inputs:** `LMS_Requirements.docx`, `LMS_Faculty_Features_Requirements_.docx`. Decisions documented in [memory/decisions.md](memory/decisions.md) D-090.
+
+### Shipped (this session, 2026-05-20)
+- [x] **PR #24 / m10a** — Indian-school doc types (SSLC / +2 / Degree / TC / Passport photo) + Faculty Dashboard quick-access tiles (D-091)
+- [x] **PR #25 / m10b** — `User.dateOfBirth` + `personalAddress` + `emergencyContact` + `parentGuardian` + Student Profile screen sections
+- [x] **PR #26 / m10c** — Reports module (Attendance / Batch / Assignment with XLSX export) — `/v1/reports/{kind}?format=json|xlsx`
+- [x] **PR #27 / m10d** — Daily attendance auto-report cron — `il-cron-daily-attendance-report` at 18:30 IST
+- [x] **PR #28 / m10f** — Placement / Jobs module — Company + JobPosting + JobApplication + `/admin/placement` + `/jobs` + per-student `resumeUrl` (D-092)
+- [x] m10g — memory + TASKS sweep (this entry)
+
+### Deferred to follow-up session (D-093)
+- [ ] **PR-E — Internal Chat (real-time, full).** Planned as 3-4 sub-PRs:
+  - [ ] Models + REST + polling (Conversation, Membership, ChatMessage, ChatAttachment)
+  - [ ] Socket.IO server + JWT socket auth + real-time delivery
+  - [ ] Web UI (chat list, thread view, composer, file upload)
+  - [ ] Polish + notifications integration
+
+### M10 follow-ups (not blocking, low priority)
+- [ ] Direct resume file upload via Cloudinary (today: paste URL only)
+- [ ] PDF renderers for Reports module (pdfkit) — req says "PDF or Excel"; Excel already ships
+- [ ] Job-published notification scoped to matching programmes — extend `NOTIFICATION_TYPES`
+- [ ] Interview scheduling fields (date/time/location) on JobApplication — today only free-text `interviewNote`
+- [ ] Course-scoped attendance / assignment report variants for faculty
+- [ ] Sessions-held filter on attendance report
+- [ ] One-time backfill job for existing students' personal details from their ApplicationDraft
+- [ ] Admin "edit student personal details" surface
+- [ ] Apply Form step-3 UI to capture `parentGuardian` during apply (DTO already accepts it)
+- [ ] WhatsApp template for daily attendance report (parent channel) — needs WABA approval first
