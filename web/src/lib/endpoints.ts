@@ -922,6 +922,34 @@ export const reportsApi = {
   },
 };
 
+// M10o — Per-batch sessions on a date. Powers /faculty/batches/:id/attendance.
+export interface BatchSessionSummary {
+  id: string;
+  courseId: string;
+  courseName: string;
+  moduleId: string;
+  title: string;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  status: 'planned' | 'completed' | 'cancelled' | 'unscheduled';
+  attendanceRecorded: number;
+  enrolledStudents: number;
+}
+
+export const batchSessionsApi = {
+  async list(batchId: string, dateIsoYmd?: string): Promise<{
+    sessions: BatchSessionSummary[];
+    date: string;
+  }> {
+    const res = await api.get<{
+      data: { sessions: BatchSessionSummary[]; date: string };
+    }>(`/batches/${batchId}/sessions`, {
+      params: dateIsoYmd ? { date: dateIsoYmd } : {},
+    });
+    return res.data.data;
+  },
+};
+
 export const timetableEntriesApi = {
   async createEntry(batchId: string, input: { courseId: string; facultyId: string; weekday: number; startMinute: number; endMinute: number; room: string }) {
     const res = await api.post<{ data: { entry: unknown } }>(`/batches/${batchId}/timetable`, input);

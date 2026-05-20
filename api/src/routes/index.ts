@@ -55,7 +55,11 @@ import {
 import { analyticsRouter } from './analytics.js';
 import { jobsNotificationsRouter } from './jobsNotifications.js';
 import { curriculumImportRouter } from './curriculumImport.js';
-import { courseSessionsRouter, sessionsRouter } from './sessions.js';
+import {
+  batchSessionsRouter,
+  courseSessionsRouter,
+  sessionsRouter,
+} from './sessions.js';
 import { materialsRouter, sessionMaterialsRouter } from './materials.js';
 import { sessionAssignmentsRouter } from './sessionAssignments.js';
 import {
@@ -138,6 +142,8 @@ export function v1Router(): Router {
   router.use('/modules', modulesRouter());
   router.use('/batches', batchesRouter());
   router.use('/batches', batchTimetableRouter());
+  // M10o — Per-batch sessions for "click batch → today's attendance".
+  router.use('/batches/:batchId', batchSessionsRouter());
   router.use('/enrollments', enrollmentsRouter());
   router.use('/enrollments', generateFeesRouter());
   // M8 — admin certificate retry lives alongside enrolments.
