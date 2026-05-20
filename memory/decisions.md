@@ -725,3 +725,27 @@ Append-only log. Every entry: ID, date, decision, why, source.
 - Course creation / deletion / faculty roster assignment — still admin-only (structural).
 
 **Deliverable:** `docs/guides/India_Learns_Admin_Faculty_Guide.docx` — step-by-step user guide for admin + faculty covering every feature shipped in PRs A–S. Generated at the end of the session and saved to the repo + the operator's Downloads.
+
+## D-097 — Staff attendance + apply parent UI + auth field errors + sessions filter + public visitor form
+**Date:** 2026-05-20 (M10u)
+**Why:** User: "finish all the tasks except cloudinary and otp, rest build each and everything end to end". One bundle that closes the last functional gap from the requirements docs (staff attendance per LMS_Requirements §4 "for students and staff") and ships every code-only polish item that was still open.
+
+**Changes:**
+1. **Staff attendance module.** New `StaffAttendance` model + service + routes (`/v1/staff-attendance`). Faculty self-marks; admin can mark on behalf or override. Upsert per (userId, date) — re-marking same day overwrites the existing row. New status enum: `present | absent | late | leave | half_day`. Audit log entries `staff_attendance.marked` / `staff_attendance.updated`. Admin UI at `/admin/staff-attendance` with list + filter + on-behalf-of mark form. Faculty self-mark widget on `/faculty/dashboard`.
+2. **Apply Form step 3 `parentGuardian` UI.** DTO already accepted the field (D-091); now there's a fieldset on the apply form so applicants can fill it during sign-up instead of waiting for the Profile screen. Empty objects are stripped to null before save so we don't pollute drafts.
+3. **Field-level errors on Login / Reset / Accept-invite.** Same pattern as the signup fix — split `formError` (banner) from `fieldErrors` (inline `<Input error={…}>`). Zod failures now show on the specific Email / Password field instead of a single opaque "Request failed validation." banner.
+4. **`sessionsHeldFrom` / `sessionsHeldTo` filter on attendance report.** New optional query params on `GET /v1/reports/attendance`. The report counts only sessions whose actual held-date (completedAt fallback to scheduledStart) falls in the window. Filter is post-applied in JS so it composes with the existing batch + date-range + course filters.
+5. **Public visitor self-registration.** New `/v1/public/visitor/register` route (no auth, IP rate-limited 5/hr) + `/visitor-register` page (no AppShell, plain landing-style form). Server forces `otpVerificationStatus=pending` and `status=new` regardless of client input. Lead appears in `/admin/visitor-leads` immediately. Audit log actor is the first active superadmin (no anonymous writes).
+6. **TASKS.md cleanup.** Marked stale entries that shipped under M8 / M10 as complete (M3 / M4 / M5 web clients, Admin ticket dashboard, Quiz/exam attempt screens, Deep admin CRUD, Finance payments list, Faculty grading + feedback editor, PR-E internal chat). The file now accurately reflects what's open.
+
+**What we deliberately skipped:**
+- Cloudinary CDN swap (env flip only; not needed today).
+- OTP send for visitor leads (user excluded explicitly).
+- Course-scoped report variants for faculty (admin reports already support batchId filter; faculty's batches are the only ones shown).
+- PWA raster icons + bundle split (v1.1 polish; not blocking launch).
+- Backfill ApplicationDraft → User personal details (defensive only; admin can manually edit via AdminUserDetail).
+
+**How to apply:**
+- Staff attendance is enforced server-side (role gate + facultyCanMarkFor check). Faculty UI button auto-handles the upsert.
+- Faculty publishes courses (D-096) is unchanged; staff attendance is the new addition this PR.
+- Public form is rate-limited but otherwise open — if abuse becomes a problem later we can add CAPTCHA. The system actor pattern (first active superadmin) keeps the audit trail intact.

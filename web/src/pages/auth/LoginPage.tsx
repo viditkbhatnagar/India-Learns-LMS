@@ -9,10 +9,15 @@ import { ApiHttpError } from '../../lib/api.js';
 import { defaultRouteForRole } from '../../components/guards.js';
 import { AuthLayout, AuthCard } from '../../components/AuthHero.js';
 
+type LoginFieldErrors = Partial<Record<'email' | 'password' | 'deviceId', string>>;
+
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // M10u — split banner-level and field-level error state so we can render
+  // inline messages on Email / Password instead of one opaque banner.
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [loading, setLoading] = useState(false);
   const setSession = useAuthStore((s) => s.setSession);
   const navigate = useNavigate();
@@ -20,7 +25,8 @@ export function LoginPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
+    setFieldErrors({});
     setLoading(true);
     try {
       const { user, accessToken } = await authApi.login(email, password);
@@ -29,9 +35,24 @@ export function LoginPage() {
       navigate(from ?? defaultRouteForRole(user.role as Role), { replace: true });
     } catch (err) {
       if (err instanceof ApiHttpError) {
-        setError(err.message);
+        const details = err.details as
+          | { fieldErrors?: Record<string, string[]> }
+          | undefined;
+        const fe = details?.fieldErrors;
+        if (fe && Object.keys(fe).length > 0) {
+          setFieldErrors({
+            email: fe.email?.[0],
+            password: fe.password?.[0],
+            deviceId: fe.deviceId?.[0],
+          });
+          setFormError('Please fix the highlighted fields below.');
+        } else {
+          // HttpError path — server-supplied human message (e.g. 401
+          // "Invalid email or password" or 423 "Account locked").
+          setFormError(err.message);
+        }
       } else {
-        setError('Unable to log in. Please try again.');
+        setFormError('Unable to log in. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -52,6 +73,7 @@ export function LoginPage() {
             required
             autoComplete="email"
             autoFocus
+            error={fieldErrors.email}
           />
           <Input
             type="password"
@@ -62,13 +84,14 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
+            error={fieldErrors.password}
           />
-          {error && (
+          {formError && (
             <div
               role="alert"
               className="rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm animate-fade-in"
             >
-              {error}
+              {formError}
             </div>
           )}
           <Button type="submit" loading={loading} className="w-full" size="lg">

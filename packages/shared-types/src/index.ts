@@ -18,3 +18,4 @@ export * from './dto/reports.js';
 export * from './dto/placement.js';
 export * from './dto/chat.js';
 export * from './dto/visitorLeads.js';
+export * from './dto/staffAttendance.js';

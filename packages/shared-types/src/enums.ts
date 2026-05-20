@@ -346,6 +346,9 @@ export const AUDIT_ACTIONS = [
   'visitor_lead.updated',
   'visitor_lead.deleted',
   'visitor_lead.converted',
+  // M10u — Staff attendance marking (self-mark + admin override).
+  'staff_attendance.marked',
+  'staff_attendance.updated',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -470,6 +473,18 @@ export const ADMISSIONS_AUDIT_ACTIONS = [
   'application_fee.waived',
 ] as const;
 export type AdmissionsAuditAction = (typeof ADMISSIONS_AUDIT_ACTIONS)[number];
+
+// M10u — Staff attendance (LMS_Requirements §4 "Attendance management
+// for students and staff"). Faculty self-marks per day; admin can
+// override / mark on behalf.
+export const STAFF_ATTENDANCE_STATUSES = [
+  'present',
+  'absent',
+  'late',
+  'leave',
+  'half_day',
+] as const;
+export type StaffAttendanceStatus = (typeof STAFF_ATTENDANCE_STATUSES)[number];
 
 // M10s — Visitor Leads (LMS Visitor List Template, per Logan 2026-05-20).
 // Captured by admin / admissions staff; pre-application stage. Convert

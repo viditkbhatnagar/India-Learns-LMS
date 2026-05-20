@@ -7,6 +7,7 @@ import { ErrorBoundary } from './components/ui/States.js';
 
 // Auth pages
 import { LoginPage } from './pages/auth/LoginPage.js';
+import { VisitorRegisterPage } from './pages/VisitorRegisterPage.js';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage.js';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage.js';
 import { AcceptInvitePage } from './pages/auth/AcceptInvitePage.js';
@@ -65,6 +66,7 @@ import { AdminTicketDetailPage } from './pages/admin/AdminTicketDetail.js';
 import { AdminSlaBreachesPage } from './pages/admin/AdminSlaBreaches.js';
 import { AdminHolidaysPage } from './pages/admin/AdminHolidays.js';
 import { AdminVisitorLeadsPage } from './pages/admin/AdminVisitorLeads.js';
+import { AdminStaffAttendancePage } from './pages/admin/AdminStaffAttendance.js';
 
 // Finance
 import { FinanceDashboard } from './pages/finance/FinanceDashboard.js';
@@ -163,6 +165,8 @@ export function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/accept-invite" element={<AcceptInvitePage />} />
           <Route path="/offline" element={<OfflinePage />} />
+          {/* M10u — Public visitor self-registration. No auth, IP rate-limited. */}
+          <Route path="/visitor-register" element={<VisitorRegisterPage />} />
 
           {/* Admissions — public landing + signup + referee upload (no AppShell) */}
           <Route path="/apply" element={<ApplyLandingPage />} />
@@ -407,6 +411,8 @@ export function App() {
                     <Route path="holidays" element={<AdminHolidaysPage />} />
                     {/* M10s — Visitor Leads (admin-captured prospect funnel). */}
                     <Route path="visitor-leads" element={<AdminVisitorLeadsPage />} />
+                    {/* M10u — Staff attendance dashboard. */}
+                    <Route path="staff-attendance" element={<AdminStaffAttendancePage />} />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </RequireRole>

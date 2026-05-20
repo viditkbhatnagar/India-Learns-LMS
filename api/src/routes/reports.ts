@@ -47,6 +47,19 @@ const RangeScopedQuery = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'from must be YYYY-MM-DD'),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'to must be YYYY-MM-DD'),
   courseId: z.string().min(1).optional(),
+  // M10u — "Sessions held" filter. When set, the attendance report
+  // counts only sessions whose actual held-date falls inside this
+  // window. Admin uses this to answer "what was attendance like for
+  // the sessions that actually happened between A and B" rather than
+  // the full enrolment date range.
+  sessionsHeldFrom: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'sessionsHeldFrom must be YYYY-MM-DD')
+    .optional(),
+  sessionsHeldTo: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'sessionsHeldTo must be YYYY-MM-DD')
+    .optional(),
 });
 
 async function assertFacultyOwnsBatch(

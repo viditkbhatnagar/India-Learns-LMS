@@ -79,6 +79,9 @@ import type {
   VisitorLeadSource,
   VisitorLeadStatus,
   VisitorOtpStatus,
+  MarkStaffAttendanceInput,
+  StaffAttendanceDto,
+  StaffAttendanceStatus,
 } from 'india-learns-shared-types';
 import { api, unwrap } from './api.js';
 import { getDeviceId } from './deviceId.js';
@@ -1843,6 +1846,41 @@ export const installmentsApi = {
     const res = await api.post<{
       data: { installment: Record<string, unknown>; invoice: Record<string, unknown> };
     }>(`/installments/${id}/waive`, {});
+    return res.data.data;
+  },
+};
+
+// M10u — Staff attendance (faculty self-mark + admin override).
+export const staffAttendanceApi = {
+  async mark(input: MarkStaffAttendanceInput): Promise<StaffAttendanceDto> {
+    const res = await api.post<{ data: { attendance: StaffAttendanceDto } }>(
+      '/staff-attendance',
+      input,
+    );
+    return res.data.data.attendance;
+  },
+  async meToday(): Promise<StaffAttendanceDto | null> {
+    const res = await api.get<{ data: { attendance: StaffAttendanceDto | null } }>(
+      '/staff-attendance/me/today',
+    );
+    return res.data.data.attendance;
+  },
+  async list(params: {
+    userId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    status?: StaffAttendanceStatus;
+    page?: number;
+    limit?: number;
+  } = {}): Promise<{
+    items: StaffAttendanceDto[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const res = await api.get<{
+      data: { items: StaffAttendanceDto[]; total: number; page: number; limit: number };
+    }>('/staff-attendance', { params });
     return res.data.data;
   },
 };

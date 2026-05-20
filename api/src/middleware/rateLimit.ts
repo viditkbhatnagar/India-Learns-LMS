@@ -54,5 +54,28 @@ export function buildPasswordResetLimiter(): RequestHandler {
   }) as unknown as RequestHandler;
 }
 
+// M10u — Public visitor-lead self-registration limiter (per-IP, 5/hr).
+// Prevents abuse of the unauthenticated /v1/public/visitor-register
+// endpoint. Same env switch as login + password-reset.
+export function buildPublicVisitorLimiter(): RequestHandler {
+  const env = loadEnv();
+  if (env.RATE_LIMITS_DISABLED) return passthrough();
+  return rateLimit({
+    windowMs: 60 * 60_000, // 1 hour
+    max: 5,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => req.ip ?? 'unknown',
+    handler: (_req, res) => {
+      res.status(429).json({
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many lead submissions from this network — try again later.',
+        },
+      });
+    },
+  }) as unknown as RequestHandler;
+}
+
 // Re-export for tests or consumers who want the specific type:
 export type { RateLimitRequestHandler };
