@@ -19,10 +19,18 @@ Open the staging URL above and sign in with any of the accounts below.
 | Super Admin | superadmin@indialearns.test | Superadmin#2026 |
 | Student | student-seed-1@luc.local | Student#12345 |
 | Faculty | faculty-seed-1@luc.local | Faculty#12345 |
-| Finance | finance-seed-1@luc.local | Finance#12345 |
 | Student — Demo #1 | student-demo-1@luc.local | Student#12345 |
 | Student — Demo #2 | student-demo-2@luc.local | Student#12345 |
 | Student — Demo #3 | student-demo-3@luc.local | Student#12345 |
+
+> **M10r — `finance` role removed (D-095).** The previous seeded
+> `finance-seed-1@luc.local` user is deprecated; their record still
+> exists in the DB with the legacy `role: 'finance'` but every route
+> now rejects that role token. Either soft-delete the user via
+> Admin → Users, OR run a one-shot migration to promote them to admin
+> (`db.users.updateMany({role:'finance'}, {$set:{role:'admin',
+> deptTag:'finance'}})`). Admin handles all finance work now — record
+> payments, issue receipts, manage fees, take finance-category tickets.
 
 ### Where each role lands after sign-in
 
