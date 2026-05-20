@@ -24,6 +24,9 @@ const UpdateBody = z.object({
   completed: z.boolean().optional(),
   status: z.literal('revoked').optional(),
   accessState: z.enum(['active', 'warn1', 'warn2', 'override', 'suspended']).optional(),
+  // M10x — Excel "Total Fees Specified" upfront declaration. Send null
+  // to clear; otherwise an integer in paise (paise = rupees * 100).
+  declaredTotalPaise: z.coerce.number().int().nonnegative().nullable().optional(),
 });
 
 const ListQuery = z.object({

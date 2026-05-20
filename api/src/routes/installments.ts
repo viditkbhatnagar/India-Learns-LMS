@@ -12,6 +12,8 @@ const PatchBody = z.object({
   label: z.string().min(1).max(160).optional(),
   amountPaise: z.coerce.number().int().nonnegative().optional(),
   dueDate: z.string().optional(),
+  // M10x — Milestone label override (e.g., "Seat Reservation").
+  dueLabel: z.string().max(120).nullable().optional(),
   status: z.enum(['pending', 'partial', 'paid', 'overdue', 'waived']).optional(),
 });
 
@@ -20,6 +22,7 @@ const CreateBody = z.object({
   label: z.string().min(1).max(160),
   amountPaise: z.coerce.number().int().nonnegative(),
   dueDate: z.string(),
+  dueLabel: z.string().max(120).nullable().optional(),
   status: z.enum(['pending', 'partial', 'paid', 'overdue', 'waived']).optional(),
 });
 

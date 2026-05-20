@@ -57,6 +57,9 @@ export interface PatchInstallmentInput {
   label?: string;
   amountPaise?: number;
   dueDate?: string; // ISO date (YYYY-MM-DD or full ISO)
+  // M10x — Pass an empty string or null to clear the milestone label and
+  // fall back to the calendar dueDate display.
+  dueLabel?: string | null;
   status?: 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
 }
 
@@ -91,6 +94,9 @@ export async function patchInstallment(
     }
     inst.dueDate = parsed;
   }
+  if (patch.dueLabel !== undefined) {
+    inst.dueLabel = patch.dueLabel?.trim() || null;
+  }
   if (patch.status !== undefined) {
     inst.status = patch.status;
   }
@@ -118,6 +124,8 @@ export interface CreateInstallmentInput {
   label: string;
   amountPaise: number;
   dueDate: string;
+  /** Milestone label (e.g., "Seat Reservation") that displays instead of dueDate. */
+  dueLabel?: string | null;
   status?: 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
 }
 
@@ -143,6 +151,7 @@ export async function createInstallment(
     amountPaise: Math.floor(input.amountPaise),
     paidPaise: 0,
     dueDate: due,
+    dueLabel: input.dueLabel?.trim() || null,
     status: input.status ?? 'pending',
     remindersSent: [],
   });

@@ -213,6 +213,9 @@ export function toInstallmentDto(doc: HydratedFeeInstallment): FeeInstallmentDto
     paidPaise: doc.paidPaise,
     balancePaise: Math.max(0, doc.amountPaise - doc.paidPaise),
     dueDate: doc.dueDate.toISOString(),
+    // M10x — Optional milestone label that displays in place of the
+    // calendar date (e.g., "Seat Reservation").
+    dueLabel: doc.dueLabel ?? null,
     status: doc.status,
     remindersSent: doc.remindersSent.map((r) => ({
       template: r.template as FeeReminderTemplate,

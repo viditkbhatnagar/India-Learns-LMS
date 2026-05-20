@@ -67,6 +67,9 @@ export interface FeeInstallmentDto {
   paidPaise: number;
   balancePaise: number;
   dueDate: string;
+  // M10x — Optional milestone label displayed instead of the calendar
+  // date (Excel template rows like "Seat Reservation" / "Upon Admission").
+  dueLabel: string | null;
   status: InstallmentStatus;
   remindersSent: Array<{ template: FeeReminderTemplate; at: string }>;
   createdAt: string;

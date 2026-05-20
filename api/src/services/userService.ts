@@ -81,6 +81,8 @@ function toDto(doc: HydratedUser): UserPublicDto {
     parentGuardian: (json.parentGuardian as UserPublicDto['parentGuardian']) ?? null,
     // M10f — Placement resume URL.
     resumeUrl: (json.resumeUrl as string | null) ?? null,
+    // M10x — Marketing source attribution.
+    source: (json.source as UserPublicDto['source']) ?? null,
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -169,6 +171,8 @@ export async function createUser(
     personalAddress: input.personalAddress ?? null,
     emergencyContact: input.emergencyContact ?? null,
     parentGuardian: input.parentGuardian ?? null,
+    // M10x — Marketing source attribution (Excel "Source" column).
+    source: input.source ?? null,
   });
   await sendInvite(doc);
   await recordAudit({
@@ -333,6 +337,10 @@ export async function updateUser(
     if (patch.deptTag !== undefined) doc.deptTag = patch.deptTag;
     if (patch.isCourseCoordinator !== undefined) {
       doc.isCourseCoordinator = patch.isCourseCoordinator;
+    }
+    // M10x — Marketing source. Admin-only field.
+    if (patch.source !== undefined) {
+      doc.source = patch.source;
     }
   }
   await doc.save();

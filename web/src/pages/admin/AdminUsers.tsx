@@ -4,11 +4,13 @@ import { useEffect, useState, type FormEvent } from 'react';
 import {
   APPLICATION_DOCUMENT_TYPE_LABELS,
   PROGRAM_REQUIRED_DOC_TYPES,
+  VISITOR_LEAD_SOURCES,
   type ContactRefDto,
   type PersonalAddressDto,
   type ProgramRequiredDocType,
   type Role,
   type UserPublicDto,
+  type VisitorLeadSource,
 } from 'india-learns-shared-types';
 import { usersApi, programsApi, batchesApi, filesApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
@@ -172,6 +174,17 @@ export function AdminUsers() {
 // the document uploader so SSLC / Plus Two / Degree / Gov ID can be
 // attached in the same workflow.
 
+// M10x — Marketing source labels (Excel "Source: Meta / Google / Agent").
+const SOURCE_LABEL: Record<VisitorLeadSource, string> = {
+  reference: 'Reference',
+  google: 'Google',
+  social_media: 'Social Media',
+  walk_in: 'Walk-in',
+  meta: 'Meta (FB / IG ads)',
+  agent: 'Agent',
+  other: 'Other',
+};
+
 function emptyAddress() {
   return {
     street: '',
@@ -208,6 +221,8 @@ export function AdminInviteUser() {
     programId: '',
     batchId: '',
     dateOfBirth: '',
+    // M10x — Marketing source (Excel "Source" column).
+    source: '' as VisitorLeadSource | '',
     address: emptyAddress(),
     emergency: emptyContact(),
     parent: emptyContact(),
@@ -229,6 +244,7 @@ export function AdminInviteUser() {
         programId: form.programId || undefined,
         batchId: form.batchId || undefined,
         dateOfBirth: form.dateOfBirth.trim() || null,
+        source: form.source || null,
         personalAddress: isAddressBlank(form.address)
           ? null
           : {
@@ -361,14 +377,44 @@ export function AdminInviteUser() {
 
           {form.role === 'student' && (
             <>
-              <Input
-                label="Date of birth (optional)"
-                type="date"
-                value={form.dateOfBirth}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, dateOfBirth: e.target.value }))
-                }
-              />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <Input
+                  label="Date of birth (optional)"
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, dateOfBirth: e.target.value }))
+                  }
+                />
+                {/* M10x — Excel "Source" column. Where did the student
+                    come from? Used for placement / marketing reports. */}
+                <label className="block">
+                  <span className="block text-sm font-semibold text-brand-navy mb-1.5 tracking-tight">
+                    Source (optional)
+                  </span>
+                  <select
+                    value={form.source}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        source: e.target.value as VisitorLeadSource | '',
+                      }))
+                    }
+                    className="w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all"
+                  >
+                    <option value="">— Select —</option>
+                    {VISITOR_LEAD_SOURCES.map((s) => (
+                      <option key={s} value={s}>
+                        {SOURCE_LABEL[s]}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted mt-1">
+                    How did the student come in? Already on the visitor lead
+                    if you captured them there first — copy that value here.
+                  </p>
+                </label>
+              </div>
 
               <CollapsibleSection
                 title="Personal address"
@@ -694,6 +740,7 @@ export function AdminUserDetail() {
           <EmergencyContactEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
           <ParentGuardianEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
           <ResumeUrlEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
+          <SourceEditor user={u} onSaved={() => qc.invalidateQueries({ queryKey: ['users', id] })} />
           {u.role === 'student' && <StudentDocumentsEditor studentId={u.id} />}
         </>
       )}
@@ -1137,6 +1184,66 @@ function ResumeUrlEditor({ user, onSaved }: EditorProps) {
           </Button>
         </form>
       </div>
+    </Card>
+  );
+}
+
+// M10x — Marketing source editor. Mirrors the Excel "Source" column;
+// admin can change it any time post-invite (e.g., turns out the lead
+// originally came from Meta but Logan misclassified as Walk-in).
+function SourceEditor({ user, onSaved }: EditorProps) {
+  const [source, setSource] = useState<VisitorLeadSource | ''>(user.source ?? '');
+  const [msg, setMsg] = useFieldMsg();
+  useEffect(() => {
+    setSource(user.source ?? '');
+  }, [user.id, user.source]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      usersApi.update(user.id, { source: (source || null) as VisitorLeadSource | null }),
+    onSuccess: () => {
+      setMsg({ kind: 'ok', text: 'Source saved.' });
+      onSaved();
+    },
+    onError: (err) => setMsg({ kind: 'err', text: errMsg(err) }),
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Marketing source"
+        subtitle="How did this student come to India Learns? Used for placement / marketing reports and matches the Excel template's “Source” column."
+      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setMsg(null);
+          save.mutate();
+        }}
+        className="space-y-3"
+      >
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="text-xs uppercase tracking-wider text-muted font-bold">
+            Source
+          </span>
+          <select
+            value={source}
+            onChange={(e) => setSource(e.target.value as VisitorLeadSource | '')}
+            className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+          >
+            <option value="">— Not specified —</option>
+            {VISITOR_LEAD_SOURCES.map((s) => (
+              <option key={s} value={s}>
+                {SOURCE_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <StatusBanner msg={msg} />
+        <Button type="submit" loading={save.isPending}>
+          Save source
+        </Button>
+      </form>
     </Card>
   );
 }

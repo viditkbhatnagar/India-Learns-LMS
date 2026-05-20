@@ -271,6 +271,11 @@ export interface EnrollmentDto {
   completedAt: string | null;
   certificateUrl: string | null;
   certificateIssuedAt: string | null;
+  // M10x — Excel "Total Fees Specified" upfront declaration. Null
+  // means "not declared, use computed sum". Admin can set this on
+  // /finance/students/:id and the page warns if installment totals
+  // drift from it.
+  declaredTotalPaise: number | null;
   createdAt: string;
   updatedAt: string;
   /**
@@ -412,6 +417,9 @@ export interface UpdateEnrollmentInput {
   completed?: boolean;
   status?: Extract<EnrollmentStatus, 'revoked'>;
   accessState?: EnrollmentAccessState;
+  // M10x — Excel "Total Fees Specified" upfront declaration. Pass null
+  // to clear; otherwise an integer in paise.
+  declaredTotalPaise?: number | null;
 }
 
 export interface DashboardStubBucket<T> {
