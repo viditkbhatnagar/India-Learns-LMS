@@ -37,6 +37,8 @@ const JOB_PATHS = {
   'admissions-referee-reminders': '/v1/jobs/admissions-referee-reminders',
   'admissions-audit-head-snapshot': '/v1/jobs/admissions-audit-head-snapshot',
   'admissions-draft-cleanup': '/v1/jobs/admissions-draft-cleanup',
+  // M10 — Daily attendance auto-report (LMS_Requirements §2 + §5).
+  'daily-attendance-report': '/v1/jobs/daily-attendance-report',
 };
 
 function fail(message, code = 1) {

@@ -167,6 +167,20 @@ services:
     envVars:
       - fromGroup: il-app-secrets
 
+  # M10 — Daily attendance auto-report to students + parents
+  # (LMS_Requirements §2 + §5). Runs after the typical school day so
+  # marked attendance has time to land.
+  - type: cron
+    name: il-cron-daily-attendance-report
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "0 13 * * *" # 13:00 UTC = 18:30 IST daily
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs daily-attendance-report
+    envVars:
+      - fromGroup: il-app-secrets
+
 # ---- Secret group (single) ----
 envVarGroups:
   - name: il-app-secrets

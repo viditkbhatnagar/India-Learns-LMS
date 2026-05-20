@@ -285,6 +285,8 @@ export const AUDIT_ACTIONS = [
   'feedback.published',
   'enrollment.completed',
   'jobs.faculty_digest.invoked',
+  // M10 — daily attendance auto-report (LMS_Requirements §2 §5).
+  'jobs.daily_attendance.invoked',
   // M8 — certificates + notifications + analytics
   'certificate.issued',
   'certificate.reissue_attempted',
