@@ -41,12 +41,15 @@ import type {
   AssignmentSubmissionsReportDto,
   AttendanceReportDto,
   BatchSummaryReportDto,
+  ChatMessageDto,
   CompanyDto,
+  ConversationDto,
   CreateCompanyInput,
   CreateJobPostingInput,
   HolidayDto,
   JobApplicationDto,
   JobPostingDto,
+  SendChatMessageInput,
   PlacementAnalyticsDto,
   UpdateCompanyInput,
   UpdateJobApplicationInput,
@@ -1666,5 +1669,45 @@ export const placementApi = {
   async analytics(): Promise<PlacementAnalyticsDto> {
     const res = await api.get<{ data: PlacementAnalyticsDto }>('/placement/analytics');
     return res.data.data;
+  },
+};
+
+// M10e — Internal chat (LMS_Requirements §2). PR-E1: 1:1 direct
+// conversations with 5s polling for new messages.
+export const chatApi = {
+  async listMyConversations(): Promise<ConversationDto[]> {
+    const res = await api.get<{ data: { items: ConversationDto[] } }>('/me/conversations');
+    return res.data.data.items;
+  },
+  async getOrCreateDirect(otherUserId: string): Promise<ConversationDto> {
+    const res = await api.post<{ data: { conversation: ConversationDto } }>(
+      '/chat/conversations/direct',
+      { otherUserId },
+    );
+    return res.data.data.conversation;
+  },
+  async listMessages(conversationId: string, since?: string): Promise<ChatMessageDto[]> {
+    const res = await api.get<{ data: { items: ChatMessageDto[] } }>(
+      `/chat/conversations/${conversationId}/messages`,
+      { params: since ? { since } : {} },
+    );
+    return res.data.data.items;
+  },
+  async sendMessage(conversationId: string, input: SendChatMessageInput): Promise<ChatMessageDto> {
+    const res = await api.post<{ data: { message: ChatMessageDto } }>(
+      `/chat/conversations/${conversationId}/messages`,
+      input,
+    );
+    return res.data.data.message;
+  },
+  async markRead(conversationId: string): Promise<void> {
+    await api.post(`/chat/conversations/${conversationId}/read`, {});
+  },
+  async searchUsers(q: string): Promise<Array<{ id: string; name: string; role: string; email: string; code: string | null }>> {
+    const res = await api.get<{ data: { items: Array<{ id: string; name: string; role: string; email: string; code: string | null }> } }>(
+      '/chat/search-users',
+      { params: { q } },
+    );
+    return res.data.data.items;
   },
 };

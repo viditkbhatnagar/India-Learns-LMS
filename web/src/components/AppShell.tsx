@@ -99,6 +99,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Certificates', to: '/student/certificates', icon: Icon.award },
     // M10f — Placement jobs feed.
     { label: 'Jobs', to: '/jobs', icon: Icon.users },
+    // M10e — Internal chat (PR-E1).
+    { label: 'Chat', to: '/chat', icon: Icon.feedback },
   ],
   faculty: [
     { label: 'Dashboard', to: '/faculty/dashboard', icon: Icon.home },
@@ -108,6 +110,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Timetable', to: '/faculty/timetable', icon: Icon.calendar },
     // M10 — Reports for batches faculty teaches (server-scoped).
     { label: 'Reports', to: '/reports', icon: Icon.folder },
+    // M10e — Internal chat (PR-E1).
+    { label: 'Chat', to: '/chat', icon: Icon.feedback },
   ],
   finance: [
     { label: 'Dashboard', to: '/finance/dashboard', icon: Icon.home },
@@ -116,6 +120,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Fee structures', to: '/finance/fee-structures', icon: Icon.folder },
     // M10 — Cross-batch summary reports.
     { label: 'Reports', to: '/reports', icon: Icon.folder },
+    // M10e — Internal chat (PR-E1).
+    { label: 'Chat', to: '/chat', icon: Icon.feedback },
   ],
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
@@ -135,6 +141,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Reports', to: '/reports', icon: Icon.folder },
     // M10f — Placement console (companies + postings + analytics).
     { label: 'Placement', to: '/admin/placement', icon: Icon.users },
+    // M10e — Internal chat (PR-E1).
+    { label: 'Chat', to: '/chat', icon: Icon.feedback },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
   superadmin: [
@@ -153,6 +161,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Reports', to: '/reports', icon: Icon.folder },
     // M10f — Placement console.
     { label: 'Placement', to: '/admin/placement', icon: Icon.users },
+    // M10e — Internal chat (PR-E1).
+    { label: 'Chat', to: '/chat', icon: Icon.feedback },
     { label: 'Audit log', to: '/admin/audit-logs', icon: Icon.history },
   ],
   // Admissions M1 — applicant has the LMS shell so they can log out, see

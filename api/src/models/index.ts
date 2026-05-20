@@ -222,3 +222,14 @@ export { JobPosting } from './jobPosting.js';
 export type { JobPostingDoc, HydratedJobPosting } from './jobPosting.js';
 export { JobApplication } from './jobApplication.js';
 export type { JobApplicationDoc, HydratedJobApplication } from './jobApplication.js';
+
+// M10e — Internal chat (LMS_Requirements §2).
+export { Conversation } from './conversation.js';
+export type { ConversationDoc, HydratedConversation } from './conversation.js';
+export { ConversationMembership } from './conversationMembership.js';
+export type {
+  ConversationMembershipDoc,
+  HydratedConversationMembership,
+} from './conversationMembership.js';
+export { ChatMessage } from './chatMessage.js';
+export type { ChatMessageDoc, ChatAttachmentDoc, HydratedChatMessage } from './chatMessage.js';

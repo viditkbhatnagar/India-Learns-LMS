@@ -16,3 +16,4 @@ export * from './dto/analytics.js';
 export * from './dto/admissions.js';
 export * from './dto/reports.js';
 export * from './dto/placement.js';
+export * from './dto/chat.js';
