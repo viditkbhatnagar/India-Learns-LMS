@@ -154,6 +154,17 @@ function MyApplications({ applications }: { applications: JobApplicationDto[] })
                 Applied {new Date(a.appliedAt).toLocaleDateString('en-IN')}
                 {a.interviewNote && ` · ${a.interviewNote}`}
               </p>
+              {/* M10l — Show structured interview schedule when set. */}
+              {a.status === 'interview_scheduled' && a.interviewAt && (
+                <p className="text-xs text-warning mt-1 font-medium">
+                  Interview:{' '}
+                  {new Date(a.interviewAt).toLocaleString('en-IN', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                  {a.interviewLocation && ` · ${a.interviewLocation}`}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Badge tone={STATUS_TONES[a.status]} dot>

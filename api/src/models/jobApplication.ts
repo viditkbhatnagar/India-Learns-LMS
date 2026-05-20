@@ -20,6 +20,11 @@ export interface JobApplicationDoc {
   coverNote: string;
   status: JobApplicationStatus;
   interviewNote: string | null;
+  // M10l — Structured interview scheduling (LMS_Requirements §3
+  // "Interview status"). Set by the placement team when status flips
+  // to 'interview_scheduled'.
+  interviewAt: Date | null;
+  interviewLocation: string | null;
   appliedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -48,6 +53,8 @@ const JobApplicationSchema = new Schema<JobApplicationDoc>(
       index: true,
     },
     interviewNote: { type: String, default: null, maxlength: 2000 },
+    interviewAt: { type: Date, default: null },
+    interviewLocation: { type: String, default: null, maxlength: 240 },
     appliedAt: { type: Date, default: () => new Date() },
   },
   {

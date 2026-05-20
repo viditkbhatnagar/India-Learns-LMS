@@ -110,6 +110,9 @@ function toJobApplicationDto(
     coverNote: (json.coverNote as string) ?? '',
     status: json.status as JobApplicationStatus,
     interviewNote: (json.interviewNote as string | null) ?? null,
+    // M10l — Interview scheduling fields.
+    interviewAt: json.interviewAt ? (json.interviewAt as Date).toISOString() : null,
+    interviewLocation: (json.interviewLocation as string | null) ?? null,
     appliedAt: (json.appliedAt as Date)?.toISOString?.() ?? new Date(0).toISOString(),
     updatedAt: (json.updatedAt as Date)?.toISOString?.() ?? new Date(0).toISOString(),
   };
@@ -491,6 +494,19 @@ export async function updateApplicationStatus(
   doc.status = patch.status;
   if (patch.interviewNote !== undefined) {
     doc.interviewNote = patch.interviewNote?.trim() || null;
+  }
+  // M10l — Interview scheduling fields. When the status moves away
+  // from 'interview_scheduled', clearing both keeps the row clean;
+  // explicit null in the patch wins over auto-clear.
+  if (patch.interviewAt !== undefined) {
+    doc.interviewAt = patch.interviewAt ? new Date(patch.interviewAt) : null;
+  } else if (patch.status !== 'interview_scheduled') {
+    doc.interviewAt = null;
+  }
+  if (patch.interviewLocation !== undefined) {
+    doc.interviewLocation = patch.interviewLocation?.trim() || null;
+  } else if (patch.status !== 'interview_scheduled') {
+    doc.interviewLocation = null;
   }
   await doc.save();
   return toJobApplicationDto(doc);
