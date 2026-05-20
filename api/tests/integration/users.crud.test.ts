@@ -4,6 +4,7 @@ import { useMongo } from '../helpers/db.js';
 import { useIntegrationSpies } from '../helpers/integrations.js';
 import { makeAdmin, makeUser } from '../helpers/factories.js';
 import { http } from '../helpers/http.js';
+import { tokenFor } from '../helpers/auth.js';
 
 async function loginAsAdmin(): Promise<string> {
   const { user, password } = await makeAdmin();
@@ -133,6 +134,67 @@ describe('users CRUD', () => {
       });
     expect(attempt.status).toBe(201);
     expect(attempt.body.data.user.email).toBe('sa-invited@example.com');
+  });
+
+  it('M10v — POST /v1/users captures Section 1 fields when provided', async () => {
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    const res = await http()
+      .post('/v1/users')
+      .set('authorization', `Bearer ${at}`)
+      .send({
+        role: 'student',
+        name: 'Full Section 1',
+        email: 'fs1@example.com',
+        phoneE164: '+919900001111',
+        dateOfBirth: '2000-06-15',
+        personalAddress: {
+          street: '12 MG Road',
+          city: 'Kochi',
+          stateProvince: 'Kerala',
+          postalCode: '682011',
+          country: 'India',
+        },
+        emergencyContact: {
+          name: 'Rita',
+          relationship: 'Sister',
+          phoneE164: '+919900002222',
+          email: null,
+        },
+        parentGuardian: {
+          name: 'Anil',
+          relationship: 'Father',
+          phoneE164: '+919900003333',
+          email: 'anil@example.com',
+        },
+      });
+    expect(res.status).toBe(201);
+    const u = res.body.data.user;
+    expect(u.dateOfBirth).toMatch(/^2000-06-15/);
+    expect(u.personalAddress.city).toBe('Kochi');
+    expect(u.personalAddress.country).toBe('India');
+    expect(u.emergencyContact.name).toBe('Rita');
+    expect(u.emergencyContact.email).toBeNull();
+    expect(u.parentGuardian.email).toBe('anil@example.com');
+  });
+
+  it('M10v — POST /v1/users still works without Section 1 fields', async () => {
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    const res = await http()
+      .post('/v1/users')
+      .set('authorization', `Bearer ${at}`)
+      .send({
+        role: 'student',
+        name: 'Bare bones',
+        email: 'bare@example.com',
+        phoneE164: '+919900004444',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.user.dateOfBirth).toBeNull();
+    expect(res.body.data.user.personalAddress).toBeNull();
+    expect(res.body.data.user.emergencyContact).toBeNull();
+    expect(res.body.data.user.parentGuardian).toBeNull();
   });
 
   it('blocks non-admins from admin mutations', async () => {

@@ -135,6 +135,28 @@ export const usersApi = {
     phoneE164?: string;
     programId?: string;
     batchId?: string;
+    // M10v — Section 1 (Academic) details optionally captured at invite
+    // time. All four are nullable; the service stores whatever is set.
+    dateOfBirth?: string | null;
+    personalAddress?: {
+      street: string;
+      city: string;
+      stateProvince: string;
+      postalCode: string;
+      country: string;
+    } | null;
+    emergencyContact?: {
+      name: string;
+      relationship: string;
+      phoneE164: string;
+      email: string | null;
+    } | null;
+    parentGuardian?: {
+      name: string;
+      relationship: string;
+      phoneE164: string;
+      email: string | null;
+    } | null;
   }) {
     const res = await api.post<{ data: { user: UserPublicDto } }>('/users', input);
     return res.data.data.user;

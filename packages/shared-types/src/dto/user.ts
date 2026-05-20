@@ -62,6 +62,14 @@ export interface CreateUserInput {
   enrolmentValidTo?: string;
   deptTag?: DeptTag;
   isCourseCoordinator?: boolean;
+  // M10v — Optional Section 1 (Academic) details captured at invite
+  // time. All four are nullable+optional; the server stores whatever is
+  // provided and the student (or admin) can edit later. Document
+  // uploads happen after creation on the user detail page.
+  dateOfBirth?: string | null;
+  personalAddress?: PersonalAddressDto | null;
+  emergencyContact?: ContactRefDto | null;
+  parentGuardian?: ContactRefDto | null;
 }
 
 export interface UpdateUserInput {

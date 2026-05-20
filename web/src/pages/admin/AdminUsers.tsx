@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
   APPLICATION_DOCUMENT_TYPE_LABELS,
@@ -164,8 +164,37 @@ export function AdminUsers() {
   );
 }
 
+// M10v — Invite form now captures full Section 1 (Academic) detail at
+// invite time. Admin can fill name + email + phone (required) and
+// optionally expand collapsible cards to enter DOB / personal address
+// / emergency contact / parent guardian. After Create the admin is
+// redirected to the user detail page with a banner pointing them at
+// the document uploader so SSLC / Plus Two / Degree / Gov ID can be
+// attached in the same workflow.
+
+function emptyAddress() {
+  return {
+    street: '',
+    city: '',
+    stateProvince: '',
+    postalCode: '',
+    country: 'India',
+  };
+}
+function emptyContact() {
+  return { name: '', relationship: '', phoneE164: '', email: '' };
+}
+
+function isContactBlank(c: { name: string; phoneE164: string }): boolean {
+  return !c.name.trim() && !c.phoneE164.trim();
+}
+function isAddressBlank(a: { street: string; city: string; stateProvince: string; postalCode: string }): boolean {
+  return !a.street.trim() && !a.city.trim() && !a.stateProvince.trim() && !a.postalCode.trim();
+}
+
 export function AdminInviteUser() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   // PR #18 — faculty now also takes a `programId` so Logan can assign
   // each instructor to a program (Aviation / Retail / etc.). The select
   // populates from the live programs list — no more "find it on the
@@ -178,9 +207,18 @@ export function AdminInviteUser() {
     phoneE164: '',
     programId: '',
     batchId: '',
+    dateOfBirth: '',
+    address: emptyAddress(),
+    emergency: emptyContact(),
+    parent: emptyContact(),
   });
+  // Collapsed by default — admin can skip these when they don't have
+  // the data yet. Section 1 of the requirements asks for all of it but
+  // the workflow stays usable when only basics are known.
+  const [showAddress, setShowAddress] = useState(false);
+  const [showEmergency, setShowEmergency] = useState(false);
+  const [showParent, setShowParent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const mut = useMutation({
     mutationFn: () =>
       usersApi.create({
@@ -190,10 +228,40 @@ export function AdminInviteUser() {
         phoneE164: form.phoneE164 || undefined,
         programId: form.programId || undefined,
         batchId: form.batchId || undefined,
+        dateOfBirth: form.dateOfBirth.trim() || null,
+        personalAddress: isAddressBlank(form.address)
+          ? null
+          : {
+              street: form.address.street.trim(),
+              city: form.address.city.trim(),
+              stateProvince: form.address.stateProvince.trim(),
+              postalCode: form.address.postalCode.trim(),
+              country: form.address.country.trim() || 'India',
+            },
+        emergencyContact: isContactBlank(form.emergency)
+          ? null
+          : {
+              name: form.emergency.name.trim(),
+              relationship: form.emergency.relationship.trim(),
+              phoneE164: form.emergency.phoneE164.trim(),
+              email: form.emergency.email.trim() || null,
+            },
+        parentGuardian: isContactBlank(form.parent)
+          ? null
+          : {
+              name: form.parent.name.trim(),
+              relationship: form.parent.relationship.trim(),
+              phoneE164: form.parent.phoneE164.trim(),
+              email: form.parent.email.trim() || null,
+            },
       }),
-    onSuccess: () => {
+    onSuccess: (user) => {
       qc.invalidateQueries({ queryKey: ['users'] });
-      setSuccess(true);
+      // M10v — Land on the new user's detail page with a banner that
+      // points at the document uploader (StudentDocuments / Resume
+      // editors live there). The student's SSLC / +2 / Degree / Gov
+      // ID / Transfer cert / Photo can be uploaded in the same flow.
+      navigate(`/admin/users/${user.id}?invited=1`);
     },
     onError: (err) => setError(err instanceof ApiHttpError ? err.message : 'Failed.'),
   });
@@ -201,7 +269,6 @@ export function AdminInviteUser() {
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
     mut.mutate();
   }
 
@@ -210,12 +277,15 @@ export function AdminInviteUser() {
       <PageHeader
         eyebrow="People"
         title="Invite a user"
-        subtitle="They'll receive a magic-link email to set their password."
+        subtitle="They'll receive a magic-link email to set their password. Optional fields can be filled now or later from the user's detail page."
         back={{ to: '/admin/users', label: 'Back to users' }}
       />
 
       <Card accent="orange">
         <form onSubmit={onSubmit} className="space-y-4">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-muted">
+            Basics
+          </h3>
           <label className="block">
             <span className="block text-sm font-semibold text-brand-navy mb-1.5 tracking-tight">
               Role
@@ -288,20 +358,126 @@ export function AdminInviteUser() {
               )}
             </>
           )}
+
+          {form.role === 'student' && (
+            <>
+              <Input
+                label="Date of birth (optional)"
+                type="date"
+                value={form.dateOfBirth}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, dateOfBirth: e.target.value }))
+                }
+              />
+
+              <CollapsibleSection
+                title="Personal address"
+                subtitle="Where the student lives. You can fill this later from their detail page."
+                open={showAddress}
+                onToggle={() => setShowAddress((v) => !v)}
+              >
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <Input
+                      label="Street"
+                      value={form.address.street}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          address: { ...f.address, street: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                  <Input
+                    label="City"
+                    value={form.address.city}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        address: { ...f.address, city: e.target.value },
+                      }))
+                    }
+                  />
+                  <Input
+                    label="State"
+                    value={form.address.stateProvince}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        address: { ...f.address, stateProvince: e.target.value },
+                      }))
+                    }
+                  />
+                  <Input
+                    label="Pin code"
+                    value={form.address.postalCode}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        address: { ...f.address, postalCode: e.target.value },
+                      }))
+                    }
+                  />
+                  <Input
+                    label="Country"
+                    value={form.address.country}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        address: { ...f.address, country: e.target.value },
+                      }))
+                    }
+                  />
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Emergency contact"
+                subtitle="Person we call if there's a serious issue. Phone is required if filling this section."
+                open={showEmergency}
+                onToggle={() => setShowEmergency((v) => !v)}
+              >
+                <ContactFields
+                  value={form.emergency}
+                  onChange={(patch) =>
+                    setForm((f) => ({ ...f, emergency: { ...f.emergency, ...patch } }))
+                  }
+                />
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Parent / guardian"
+                subtitle="Will be CC'd on fee reminders and the daily attendance summary email."
+                open={showParent}
+                onToggle={() => setShowParent((v) => !v)}
+              >
+                <ContactFields
+                  value={form.parent}
+                  onChange={(patch) =>
+                    setForm((f) => ({ ...f, parent: { ...f.parent, ...patch } }))
+                  }
+                />
+              </CollapsibleSection>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-sm text-amber-900">
+                <p className="font-medium">After invite, you'll land on the student's detail page.</p>
+                <p className="mt-0.5 text-amber-800/90">
+                  That's where you upload SSLC / Plus Two / Degree / ID
+                  proof / Transfer certificate / Passport photo —
+                  documents need the student id, which is created when
+                  you send the invite.
+                </p>
+              </div>
+            </>
+          )}
+
           {error && (
             <div
               role="alert"
               className="rounded-xl border border-danger/30 bg-red-50 text-danger p-3 text-sm"
             >
               {error}
-            </div>
-          )}
-          {success && (
-            <div
-              role="status"
-              className="rounded-xl border border-emerald-200 bg-emerald-50 text-success p-3 text-sm"
-            >
-              Invite sent.
             </div>
           )}
           <Button type="submit" size="lg" loading={mut.isPending}>
@@ -313,10 +489,87 @@ export function AdminInviteUser() {
   );
 }
 
+function CollapsibleSection({
+  title,
+  subtitle,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-black/10 bg-white">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full px-4 py-3 flex items-start justify-between gap-3 text-left hover:bg-surface-muted/40 transition-colors"
+        aria-expanded={open}
+      >
+        <div className="min-w-0">
+          <p className="font-semibold text-brand-navy text-sm">{title}</p>
+          <p className="text-xs text-muted mt-0.5">{subtitle}</p>
+        </div>
+        <span className="text-brand-navy font-mono">{open ? '−' : '+'}</span>
+      </button>
+      {open && <div className="px-4 pb-4 pt-1 border-t border-black/5">{children}</div>}
+    </div>
+  );
+}
+
+function ContactFields({
+  value,
+  onChange,
+}: {
+  value: { name: string; relationship: string; phoneE164: string; email: string };
+  onChange: (
+    patch: Partial<{ name: string; relationship: string; phoneE164: string; email: string }>,
+  ) => void;
+}) {
+  return (
+    <div className="grid sm:grid-cols-2 gap-3">
+      <Input
+        label="Name"
+        value={value.name}
+        onChange={(e) => onChange({ name: e.target.value })}
+      />
+      <Input
+        label="Relationship"
+        value={value.relationship}
+        onChange={(e) => onChange({ relationship: e.target.value })}
+        placeholder="Father / Mother / Guardian / Spouse"
+      />
+      <Input
+        type="tel"
+        label="Phone"
+        value={value.phoneE164}
+        onChange={(e) => onChange({ phoneE164: e.target.value })}
+        placeholder="+919876543210"
+      />
+      <Input
+        type="email"
+        label="Email"
+        value={value.email}
+        onChange={(e) => onChange({ email: e.target.value })}
+      />
+    </div>
+  );
+}
+
 export function AdminUserDetail() {
   const { id } = useParams<{ id: string }>();
   const isReadOnly = false; // superadmin now has full write access (round 3)
   const qc = useQueryClient();
+  // M10v — Banner after a fresh invite ("?invited=1") so admin knows
+  // exactly where to go next: upload SSLC / Plus Two / Degree / Gov ID /
+  // Transfer cert / Photo via the documents card lower on this page.
+  const [justInvited, setJustInvited] = useState(
+    typeof window !== 'undefined' && window.location.search.includes('invited=1'),
+  );
   const query = useQuery({
     queryKey: ['users', id],
     queryFn: () => usersApi.get(id!),
@@ -349,6 +602,31 @@ export function AdminUserDetail() {
         subtitle={u.email}
         back={{ to: '/admin/users', label: 'Back to users' }}
       />
+
+      {justInvited && (
+        <div
+          role="status"
+          className="rounded-2xl border border-emerald-200 bg-emerald-50 text-success p-4 text-sm flex items-start gap-3"
+        >
+          <span aria-hidden className="text-xl">✅</span>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold">Invite sent — magic-link email is on the way.</p>
+            <p className="mt-0.5 text-success/90">
+              Scroll down to the <strong>Documents</strong> card to upload SSLC / Plus
+              Two / Degree / ID proof / Transfer certificate / Passport photo. The
+              student can also upload these themselves after accepting the invite.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setJustInvited(false)}
+            className="text-success/70 hover:text-success"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <Card accent="navy">
         <div className="flex items-center gap-4 mb-5">

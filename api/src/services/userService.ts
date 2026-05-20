@@ -139,6 +139,19 @@ export async function createUser(
   const code = ROLES_WITH_CODE.has(input.role)
     ? await nextUserCode(new Date().getUTCFullYear())
     : null;
+  // M10v — Optional Section 1 fields. dateOfBirth accepts YYYY-MM-DD or
+  // full ISO and is stored as a UTC date-only Date (midnight). The
+  // contact subdocs land directly if present, else null.
+  let dob: Date | null = null;
+  if (input.dateOfBirth) {
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(input.dateOfBirth);
+    if (ymd) {
+      dob = new Date(
+        Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3])),
+      );
+    }
+  }
+
   const doc = await User.create({
     role: input.role,
     code,
@@ -152,6 +165,10 @@ export async function createUser(
     enrolmentValidTo: input.enrolmentValidTo ?? null,
     deptTag: input.deptTag ?? null,
     isCourseCoordinator: input.isCourseCoordinator ?? false,
+    dateOfBirth: dob,
+    personalAddress: input.personalAddress ?? null,
+    emergencyContact: input.emergencyContact ?? null,
+    parentGuardian: input.parentGuardian ?? null,
   });
   await sendInvite(doc);
   await recordAudit({

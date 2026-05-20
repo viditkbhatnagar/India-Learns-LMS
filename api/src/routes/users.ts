@@ -28,19 +28,6 @@ const RoleEnum = z.enum([
 ]);
 const DeptEnum = z.enum(['operations', 'it', 'academics', 'finance', 'senior_mgmt']);
 
-const CreateBody = z.object({
-  role: RoleEnum,
-  name: z.string().min(1).max(120),
-  email: z.string().email().max(254),
-  phoneE164: z.string().regex(/^\+\d{6,15}$/),
-  programId: z.string().optional(),
-  batchId: z.string().optional(),
-  enrolmentValidFrom: z.string().datetime().optional(),
-  enrolmentValidTo: z.string().datetime().optional(),
-  deptTag: DeptEnum.optional(),
-  isCourseCoordinator: z.boolean().optional(),
-});
-
 // M10 — Personal-detail subschemas (Profile screen + apply→convert copy).
 // Phones are E.164 (`+` + 6–15 digits). Email is optional on the contact
 // subdocs since parents/guardians often don't have one to give.
@@ -62,6 +49,31 @@ const ContactRefBody = z
   // Normalise `email` to the DTO shape (`string | null`, never `undefined`)
   // so service-layer and Mongoose see one canonical form.
   .transform((v) => ({ ...v, email: v.email ?? null }));
+
+const CreateBody = z.object({
+  role: RoleEnum,
+  name: z.string().min(1).max(120),
+  email: z.string().email().max(254),
+  phoneE164: z.string().regex(/^\+\d{6,15}$/),
+  programId: z.string().optional(),
+  batchId: z.string().optional(),
+  enrolmentValidFrom: z.string().datetime().optional(),
+  enrolmentValidTo: z.string().datetime().optional(),
+  deptTag: DeptEnum.optional(),
+  isCourseCoordinator: z.boolean().optional(),
+  // M10v — Section 1 (Academic) details optionally captured at invite
+  // time. All four are optional and forwarded to the service layer for
+  // the same write that creates the User row. Document uploads still
+  // happen after creation (admin gets redirected to the detail page).
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}(T.*)?$/, 'dateOfBirth must be YYYY-MM-DD or ISO.')
+    .nullable()
+    .optional(),
+  personalAddress: PersonalAddressBody.nullable().optional(),
+  emergencyContact: ContactRefBody.nullable().optional(),
+  parentGuardian: ContactRefBody.nullable().optional(),
+});
 
 const UpdateBody = z.object({
   name: z.string().min(1).max(120).optional(),
