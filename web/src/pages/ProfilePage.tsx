@@ -4,6 +4,7 @@ import {
   NOTIFICATION_TYPES,
   type ContactRefDto,
   type PersonalAddressDto,
+  type UserPublicDto,
 } from 'india-learns-shared-types';
 import { authApi, notificationsApi, programsApi, usersApi } from '../lib/endpoints.js';
 import { useAuthStore } from '../store/auth.js';
@@ -490,6 +491,17 @@ export function ProfilePage() {
         </form>
       </Card>
 
+      {/* M10f — Placement resume. Single URL, used as the default snapshot */}
+      {/* for every JobApplication. Students paste a link to Drive / Dropbox */}
+      {/* / their portfolio for now; direct file upload comes later. */}
+      <ResumeCard
+        initialUrl={me.resumeUrl ?? ''}
+        onSaved={(updated) => {
+          if (token) setSession(updated, token);
+          qc.invalidateQueries({ queryKey: ['users', 'me'] });
+        }}
+      />
+
       <Card>
         <CardHeader title="Change password" subtitle="Minimum 10 characters, with a letter and a digit." />
         <form onSubmit={onChangePassword} className="space-y-4">
@@ -526,6 +538,82 @@ export function ProfilePage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+// M10f — Resume card lives outside the main ProfilePage component so
+// its local state (the URL input + save banner) doesn't bleed into the
+// other forms. Paste-only for now; direct file upload is a follow-up.
+function ResumeCard({
+  initialUrl,
+  onSaved,
+}: {
+  initialUrl: string;
+  onSaved: (user: UserPublicDto) => void;
+}) {
+  const [url, setUrl] = useState(initialUrl);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const save = useMutation({
+    mutationFn: () =>
+      usersApi.updateMe({ resumeUrl: url.trim() ? url.trim() : null }),
+    onSuccess: (updated) => {
+      setMsg({ kind: 'ok', text: 'Resume saved.' });
+      onSaved(updated);
+    },
+    onError: (err) =>
+      setMsg({
+        kind: 'err',
+        text: err instanceof ApiHttpError ? err.message : 'Failed to save resume.',
+      }),
+  });
+  return (
+    <Card>
+      <CardHeader
+        title="Resume"
+        subtitle="A single link the placement team sees on every job application. Drive / Dropbox / portfolio URL all work."
+      />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setMsg(null);
+          save.mutate();
+        }}
+        className="space-y-3"
+      >
+        <Input
+          label="Resume URL"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://drive.google.com/..."
+          hint="Leave blank to clear; HTTPS only."
+        />
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-brand-orange hover:underline"
+          >
+            Open current resume →
+          </a>
+        )}
+        {msg && (
+          <div
+            role={msg.kind === 'ok' ? 'status' : 'alert'}
+            className={`rounded-xl p-3 text-sm ${
+              msg.kind === 'ok'
+                ? 'bg-emerald-50 border border-emerald-200 text-success'
+                : 'bg-red-50 border border-danger/30 text-danger'
+            }`}
+          >
+            {msg.text}
+          </div>
+        )}
+        <Button type="submit" loading={save.isPending}>
+          Save resume
+        </Button>
+      </form>
+    </Card>
   );
 }
 

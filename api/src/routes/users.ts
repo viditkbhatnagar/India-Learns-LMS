@@ -83,6 +83,8 @@ const UpdateBody = z.object({
   personalAddress: PersonalAddressBody.nullable().optional(),
   emergencyContact: ContactRefBody.nullable().optional(),
   parentGuardian: ContactRefBody.nullable().optional(),
+  // M10f — Placement resume URL. Accept null to clear.
+  resumeUrl: z.string().url().max(1024).nullable().optional(),
 });
 
 const ListQuery = z.object({

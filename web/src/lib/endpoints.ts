@@ -37,10 +37,20 @@ import type {
   ExamAttemptDto,
   ExamDto,
   FeedbackEntryDto,
+  ApplyToJobInput,
   AssignmentSubmissionsReportDto,
   AttendanceReportDto,
   BatchSummaryReportDto,
+  CompanyDto,
+  CreateCompanyInput,
+  CreateJobPostingInput,
   HolidayDto,
+  JobApplicationDto,
+  JobPostingDto,
+  PlacementAnalyticsDto,
+  UpdateCompanyInput,
+  UpdateJobApplicationInput,
+  UpdateJobPostingInput,
   InvoiceDto,
   ModuleDto,
   NotificationDto,
@@ -132,6 +142,8 @@ export const usersApi = {
     personalAddress?: UserPublicDto['personalAddress'];
     emergencyContact?: UserPublicDto['emergencyContact'];
     parentGuardian?: UserPublicDto['parentGuardian'];
+    // M10f — Placement resume URL.
+    resumeUrl?: string | null;
   }) {
     // Server accepts PATCH /users/:id where :id === self.
     const me = await api.get<{ data: { user: UserPublicDto } }>('/users/me');
@@ -1589,6 +1601,70 @@ export const analyticsApi = {
     const res = await api.get<{ data: CollectionsReportDto }>('/analytics/collections', {
       params: { from, to },
     });
+    return res.data.data;
+  },
+};
+
+// M10f — Placement / Jobs (LMS_Requirements §3).
+export const placementApi = {
+  async listCompanies(): Promise<CompanyDto[]> {
+    const res = await api.get<{ data: { items: CompanyDto[] } }>('/companies');
+    return res.data.data.items;
+  },
+  async createCompany(input: CreateCompanyInput) {
+    const res = await api.post<{ data: { company: CompanyDto } }>('/companies', input);
+    return res.data.data.company;
+  },
+  async updateCompany(id: string, patch: UpdateCompanyInput) {
+    const res = await api.patch<{ data: { company: CompanyDto } }>(`/companies/${id}`, patch);
+    return res.data.data.company;
+  },
+  async deleteCompany(id: string) {
+    await api.delete(`/companies/${id}`);
+  },
+  async listJobs(params: { state?: string; companyId?: string } = {}): Promise<JobPostingDto[]> {
+    const res = await api.get<{ data: { items: JobPostingDto[] } }>('/jobs', { params });
+    return res.data.data.items;
+  },
+  async getJob(id: string): Promise<JobPostingDto> {
+    const res = await api.get<{ data: { posting: JobPostingDto } }>(`/jobs/${id}`);
+    return res.data.data.posting;
+  },
+  async createJob(input: CreateJobPostingInput) {
+    const res = await api.post<{ data: { posting: JobPostingDto } }>('/jobs', input);
+    return res.data.data.posting;
+  },
+  async updateJob(id: string, patch: UpdateJobPostingInput) {
+    const res = await api.patch<{ data: { posting: JobPostingDto } }>(`/jobs/${id}`, patch);
+    return res.data.data.posting;
+  },
+  async deleteJob(id: string) {
+    await api.delete(`/jobs/${id}`);
+  },
+  async applyToJob(jobId: string, input: ApplyToJobInput) {
+    const res = await api.post<{ data: { application: JobApplicationDto } }>(`/jobs/${jobId}/apply`, input);
+    return res.data.data.application;
+  },
+  async listApplicationsForJob(jobId: string): Promise<JobApplicationDto[]> {
+    const res = await api.get<{ data: { items: JobApplicationDto[] } }>(`/jobs/${jobId}/applications`);
+    return res.data.data.items;
+  },
+  async listMyApplications(): Promise<JobApplicationDto[]> {
+    const res = await api.get<{ data: { items: JobApplicationDto[] } }>('/me/job-applications');
+    return res.data.data.items;
+  },
+  async withdrawApplication(applicationId: string) {
+    await api.delete(`/me/job-applications/${applicationId}`);
+  },
+  async updateApplicationStatus(
+    applicationId: string,
+    patch: UpdateJobApplicationInput,
+  ) {
+    const res = await api.patch<{ data: { application: JobApplicationDto } }>(`/job-applications/${applicationId}`, patch);
+    return res.data.data.application;
+  },
+  async analytics(): Promise<PlacementAnalyticsDto> {
+    const res = await api.get<{ data: PlacementAnalyticsDto }>('/placement/analytics');
     return res.data.data;
   },
 };

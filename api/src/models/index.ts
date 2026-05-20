@@ -214,3 +214,11 @@ export type {
   HydratedApplicationFee,
   HydratedApplicationPayment,
 } from './admissions/applicationFee.js';
+
+// M10f — Placement / Jobs (LMS_Requirements §3).
+export { Company } from './company.js';
+export type { CompanyDoc, HydratedCompany } from './company.js';
+export { JobPosting } from './jobPosting.js';
+export type { JobPostingDoc, HydratedJobPosting } from './jobPosting.js';
+export { JobApplication } from './jobApplication.js';
+export type { JobApplicationDoc, HydratedJobApplication } from './jobApplication.js';

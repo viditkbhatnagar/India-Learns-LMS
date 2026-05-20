@@ -79,6 +79,8 @@ function toDto(doc: HydratedUser): UserPublicDto {
     personalAddress: (json.personalAddress as UserPublicDto['personalAddress']) ?? null,
     emergencyContact: (json.emergencyContact as UserPublicDto['emergencyContact']) ?? null,
     parentGuardian: (json.parentGuardian as UserPublicDto['parentGuardian']) ?? null,
+    // M10f — Placement resume URL.
+    resumeUrl: (json.resumeUrl as string | null) ?? null,
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -209,6 +211,8 @@ const SELF_PATCH_FIELDS = new Set<keyof UpdateUserInput>([
   'personalAddress',
   'emergencyContact',
   'parentGuardian',
+  // M10f — Placement resume URL is self-editable on the Profile screen.
+  'resumeUrl',
 ]);
 
 export async function updateUser(
@@ -285,6 +289,12 @@ export async function updateUser(
           email: patch.parentGuardian.email?.trim() || null,
         }
       : null;
+  }
+  // M10f — Placement resume URL. Empty string normalises to null so
+  // "clear it" works from the UI without a separate DELETE endpoint.
+  if (patch.resumeUrl !== undefined) {
+    const trimmed = patch.resumeUrl?.trim();
+    doc.resumeUrl = trimmed || null;
   }
   if (isAdmin) {
     if (patch.programId !== undefined) {

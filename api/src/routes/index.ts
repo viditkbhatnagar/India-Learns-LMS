@@ -72,6 +72,13 @@ import {
 import { jobsAdmissionsRouter } from './jobsAdmissions.js';
 import { reportsRouter } from './reports.js';
 import { jobsDailyAttendanceRouter } from './jobsDailyAttendance.js';
+import {
+  companiesRouter,
+  jobApplicationsRouter,
+  jobsRouter,
+  meJobApplicationsRouter,
+  placementAnalyticsRouter,
+} from './placement.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -88,6 +95,12 @@ export function v1Router(): Router {
   // M10 — Reports module (LMS_Faculty_Features §4). Three batch-scoped
   // reports with JSON + XLSX downloads.
   router.use('/reports', reportsRouter());
+  // M10f — Placement / Jobs module (LMS_Requirements §3).
+  router.use('/companies', companiesRouter());
+  router.use('/jobs', jobsRouter());
+  router.use('/me/job-applications', meJobApplicationsRouter());
+  router.use('/job-applications', jobApplicationsRouter());
+  router.use('/placement/analytics', placementAnalyticsRouter());
   router.use('/users', usersRouter());
   router.use('/users', suspensionOverrideRouter());
   router.use('/programs', programsRouter());

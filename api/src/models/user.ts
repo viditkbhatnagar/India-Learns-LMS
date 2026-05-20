@@ -62,6 +62,11 @@ export interface UserDoc {
   personalAddress: PersonalAddressDoc | null;
   emergencyContact: ContactRefDoc | null;
   parentGuardian: ContactRefDoc | null;
+  // M10f — Placement / Jobs (LMS_Requirements §3). Students keep one
+  // canonical resume URL on their profile; each JobApplication snapshots
+  // this at apply time so later edits don't retroactively rewrite past
+  // applications.
+  resumeUrl: string | null;
   sessionCap: number;
   // Admissions M9 — FERPA data-shape + MFA. None of these are enforced at
   // ship time; they exist so when US-market expansion turns FERPA on, the
@@ -208,6 +213,7 @@ const UserSchema = new Schema<UserDoc>(
       ),
       default: null,
     },
+    resumeUrl: { type: String, default: null, maxlength: 1024 },
     sessionCap: { type: Number, default: 5 },
     mfaEnabled: { type: Boolean, default: false },
     mfaSecret: { type: String, default: null },
