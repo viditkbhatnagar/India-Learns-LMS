@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@sentry/node": "^8.40.0",
+    "@types/multer": "^2.1.0",
     "argon2": "^0.40.3",
     "cloudinary": "^2.5.1",
     "cookie-parser": "^1.4.7",
@@ -33,6 +34,7 @@
     "india-learns-shared-types": "*",
     "jose": "^5.10.0",
     "mongoose": "^8.5.1",
+    "multer": "^2.1.1",
     "nanoid": "^5.0.7",
     "pdfkit": "^0.15.0",
     "pino": "^9.3.2",

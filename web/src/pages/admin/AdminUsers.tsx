@@ -10,7 +10,7 @@ import {
   type Role,
   type UserPublicDto,
 } from 'india-learns-shared-types';
-import { usersApi, programsApi, batchesApi } from '../../lib/endpoints.js';
+import { usersApi, programsApi, batchesApi, filesApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
@@ -771,64 +771,105 @@ function ParentGuardianEditor(props: EditorProps) {
 function ResumeUrlEditor({ user, onSaved }: EditorProps) {
   const [url, setUrl] = useState(user.resumeUrl ?? '');
   const [msg, setMsg] = useFieldMsg();
+  const [uploading, setUploading] = useState(false);
   useEffect(() => {
     setUrl(user.resumeUrl ?? '');
   }, [user.id, user.resumeUrl]);
 
   const save = useMutation({
-    mutationFn: () => usersApi.update(user.id, { resumeUrl: url.trim() || null }),
+    mutationFn: (nextUrl: string) =>
+      usersApi.update(user.id, { resumeUrl: nextUrl.trim() || null }),
     onSuccess: () => {
-      setMsg({ kind: 'ok', text: 'Resume URL saved.' });
+      setMsg({ kind: 'ok', text: 'Resume saved.' });
       onSaved();
     },
     onError: (err) => setMsg({ kind: 'err', text: errMsg(err) }),
   });
 
+  async function onFile(file: File) {
+    setMsg(null);
+    setUploading(true);
+    try {
+      const { url: uploadedUrl } = await filesApi.upload(file, 'resumes');
+      setUrl(uploadedUrl);
+      save.mutate(uploadedUrl);
+    } catch (err) {
+      setMsg({ kind: 'err', text: errMsg(err) });
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader
         title="Resume"
-        subtitle="Canonical link shown to the placement team on every job application. Drive / Dropbox / portfolio URL."
+        subtitle="The link the placement team sees on every job application. Upload a PDF or paste a Drive / Dropbox / portfolio URL."
       />
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setMsg(null);
-          save.mutate();
-        }}
-        className="space-y-3"
-      >
-        <Input
-          label="Resume URL"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://drive.google.com/..."
-          hint="Leave blank to clear."
-        />
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-brand-orange hover:underline"
-          >
-            Open current resume →
-          </a>
-        )}
-        <StatusBanner msg={msg} />
-        <Button type="submit" loading={save.isPending}>
-          Save resume URL
-        </Button>
-      </form>
+      <div className="space-y-3">
+        <label
+          htmlFor={`resume-upload-${user.id}`}
+          className="block rounded-xl border border-dashed border-brand-navy/30 px-4 py-6 text-center cursor-pointer hover:bg-surface-muted/40 transition-colors"
+        >
+          <input
+            id={`resume-upload-${user.id}`}
+            type="file"
+            accept=".pdf,.doc,.docx,application/pdf"
+            className="sr-only"
+            disabled={uploading || save.isPending}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onFile(f);
+              e.target.value = '';
+            }}
+          />
+          <span className="text-sm font-medium text-brand-navy">
+            {uploading ? 'Uploading…' : 'Click to upload a PDF'}
+          </span>
+          <span className="block text-xs text-muted mt-1">
+            We host it on India Learns; the placement team gets the link.
+          </span>
+        </label>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setMsg(null);
+            save.mutate(url);
+          }}
+          className="space-y-3"
+        >
+          <Input
+            label="Or paste a URL"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://drive.google.com/..."
+            hint="Leave blank to clear."
+          />
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-brand-orange hover:underline"
+            >
+              Open current resume →
+            </a>
+          )}
+          <StatusBanner msg={msg} />
+          <Button type="submit" loading={save.isPending}>
+            Save URL
+          </Button>
+        </form>
+      </div>
     </Card>
   );
 }
 
-// M10k — Student documents editor. Admin uploads SSLC / Plus Two /
-// Degree / Transfer Certificate / Passport Photo / Gov ID etc. on
-// behalf of a student via URL paste (Drive / Cloudinary link). Once
-// staging flips STORAGE_PROVIDER to 'cloudinary', a follow-up PR can
-// add direct file upload here — the URL contract stays the same.
+// M10k + M10q — Student documents editor. Admin uploads SSLC / Plus Two /
+// Degree / Transfer Certificate / Passport Photo / Gov ID etc. on behalf
+// of a student. M10q adds direct file upload via /v1/files/upload (Mongo
+// GridFS in default config). Pasting a Drive / Dropbox URL still works
+// for things the admin already has hosted elsewhere.
 
 interface StudentDocumentItem {
   id: string;
@@ -857,6 +898,7 @@ function StudentDocumentsEditor({ studentId }: { studentId: string }) {
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const upload = useMutation({
     mutationFn: () =>
@@ -878,6 +920,23 @@ function StudentDocumentsEditor({ studentId }: { studentId: string }) {
       }),
   });
 
+  async function onFile(file: File) {
+    setMsg(null);
+    setUploading(true);
+    try {
+      const { url: uploadedUrl } = await filesApi.upload(file, 'student-documents');
+      setUrl(uploadedUrl);
+      setMsg({ kind: 'ok', text: 'File uploaded — review the type / label, then save.' });
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof ApiHttpError ? err.message : 'Upload failed.',
+      });
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const remove = useMutation({
     mutationFn: (docId: string) => api.delete(`/students/${studentId}/documents/${docId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['students', studentId, 'documents'] }),
@@ -887,14 +946,14 @@ function StudentDocumentsEditor({ studentId }: { studentId: string }) {
     <Card>
       <CardHeader
         title="Documents"
-        subtitle="SSLC, Plus Two, Degree, Transfer Certificate, Passport photo, ID proof. Paste a link to the file (Drive / Dropbox / Cloudinary)."
+        subtitle="SSLC, Plus Two, Degree, Transfer Certificate, Passport photo, ID proof. Upload a file (PDF / image) or paste a Drive / Dropbox link."
       />
       <form
         onSubmit={(e) => {
           e.preventDefault();
           setMsg(null);
           if (!url.trim()) {
-            setMsg({ kind: 'err', text: 'URL is required.' });
+            setMsg({ kind: 'err', text: 'Upload a file or paste a URL first.' });
             return;
           }
           upload.mutate();
@@ -928,9 +987,30 @@ function StudentDocumentsEditor({ studentId }: { studentId: string }) {
             label="File URL"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://drive.google.com/file/d/..."
+            placeholder="Choose a file below or paste a URL"
+            hint="Auto-populated after upload."
           />
         </div>
+        <label
+          htmlFor={`student-doc-upload-${studentId}`}
+          className="block rounded-xl border border-dashed border-brand-navy/30 px-4 py-4 text-center cursor-pointer hover:bg-surface-muted/40 transition-colors"
+        >
+          <input
+            id={`student-doc-upload-${studentId}`}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+            className="sr-only"
+            disabled={uploading || upload.isPending}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onFile(f);
+              e.target.value = '';
+            }}
+          />
+          <span className="text-sm font-medium text-brand-navy">
+            {uploading ? 'Uploading…' : 'Click to upload a PDF or image (max 5 MB)'}
+          </span>
+        </label>
         <StatusBanner msg={msg} />
         <Button type="submit" loading={upload.isPending}>
           Add document

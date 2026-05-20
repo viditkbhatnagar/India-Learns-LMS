@@ -12,5 +12,5 @@ export interface StorageUploadTicketResponse {
   key: string;
   headers?: Record<string, string>;
   expiresAt: string;
-  provider: 'stub' | 'cloudinary';
+  provider: 'stub' | 'cloudinary' | 'mongo';
 }

@@ -19,6 +19,7 @@ import {
   CloudinaryStorageAdapter,
   ConsoleStorageAdapter,
 } from './storageAdapter.js';
+import { MongoStorageAdapter } from './mongoStorageAdapter.js';
 import {
   CertifierIoAdapter,
   ConsoleCertificateAdapter,
@@ -70,10 +71,18 @@ function build(): Integrations {
     stub || !env.WHATSAPP_ENABLED
       ? new ConsoleWhatsAppAdapter()
       : new MetaWabaAdapter();
+  // M10q — Storage provider order:
+  //   1. INTEGRATIONS_MODE=stub or STORAGE_PROVIDER=stub → in-memory stub.
+  //   2. STORAGE_PROVIDER=mongo → GridFS in the app's Atlas DB (default).
+  //   3. STORAGE_PROVIDER=cloudinary → Cloudinary CDN.
+  // Mongo is the new default so production "just works" the moment Atlas is
+  // connected — no Cloudinary keys required.
   const storage: StorageAdapter =
     stub || env.STORAGE_PROVIDER === 'stub'
       ? new ConsoleStorageAdapter()
-      : new CloudinaryStorageAdapter();
+      : env.STORAGE_PROVIDER === 'mongo'
+        ? new MongoStorageAdapter()
+        : new CloudinaryStorageAdapter();
   const certificate: CertificateAdapter =
     stub || !env.CERTIFIER_ENABLED
       ? new ConsoleCertificateAdapter()

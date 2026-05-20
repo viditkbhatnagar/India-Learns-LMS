@@ -55,7 +55,9 @@ export async function requestUploadTicket(
   const provider: StorageUploadTicketResponse['provider'] =
     env.INTEGRATIONS_MODE === 'stub' || env.STORAGE_PROVIDER === 'stub'
       ? 'stub'
-      : 'cloudinary';
+      : env.STORAGE_PROVIDER === 'mongo'
+        ? 'mongo'
+        : 'cloudinary';
   return {
     url: ticket.url,
     key: ticket.key,

@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ChatMessageDto, ConversationDto } from 'india-learns-shared-types';
-import { chatApi } from '../lib/endpoints.js';
+import type {
+  ChatAttachmentDto,
+  ChatMessageDto,
+  ConversationDto,
+} from 'india-learns-shared-types';
+import { chatApi, filesApi } from '../lib/endpoints.js';
 import { useAuthStore } from '../store/auth.js';
 import { getChatSocket, disconnectChatSocket } from '../lib/chatSocket.js';
 import { Card, CardHeader } from '../components/ui/Card.js';
@@ -76,7 +80,7 @@ export function ChatPage() {
       <PageHeader
         eyebrow="Communication"
         title="Chat"
-        subtitle="Direct messages with faculty, students, and staff. Group chat and file sharing arrive next week."
+        subtitle="Direct messages with faculty, students, and staff. Group chats per batch and file attachments are live."
       />
 
       <div className="grid lg:grid-cols-[320px_1fr] gap-4 min-h-[60vh]">
@@ -222,6 +226,8 @@ function ThreadView({
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<ChatAttachmentDto[]>([]);
+  const [uploading, setUploading] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
   const messagesQ = useQuery({
@@ -269,18 +275,44 @@ function ThreadView({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!body.trim() || sending) return;
+    const trimmed = body.trim();
+    if ((!trimmed && pending.length === 0) || sending) return;
     setError(null);
     setSending(true);
     try {
-      await chatApi.sendMessage(conversation.id, { body });
+      await chatApi.sendMessage(conversation.id, {
+        body: trimmed,
+        attachments: pending.length > 0 ? pending : undefined,
+      });
       setBody('');
+      setPending([]);
       qc.invalidateQueries({ queryKey: ['chat', 'messages', conversation.id] });
       qc.invalidateQueries({ queryKey: ['chat', 'conversations'] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send.');
     } finally {
       setSending(false);
+    }
+  }
+
+  async function onPickFile(file: File) {
+    setError(null);
+    setUploading(true);
+    try {
+      const { url } = await filesApi.upload(file, 'chat-attachments');
+      setPending((prev) => [
+        ...prev,
+        {
+          url,
+          filename: file.name,
+          sizeBytes: file.size,
+          mimeType: file.type || 'application/octet-stream',
+        },
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed.');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -306,24 +338,77 @@ function ThreadView({
         </div>
         <form
           onSubmit={submit}
-          className="mt-3 pt-3 border-t border-black/5 flex items-end gap-2"
+          className="mt-3 pt-3 border-t border-black/5 space-y-2"
         >
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Type a message…"
-            rows={2}
-            className="flex-1 rounded-xl border border-black/10 px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-brand-navy/30"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                submit(e);
-              }
-            }}
-          />
-          <Button type="submit" loading={sending} disabled={!body.trim()}>
-            Send
-          </Button>
+          {pending.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {pending.map((p, idx) => (
+                <li
+                  key={`${p.url}-${idx}`}
+                  className="flex items-center gap-2 rounded-full bg-surface-muted px-3 py-1 text-xs"
+                >
+                  <span className="font-medium text-brand-navy truncate max-w-[200px]">
+                    {p.filename}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPending((prev) => prev.filter((_, i) => i !== idx))
+                    }
+                    className="text-muted hover:text-danger"
+                    aria-label={`Remove ${p.filename}`}
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex items-end gap-2">
+            <label
+              htmlFor={`chat-attach-${conversation.id}`}
+              className={`shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl border border-black/10 text-brand-navy ${
+                uploading || sending
+                  ? 'opacity-50 cursor-not-allowed'
+                  : 'cursor-pointer hover:bg-surface-muted/60'
+              }`}
+              title="Attach a file (max 5 MB)"
+              aria-label="Attach a file"
+            >
+              <input
+                id={`chat-attach-${conversation.id}`}
+                type="file"
+                className="sr-only"
+                disabled={uploading || sending}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onPickFile(f);
+                  e.target.value = '';
+                }}
+              />
+              {uploading ? '…' : '📎'}
+            </label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Type a message…"
+              rows={2}
+              className="flex-1 rounded-xl border border-black/10 px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-brand-navy/30"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  submit(e);
+                }
+              }}
+            />
+            <Button
+              type="submit"
+              loading={sending}
+              disabled={!body.trim() && pending.length === 0}
+            >
+              Send
+            </Button>
+          </div>
         </form>
         {error && (
           <p role="alert" className="mt-2 text-sm text-danger">
@@ -351,7 +436,28 @@ function MessageBubble({ message, mine }: { message: ChatMessageDto; mine: boole
             {message.senderRole && ` · ${message.senderRole}`}
           </p>
         )}
-        <p>{message.body}</p>
+        {message.body && <p>{message.body}</p>}
+        {message.attachments && message.attachments.length > 0 && (
+          <ul className={`mt-1 space-y-1 ${message.body ? 'pt-1.5 border-t' : ''} ${
+            mine ? 'border-white/20' : 'border-black/10'
+          }`}>
+            {message.attachments.map((a, idx) => (
+              <li key={`${a.url}-${idx}`}>
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`inline-flex items-center gap-1.5 underline ${
+                    mine ? 'text-white' : 'text-brand-orange'
+                  }`}
+                >
+                  <span aria-hidden>📎</span>
+                  <span className="truncate max-w-[200px]">{a.filename}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className={`text-[10px] mt-1 ${mine ? 'text-white/60' : 'text-muted'}`}>
           {new Date(message.createdAt).toLocaleTimeString('en-IN', {
             hour: '2-digit',

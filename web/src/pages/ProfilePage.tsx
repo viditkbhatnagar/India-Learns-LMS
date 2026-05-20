@@ -6,7 +6,7 @@ import {
   type PersonalAddressDto,
   type UserPublicDto,
 } from 'india-learns-shared-types';
-import { authApi, notificationsApi, programsApi, usersApi } from '../lib/endpoints.js';
+import { authApi, filesApi, notificationsApi, programsApi, usersApi } from '../lib/endpoints.js';
 import { useAuthStore } from '../store/auth.js';
 import { Card, CardHeader } from '../components/ui/Card.js';
 import { Button } from '../components/ui/Button.js';
@@ -491,9 +491,9 @@ export function ProfilePage() {
         </form>
       </Card>
 
-      {/* M10f — Placement resume. Single URL, used as the default snapshot */}
-      {/* for every JobApplication. Students paste a link to Drive / Dropbox */}
-      {/* / their portfolio for now; direct file upload comes later. */}
+      {/* M10f — Placement resume. M10q: file upload via MongoDB GridFS;       */}
+      {/* the URL it returns is what the placement team sees on every          */}
+      {/* JobApplication.                                                      */}
       <ResumeCard
         initialUrl={me.resumeUrl ?? ''}
         onSaved={(updated) => {
@@ -541,9 +541,10 @@ export function ProfilePage() {
   );
 }
 
-// M10f — Resume card lives outside the main ProfilePage component so
-// its local state (the URL input + save banner) doesn't bleed into the
-// other forms. Paste-only for now; direct file upload is a follow-up.
+// M10q — Resume card. The student picks a PDF (or doc) and we push the
+// bytes through /v1/files/upload (GridFS-backed); the URL we get back is
+// stored on the user record. Pasting a link still works as a fallback so
+// portfolio / Drive URLs aren't lost.
 function ResumeCard({
   initialUrl,
   onSaved,
@@ -553,9 +554,11 @@ function ResumeCard({
 }) {
   const [url, setUrl] = useState(initialUrl);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+
   const save = useMutation({
-    mutationFn: () =>
-      usersApi.updateMe({ resumeUrl: url.trim() ? url.trim() : null }),
+    mutationFn: (nextUrl: string) =>
+      usersApi.updateMe({ resumeUrl: nextUrl.trim() || null }),
     onSuccess: (updated) => {
       setMsg({ kind: 'ok', text: 'Resume saved.' });
       onSaved(updated);
@@ -566,53 +569,97 @@ function ResumeCard({
         text: err instanceof ApiHttpError ? err.message : 'Failed to save resume.',
       }),
   });
+
+  async function onFile(file: File) {
+    setMsg(null);
+    setUploading(true);
+    try {
+      const { url: uploadedUrl } = await filesApi.upload(file, 'resumes');
+      setUrl(uploadedUrl);
+      save.mutate(uploadedUrl);
+    } catch (err) {
+      setMsg({
+        kind: 'err',
+        text: err instanceof ApiHttpError ? err.message : 'Upload failed.',
+      });
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader
         title="Resume"
-        subtitle="A single link the placement team sees on every job application. Drive / Dropbox / portfolio URL all work."
+        subtitle="Upload a PDF (max 5 MB) — the placement team sees this on every job application. A portfolio URL still works as a fallback."
       />
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setMsg(null);
-          save.mutate();
-        }}
-        className="space-y-3"
-      >
-        <Input
-          label="Resume URL"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://drive.google.com/..."
-          hint="Leave blank to clear; HTTPS only."
-        />
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-brand-orange hover:underline"
-          >
-            Open current resume →
-          </a>
-        )}
-        {msg && (
-          <div
-            role={msg.kind === 'ok' ? 'status' : 'alert'}
-            className={`rounded-xl p-3 text-sm ${
-              msg.kind === 'ok'
-                ? 'bg-emerald-50 border border-emerald-200 text-success'
-                : 'bg-red-50 border border-danger/30 text-danger'
-            }`}
-          >
-            {msg.text}
-          </div>
-        )}
-        <Button type="submit" loading={save.isPending}>
-          Save resume
-        </Button>
-      </form>
+      <div className="space-y-3">
+        <label
+          htmlFor="resume-upload"
+          className="block rounded-xl border border-dashed border-brand-navy/30 px-4 py-6 text-center cursor-pointer hover:bg-surface-muted/40 transition-colors"
+        >
+          <input
+            id="resume-upload"
+            type="file"
+            accept=".pdf,.doc,.docx,application/pdf"
+            className="sr-only"
+            disabled={uploading || save.isPending}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onFile(f);
+              e.target.value = '';
+            }}
+          />
+          <span className="text-sm font-medium text-brand-navy">
+            {uploading ? 'Uploading…' : 'Click to choose a PDF'}
+          </span>
+          <span className="block text-xs text-muted mt-1">
+            We store it on India Learns; the placement team sees the link.
+          </span>
+        </label>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            setMsg(null);
+            save.mutate(url);
+          }}
+          className="space-y-3"
+        >
+          <Input
+            label="Or paste a URL (Drive / Dropbox / portfolio)"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://drive.google.com/..."
+            hint="Leave blank to clear."
+          />
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-brand-orange hover:underline"
+            >
+              Open current resume →
+            </a>
+          )}
+          {msg && (
+            <div
+              role={msg.kind === 'ok' ? 'status' : 'alert'}
+              className={`rounded-xl p-3 text-sm ${
+                msg.kind === 'ok'
+                  ? 'bg-emerald-50 border border-emerald-200 text-success'
+                  : 'bg-red-50 border border-danger/30 text-danger'
+              }`}
+            >
+              {msg.text}
+            </div>
+          )}
+          <Button type="submit" loading={save.isPending}>
+            Save URL
+          </Button>
+        </form>
+      </div>
     </Card>
   );
 }

@@ -56,14 +56,18 @@ services:
         value: false
       - key: CERTIFIER_ENABLED
         value: false
-      # Stub adapters for initial staging. Flip to cloudinary / brevo / live
-      # once those credentials are available.
+      # M10q — Storage defaults to `mongo` (GridFS in the app's Atlas DB), so
+      # production needs no extra credentials. Flip to `cloudinary` later if
+      # we want a CDN. Email stays stubbed until Brevo / Resend keys are in.
       - key: STORAGE_PROVIDER
-        value: stub
+        value: mongo
       - key: EMAIL_PROVIDER
         value: stub
+      # INTEGRATIONS_MODE=live so the real storage adapter is selected (the
+      # `stub` short-circuit in api/src/integrations/index.ts forces the
+      # in-memory console adapter regardless of STORAGE_PROVIDER).
       - key: INTEGRATIONS_MODE
-        value: stub
+        value: live
       - key: LOG_LEVEL
         value: info
       - key: SENTRY_ENVIRONMENT

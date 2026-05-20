@@ -1,0 +1,131 @@
+import { Router, type NextFunction, type Request, type Response } from 'express';
+import multer from 'multer';
+import { z } from 'zod';
+import type { StorageFolder } from 'india-learns-shared-types';
+import { STORAGE_FOLDERS } from 'india-learns-shared-types';
+import { requireAuth } from '../middleware/auth.js';
+import { HttpError } from '../middleware/error.js';
+import { getIntegrations } from '../integrations/index.js';
+import { fetchGridfsFile } from '../integrations/mongoStorageAdapter.js';
+import { logger } from '../config/logger.js';
+
+// M10q — Generic file routes that pair with the MongoStorageAdapter (GridFS).
+//
+// POST /v1/files/upload?folder=<folder>
+//   - multipart/form-data, field name `file`.
+//   - Returns { data: { url, key } } using the configured storage adapter.
+//   - Works with any adapter that implements `StorageAdapter.upload`; the
+//     adapter decides where the bytes land.
+//   - 5 MB cap is generous for the doc / resume / chat-attachment use cases we
+//     have today. Raise it later if we need to host large videos.
+//
+// GET /v1/files/:id
+//   - Streams a GridFS file back to the browser. Requires auth — same cookie
+//     the rest of the SPA uses. We don't yet do per-file ACL beyond "must be
+//     signed in"; the URL contains the random 24-char ObjectId, which is hard
+//     enough to guess for this stage. Tighten with a per-folder ACL when LUC
+//     asks for it.
+
+const FOLDERS = new Set<StorageFolder>(STORAGE_FOLDERS as readonly StorageFolder[]);
+
+const UploadQuery = z.object({
+  folder: z
+    .string()
+    .refine((v): v is StorageFolder => FOLDERS.has(v as StorageFolder), {
+      message: 'Unknown folder.',
+    }),
+});
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_UPLOAD_BYTES },
+});
+
+export function filesRouter(): Router {
+  const router = Router();
+
+  router.post(
+    '/upload',
+    requireAuth,
+    memoryUpload.single('file'),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const parsed = UploadQuery.safeParse(req.query);
+        if (!parsed.success) {
+          throw new HttpError(
+            422,
+            'VALIDATION_FAILED',
+            'Unknown or missing `folder` query param.',
+          );
+        }
+        const { file } = req as Request & { file?: Express.Multer.File };
+        if (!file) {
+          throw new HttpError(
+            422,
+            'VALIDATION_FAILED',
+            'Missing `file` field in multipart body.',
+          );
+        }
+        const { storage } = getIntegrations();
+        const result = await storage.upload({
+          bytes: file.buffer,
+          filename: file.originalname || 'upload.bin',
+          folder: parsed.data.folder,
+          contentType: file.mimetype || 'application/octet-stream',
+        });
+        logger.info(
+          {
+            actor: req.auth!.userId.toHexString(),
+            role: req.auth!.role,
+            folder: parsed.data.folder,
+            bytes: file.size,
+            key: result.key,
+          },
+          'files.upload',
+        );
+        res.status(201).json({ data: result });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  router.get(
+    '/:id',
+    requireAuth,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { id } = req.params;
+        if (!id) {
+          throw new HttpError(404, 'NOT_FOUND', 'File not found.');
+        }
+        const found = await fetchGridfsFile(id);
+        if (!found) {
+          throw new HttpError(404, 'NOT_FOUND', 'File not found.');
+        }
+        if (found.contentType) {
+          res.setHeader('content-type', found.contentType);
+        }
+        if (found.length) {
+          res.setHeader('content-length', String(found.length));
+        }
+        // Inline so PDFs / images preview; the filename is still suggested in
+        // case the user hits "Save As".
+        res.setHeader(
+          'content-disposition',
+          `inline; filename="${encodeURIComponent(found.filename)}"`,
+        );
+        // 5-minute browser cache — file bodies are immutable per id.
+        res.setHeader('cache-control', 'private, max-age=300');
+        found.stream.on('error', (err) => next(err));
+        found.stream.pipe(res);
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  return router;
+}

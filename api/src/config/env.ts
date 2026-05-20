@@ -28,7 +28,13 @@ const EnvSchema = z.object({
   META_WABA_PHONE_ID: z.string().optional().default(''),
   META_WABA_ACCESS_TOKEN: z.string().optional().default(''),
 
-  STORAGE_PROVIDER: z.enum(['cloudinary', 'stub']).default('stub'),
+  // M10q — Three providers now. `mongo` writes files to GridFS in the
+  // same Atlas cluster the rest of the app uses; pick this when you
+  // don't have Cloudinary keys yet. `cloudinary` stays the long-term
+  // recommendation once volume grows (it has a CDN + transformations).
+  // Default flipped to `mongo` so production storage Just Works the
+  // moment Atlas is connected.
+  STORAGE_PROVIDER: z.enum(['cloudinary', 'mongo', 'stub']).default('mongo'),
   CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
   CLOUDINARY_API_KEY: z.string().optional().default(''),
   CLOUDINARY_API_SECRET: z.string().optional().default(''),
