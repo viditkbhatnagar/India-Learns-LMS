@@ -84,6 +84,10 @@ import {
   broadcastAnnouncementsRouter,
   meAnnouncementsRouter,
 } from './broadcastAnnouncements.js';
+import {
+  meStudentDocumentsRouter,
+  studentDocumentsRouter,
+} from './studentDocuments.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -112,6 +116,9 @@ export function v1Router(): Router {
   // M10j — Broad-scope announcements (LMS_Requirements §2).
   router.use('/announcements', broadcastAnnouncementsRouter());
   router.use('/me/announcements', meAnnouncementsRouter());
+  // M10k — Post-conversion student documents (LMS_Requirements §1).
+  router.use('/students', studentDocumentsRouter());
+  router.use('/me/student-documents', meStudentDocumentsRouter());
   router.use('/users', usersRouter());
   router.use('/users', suspensionOverrideRouter());
   router.use('/programs', programsRouter());

@@ -233,3 +233,7 @@ export type {
 } from './conversationMembership.js';
 export { ChatMessage } from './chatMessage.js';
 export type { ChatMessageDoc, ChatAttachmentDoc, HydratedChatMessage } from './chatMessage.js';
+
+// M10k — Post-conversion student documents (LMS_Requirements §1).
+export { StudentDocument } from './studentDocument.js';
+export type { StudentDocumentDoc, HydratedStudentDocument } from './studentDocument.js';
