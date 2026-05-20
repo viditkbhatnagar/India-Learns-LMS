@@ -24,8 +24,7 @@ export function receiptsRouter(): Router {
         }
         const { role, userId } = req.auth!;
         const isSelf = receipt.studentId.equals(userId);
-        const canView =
-          isSelf || role === 'admin' || role === 'finance' || role === 'superadmin';
+        const canView = isSelf || role === 'admin' || role === 'superadmin';
         if (!canView) {
           throw new HttpError(403, 'FORBIDDEN', 'Access denied.');
         }

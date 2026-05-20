@@ -96,7 +96,7 @@ export function reportsRouter(): Router {
   const router = Router();
   router.use(requireAuth);
   router.use(
-    requireRole('admin', 'superadmin', 'finance', 'admissions_officer', 'faculty'),
+    requireRole('admin', 'superadmin', 'admissions_officer', 'faculty'),
   );
 
   // GET /v1/reports/attendance

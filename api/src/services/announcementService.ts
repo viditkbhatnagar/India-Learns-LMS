@@ -43,7 +43,7 @@ async function recipientsForScope(input: {
 }): Promise<Types.ObjectId[]> {
   const baseFilter: Record<string, unknown> = { status: 'active', role: 'student' };
   if (input.scope === 'global') {
-    // Global = everyone active. Includes faculty + finance + admin too.
+    // Global = everyone active. Includes faculty + admin too.
     const users = await User.find({ status: 'active' })
       .select({ _id: 1 })
       .lean();

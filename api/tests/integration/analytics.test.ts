@@ -34,17 +34,13 @@ describe('/v1/analytics', () => {
     expect(d.sparklines.students.values).toHaveLength(14);
   });
 
-  it('GET /summary 403 for student / finance / faculty', async () => {
+  it('GET /summary 403 for student / faculty (M10r — finance role removed)', async () => {
     for (const seed of [makeStudent, makeFaculty]) {
       const { user } = await seed();
       const token = await tokenFor(user);
       const res = await http().get('/v1/analytics/summary').set(bearer(token));
       expect(res.status).toBe(403);
     }
-    const finance = await makeUser({ role: 'finance' });
-    const token = await tokenFor(finance);
-    const res = await http().get('/v1/analytics/summary').set(bearer(token));
-    expect(res.status).toBe(403);
   });
 
   it('GET /summary allowed for superadmin (read-only)', async () => {

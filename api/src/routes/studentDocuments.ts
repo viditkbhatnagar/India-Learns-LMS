@@ -79,7 +79,7 @@ export function studentDocumentsRouter(): Router {
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const studentId = ensureStudentId(req.params.id ?? '');
-        const isStaff = ['admin', 'superadmin', 'admissions_officer', 'finance'].includes(
+        const isStaff = ['admin', 'superadmin', 'admissions_officer'].includes(
           req.auth!.role,
         );
         const isSelf = studentId.equals(req.auth!.userId);

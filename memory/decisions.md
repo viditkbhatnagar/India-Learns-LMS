@@ -659,3 +659,31 @@ Append-only log. Every entry: ID, date, decision, why, source.
 **Trade-off:** No CDN, files served straight from Mongo through the Node process. Atlas storage is ~10× more expensive per GB than Cloudinary, but at LUC scale that's irrelevant. To switch to Cloudinary later: set `STORAGE_PROVIDER=cloudinary` + provide credentials; the URL contract (`{ url, key }`) is identical so no consumers need changing.
 
 **How to apply:** Use `getIntegrations().storage` (already abstracted via `StorageAdapter`). For UI uploads, call `filesApi.upload(file, folder)` from `web/src/lib/endpoints.ts`. For server-side uploads (e.g. PDF receipts), keep calling `storage.upload({ bytes, ... })` — the same code paths work across all three adapters.
+
+## D-095 — `finance` role removed; admin absorbs everything; faculty content perms expanded
+**Date:** 2026-05-20
+**Why:** Logan: "remove finance fully, admin will handle every finance part also" + "syllabus admin and faculty can change, faculty can change course content, update video and pdf and modules also if they want". Two changes shipped together because they're both permission-system reshuffles touching the same role gates.
+
+**Changes — Finance removal:**
+- `ROLES` enum drops `'finance'` (shared-types + Mongoose User model + zod validators). Surviving non-role uses: `TICKET_CATEGORIES` keeps `'finance'` (subject-matter label for student fee questions); `DEPT_TAGS` keeps `'finance'` (admins who specialize).
+- Every `requireRole(..., 'finance', ...)` swept: payments, receipts, fee structures, fee reminders, student fees, admissions/finance, tickets, staffTickets, placement analytics, reports. Each now resolves to `admin`+`superadmin`.
+- `ticketRoutingService.routeTicket(category='finance')` now prefers `role='admin', deptTag='finance'` → falls back to any admin.
+- `ticketService` STAFF_ROLES tightened to `admin | superadmin | faculty`; visibility/listing branches for finance dropped.
+- Frontend: `/finance/*` route URLs kept (bookmark survival); role gate flipped to `['admin', 'superadmin']`; AppShell sidebar `finance:` branch removed and finance entries surfaced under admin. Mobile BottomTabs finance branch replaced with a "Record payment" admin tab. AdminUsers role dropdowns drop the Finance option. StudentFees suspension copy updated ("contact the office" not "contact finance").
+- Seeds: `seedFinanceStaff()` deleted; admin user owns sample payment seeds. `seed-demo.ensureFinance()` returns the first admin (defensive fallback creates one).
+- Tests: every `makeUser({ role: 'finance' })` migrated to either `makeUser({ role: 'admin', deptTag: 'finance' })` (where the test asserted ticket routing) or `makeAdmin()` (where the test exercised finance permissions). Tests that asserted "finance 403 on X" either deleted (premise gone) or repurposed (e.g. feedback non-academic-staff guard → admissions_officer).
+
+**Changes — Faculty content perms:**
+- `moduleService.FACULTY_PATCH_FIELDS` extended to include `title` and `order` (was: content / aim / prerequisites / facultyNotes / syllabus only). Faculty assigned to the course can now rename + reorder modules.
+- `moduleService.deleteModule()` opened to faculty when `facultyAssignedToCourse(course, userId)`; non-staff still 403.
+- `courseService.updateCourse()` opened to faculty for content fields: introduced `FACULTY_COURSE_PATCH_FIELDS = new Set(['summary'])`. Faculty on the course can PATCH `summary` only; any structural field (`name`, `slug`, `sequential`, `facultyIds`, `certificateTemplateId`) returns 403. The PATCH route gate widened from `requireRole('admin', 'superadmin')` to `requireRole('admin', 'superadmin', 'faculty')`; the field allowlist is enforced in the service.
+- UI surface: existing ContentTab already lets faculty edit `aim` / `facultyNotes` / `syllabus`; module title + order edit and module delete are now backend-allowed but not yet wired in UI — operator can drive via API today and we'll surface in a follow-up PR if Logan asks.
+- Tests in `modules.crud.test.ts` flipped: "faculty 403 on title/order" → "faculty 200" (with assertions on the returned doc); "faculty 403 on DELETE" split into "faculty assigned CAN delete" + "faculty NOT assigned 403 on delete".
+
+**What stays the same:**
+- Course CREATE + DELETE remain admin-only (structural decision, not content).
+- Course publish / unpublish remain admin-only (lifecycle, not content).
+- Storage upload ticket for `course-pdfs` + `course-videos` was already faculty-accessible on assigned courses (D-027); no change needed for video/PDF replacement.
+- 'finance' as a TICKET_CATEGORY survives — students still raise fee questions under that label; tickets just route to admin instead of a dedicated finance role.
+
+**How to apply:** Faculty editing capability is enforced server-side (field allowlist + facultyAssignedToCourse check). Frontend can call existing endpoints (modulesApi.update, coursesApi.update) with content fields; admin retains full access. Migration note for any DB rows that still have `role: 'finance'`: those users will fail `User.role` enum validation on save. Pre-launch this isn't a real concern (no production finance users); if any creep in, run a one-time `db.users.updateMany({ role: 'finance' }, { $set: { role: 'admin', deptTag: 'finance' } })` migration.

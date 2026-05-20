@@ -67,7 +67,7 @@ describe('modules CRUD', () => {
     expect(clash.status).toBe(409);
   });
 
-  it('faculty assigned to the course can PATCH content but NOT title/order', async () => {
+  it('faculty assigned to the course can PATCH content, title, and order (M10r)', async () => {
     const { user: admin } = await makeAdmin();
     const { user: fac } = await makeFaculty();
     const at = await tokenFor(admin);
@@ -90,18 +90,20 @@ describe('modules CRUD', () => {
     expect(contentPatch.status).toBe(200);
     expect(contentPatch.body.data.module.content[0].title).toBe('Intro');
 
+    // M10r — Faculty CAN now rename + reorder their own course's modules.
     const titlePatch = await http()
       .patch(`/v1/modules/${mod._id.toString()}`)
       .set(bearer(facAt))
       .send({ title: 'Renamed' });
-    expect(titlePatch.status).toBe(403);
-    expect(titlePatch.body.error.code).toBe('FORBIDDEN');
+    expect(titlePatch.status).toBe(200);
+    expect(titlePatch.body.data.module.title).toBe('Renamed');
 
     const orderPatch = await http()
       .patch(`/v1/modules/${mod._id.toString()}`)
       .set(bearer(facAt))
       .send({ order: 5 });
-    expect(orderPatch.status).toBe(403);
+    expect(orderPatch.status).toBe(200);
+    expect(orderPatch.body.data.module.order).toBe(5);
 
     // Admin still wins.
     const adminPatch = await http()
@@ -126,7 +128,7 @@ describe('modules CRUD', () => {
     expect(res.status).toBe(403);
   });
 
-  it('faculty 403 on DELETE module', async () => {
+  it('faculty assigned to the course CAN DELETE a module (M10r)', async () => {
     const { user: fac } = await makeFaculty();
     const facAt = await tokenFor(fac);
     const program = await makeProgram();
@@ -134,6 +136,18 @@ describe('modules CRUD', () => {
       programId: program._id,
       facultyIds: [fac._id],
     });
+    const mod = await makeModule({ courseId: course._id });
+    const res = await http()
+      .delete(`/v1/modules/${mod._id.toString()}`)
+      .set(bearer(facAt));
+    expect(res.status).toBe(200);
+  });
+
+  it('faculty NOT assigned to the course is 403 on DELETE module', async () => {
+    const { user: fac } = await makeFaculty();
+    const facAt = await tokenFor(fac);
+    const program = await makeProgram();
+    const course = await makeCourse({ programId: program._id, facultyIds: [] });
     const mod = await makeModule({ courseId: course._id });
     const res = await http()
       .delete(`/v1/modules/${mod._id.toString()}`)

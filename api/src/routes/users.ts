@@ -17,13 +17,13 @@ import {
 
 const RoleEnum = z.enum([
   'admin',
-  'finance',
   'faculty',
   'student',
   // M1 admissions — admins seed officer accounts via the existing user-create
   // flow. Applicants are NOT createable through this admin route — they
   // self-sign-up via /v1/admissions/apply/signup. Including 'applicant' here
   // would expose an admin-controlled bypass of the public funnel.
+  // M10r — `finance` removed; admin absorbs the role.
   'admissions_officer',
 ]);
 const DeptEnum = z.enum(['operations', 'it', 'academics', 'finance', 'senior_mgmt']);
@@ -92,7 +92,6 @@ const ListQuery = z.object({
     .enum([
       'admin',
       'superadmin',
-      'finance',
       'faculty',
       'student',
       'applicant',

@@ -326,7 +326,7 @@ export function jobApplicationsRouter(): Router {
 export function placementAnalyticsRouter(): Router {
   const router = Router();
   router.use(requireAuth);
-  router.use(requireRole(...PLACEMENT_ADMIN_ROLES, 'finance'));
+  router.use(requireRole(...PLACEMENT_ADMIN_ROLES));
 
   router.get('/', async (_req, res, next) => {
     try {

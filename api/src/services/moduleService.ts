@@ -18,16 +18,16 @@ import { recordAudit } from './auditService.js';
 import { facultyAssignedToCourse } from './courseService.js';
 import type { ActorContext } from './userService.js';
 
-// PR #16 — admin can edit everything (curriculum metadata included);
-// faculty on the course can edit content + their own facultyNotes + the
-// curriculum aim/prerequisites (so they can adapt the lesson plan to
-// their cohort without an admin round-trip). Other faculty can't touch
-// it; non-staff roles never reach this code.
+// PR #16 / M10r — admin and faculty (when assigned to the course) can both
+// edit every module field today. Logan's M10r call: faculty should own
+// their syllabus, content, AND module title + ordering on the courses they
+// teach. Other faculty (not on the course) can't touch it; non-staff roles
+// never reach this code.
 const ADMIN_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
   'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus',
 ]);
 const FACULTY_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
-  'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus',
+  'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus',
 ]);
 
 function requireId(id: string): Types.ObjectId {
@@ -281,13 +281,21 @@ export async function updateModule(
 
 export async function deleteModule(
   id: string,
-  actor: { role: Role } & ActorContext,
+  actor: { role: Role; userId: Types.ObjectId } & ActorContext,
 ): Promise<HydratedModule> {
-  if (actor.role !== 'admin' && actor.role !== 'superadmin') {
-    throw new HttpError(403, 'FORBIDDEN', 'Only admins may delete modules.');
-  }
+  // M10r — Faculty on assigned courses can delete modules (own curriculum).
+  // Admin / superadmin can delete any. Everyone else is blocked.
   const doc = await ModuleModel.findOne({ _id: requireId(id), deletedAt: null });
   if (!doc) throw new HttpError(404, 'NOT_FOUND', 'Module not found.');
+  if (actor.role !== 'admin' && actor.role !== 'superadmin') {
+    if (actor.role !== 'faculty') {
+      throw new HttpError(403, 'FORBIDDEN', 'Only staff may delete modules.');
+    }
+    const course = await Course.findOne({ _id: doc.courseId, deletedAt: null });
+    if (!course || !facultyAssignedToCourse(course, actor.userId)) {
+      throw new HttpError(403, 'FORBIDDEN', 'Not assigned to this course.');
+    }
+  }
   const before = doc.toObject();
   doc.deletedAt = new Date();
   await doc.save();

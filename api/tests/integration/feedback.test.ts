@@ -165,12 +165,13 @@ describe('feedback routes', () => {
     expect(res.status).toBe(403);
   });
 
-  it('finance role cannot read feedback via GET /v1/feedback/:id (role gate)', async () => {
-    // Regression guard for the security review finding: the GET detail route
-    // previously only applied requireAuth, so any authenticated staff role
-    // (notably finance) could fetch arbitrary feedback including drafts.
+  it('non-academic staff (admissions_officer) cannot read feedback via GET /v1/feedback/:id', async () => {
+    // M10r — `finance` role removed; this test originally guarded against
+    // finance leaking feedback. The underlying concern (non-academic staff
+    // roles must not read feedback) is still valid — repurposed to
+    // exercise the admissions_officer role.
     const { faculty, student, course } = await setup();
-    const finance = await makeUser({ role: 'finance' });
+    const officer = await makeUser({ role: 'admissions_officer' });
     const draft = await makeFeedback({
       studentId: student._id,
       courseId: course._id,
@@ -186,16 +187,16 @@ describe('feedback routes', () => {
       publishedAt: new Date(),
       summary: 'published narrative',
     });
-    const fAt = await tokenFor(finance);
+    const oAt = await tokenFor(officer);
     const draftRes = await http()
       .get(`/v1/feedback/${String(draft._id)}`)
-      .set(bearer(fAt));
+      .set(bearer(oAt));
     expect(draftRes.status).toBe(403);
     expect(JSON.stringify(draftRes.body)).not.toContain('confidential narrative');
 
     const publishedRes = await http()
       .get(`/v1/feedback/${String(published._id)}`)
-      .set(bearer(fAt));
+      .set(bearer(oAt));
     expect(publishedRes.status).toBe(403);
     expect(JSON.stringify(publishedRes.body)).not.toContain('published narrative');
   });

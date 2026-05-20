@@ -13,7 +13,6 @@ import {
   makeFeeStructure,
   makeProgram,
   makeStudent,
-  makeUser,
 } from '../helpers/factories.js';
 import { generateForEnrollment } from '../../src/services/invoiceGenerationService.js';
 
@@ -36,15 +35,15 @@ async function seedStudentWithFees() {
   await makeFeeStructure({ programId: program._id });
   const { user: admin } = await makeAdmin();
   await generateForEnrollment(String(enrolment._id), { actorUserId: admin._id });
-  const finance = await makeUser({ role: 'finance' });
-  return { student, finance };
+  // M10r — `finance` role removed; admin records payments now.
+  return { student, finance: admin };
 }
 
 describe('POST /v1/payments', () => {
   useMongo();
   useIntegrationSpies();
 
-  it('finance records a payment; receipt is issued; download works', async () => {
+  it('admin records a payment; receipt is issued; download works', async () => {
     const { student, finance } = await seedStudentWithFees();
     const at = await tokenFor(finance);
     const res = await http()

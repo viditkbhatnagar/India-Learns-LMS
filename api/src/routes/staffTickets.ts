@@ -29,7 +29,7 @@ export function staffTicketsRouter(): Router {
 
   router.get(
     '/',
-    requireRole('faculty', 'finance', 'admin', 'superadmin'),
+    requireRole('faculty', 'admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const parsed = ListQuerySchema.parse(req.query);

@@ -33,8 +33,9 @@ const STANDARD_RESOLVE_DAYS = 5; // calendar days for non-complaints
 const COMPLAINT_RESOLVE_BD = 15; // business days for complaints
 const REOPEN_WINDOW_MS = 7 * DAY_MS;
 
-type StaffRole = 'admin' | 'superadmin' | 'faculty' | 'finance';
-const STAFF_ROLES: ReadonlySet<StaffRole> = new Set(['admin', 'superadmin', 'faculty', 'finance']);
+// M10r — `finance` role removed; staff = admin / superadmin / faculty.
+type StaffRole = 'admin' | 'superadmin' | 'faculty';
+const STAFF_ROLES: ReadonlySet<StaffRole> = new Set(['admin', 'superadmin', 'faculty']);
 
 export interface TicketCtx {
   actorUserId: Types.ObjectId;
@@ -404,7 +405,7 @@ export async function assignTicket(
       throw new HttpError(
         422,
         'VALIDATION_FAILED',
-        'Assignee must be admin, superadmin, faculty, or finance.',
+        'Assignee must be admin, superadmin, or faculty.',
       );
     }
     ticket.assigneeUserId = assignee._id;
@@ -427,7 +428,7 @@ export async function assignTicket(
           throw new HttpError(
             422,
             'VALIDATION_FAILED',
-            'Co-assignees must be staff (admin/superadmin/faculty/finance).',
+            'Co-assignees must be staff (admin/superadmin/faculty).',
           );
         }
       }
@@ -744,14 +745,11 @@ export function canActorSeeTicket(actor: AuthContext, ticket: HydratedTicket): T
     if (ticket.studentId.equals(actor.userId)) return { allowed: true };
     return { allowed: false, reason: 'not_owner' };
   }
-  if (actor.role === 'faculty' || actor.role === 'finance') {
+  if (actor.role === 'faculty') {
     if (ticket.assigneeUserId && ticket.assigneeUserId.equals(actor.userId)) {
       return { allowed: true };
     }
-    if (actor.role === 'finance' && ticket.category === 'finance') {
-      return { allowed: true };
-    }
-    if (actor.role === 'faculty' && ticket.category === 'academic') {
+    if (ticket.category === 'academic') {
       return { allowed: true };
     }
     return { allowed: false, reason: 'not_assigned' };
@@ -836,11 +834,13 @@ export async function listForStaff(
 ): Promise<TicketDto[]> {
   const baseFilter: Record<string, unknown> = {};
   applyListFilters(baseFilter, query);
-  // Staff see: tickets assigned to them, plus (for faculty/finance) the
+  // Staff see: tickets assigned to them, plus (for faculty) the academic
   // category they own so coordinators can browse their inbox.
+  // [M10r] finance role removed — admin sees everything via the
+  // admin/superadmin short-circuit above; finance-category tickets land on
+  // admin via the routing service.
   const orClauses: Record<string, unknown>[] = [{ assigneeUserId: actor.userId }];
   if (actor.role === 'faculty') orClauses.push({ category: 'academic' });
-  if (actor.role === 'finance') orClauses.push({ category: 'finance' });
   const limit = Math.min(500, Math.max(1, query.limit ?? 100));
   const combined = baseFilter.$or
     ? { $and: [baseFilter, { $or: orClauses }] }

@@ -308,7 +308,8 @@ describe('ticketService', () => {
 
   it('ticket code uses the category prefix', async () => {
     const student = await makeUser({ role: 'student' });
-    const fin = await makeUser({ role: 'finance' });
+    // M10r — finance-category tickets route to admin (deptTag preferred).
+    const fin = await makeUser({ role: 'admin', deptTag: 'finance' });
     const ticket = await createTicket(
       contextFor(student),
       { category: 'finance', subject: 's', description: 'd' },

@@ -167,7 +167,7 @@ export async function listSessionsForBatchOnDate(
   if (courseIds.length === 0) return [];
 
   // Faculty can only see sessions of courses they teach. For admin /
-  // admissions_officer / finance we skip the filter.
+  // superadmin / admissions_officer we skip the filter.
   let effectiveCourseIds = courseIds;
   if (actor.role === 'faculty') {
     const myCourses = await Course.find({

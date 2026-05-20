@@ -15,7 +15,8 @@ async function asFeesSuspendedStudent() {
   user.status = 'suspended';
   user.suspensionKind = 'fees';
   await user.save();
-  await makeUser({ role: 'finance' });
+  // M10r — `finance` role removed; finance-category tickets route to admin.
+  await makeUser({ role: 'admin', deptTag: 'finance' });
   return user;
 }
 

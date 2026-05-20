@@ -105,6 +105,7 @@ export function modulesRouter(): Router {
       try {
         const doc = await deleteModule(req.params.id ?? '', {
           role: req.auth!.role,
+          userId: req.auth!.userId,
           actorUserId: req.auth!.userId,
           ...requestContext(req),
         });

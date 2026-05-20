@@ -117,18 +117,10 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     // M10j — Announcements.
     { label: 'Announcements', to: '/announcements', icon: Icon.feedback },
   ],
-  finance: [
-    { label: 'Dashboard', to: '/finance/dashboard', icon: Icon.home },
-    { label: 'Record payment', to: '/finance/payments/new', icon: Icon.plus },
-    { label: 'Payments', to: '/finance/payments', icon: Icon.rupee },
-    { label: 'Fee structures', to: '/finance/fee-structures', icon: Icon.folder },
-    // M10 — Cross-batch summary reports.
-    { label: 'Reports', to: '/reports', icon: Icon.folder },
-    // M10e — Internal chat (PR-E1).
-    { label: 'Chat', to: '/chat', icon: Icon.feedback },
-    // M10j — Announcements.
-    { label: 'Announcements', to: '/announcements', icon: Icon.feedback },
-  ],
+  // M10r — `finance` role removed (D-095). Admin owns finance now. The
+  // `finance` key is left out of the nav map entirely; the type below stays
+  // a Partial<Record<Role, …>> so the lookup gracefully no-ops if anyone
+  // still has a finance role token in localStorage.
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
     { label: 'Users', to: '/admin/users', icon: Icon.users },
@@ -143,6 +135,11 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
     { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
+    // M10r — Finance screens (record payment, payments list, fee
+    // structures) live under /finance/* and are admin-gated now.
+    { label: 'Finance', to: '/finance/dashboard', icon: Icon.rupee },
+    { label: 'Record payment', to: '/finance/payments/new', icon: Icon.plus },
+    { label: 'Fee structures', to: '/admin/fee-structures', icon: Icon.folder },
     // M10 — Cross-batch attendance / assignment / fees reports.
     { label: 'Reports', to: '/reports', icon: Icon.folder },
     // M10f — Placement console (companies + postings + analytics).
@@ -398,7 +395,7 @@ function SidebarNav({
         ))}
       </div>
 
-      {(role === 'student' || role === 'faculty' || role === 'finance' || role === 'admin' || role === 'superadmin') && (
+      {(role === 'student' || role === 'faculty' || role === 'admin' || role === 'superadmin') && (
         <>
           <p className="px-3 mt-8 mb-2 text-[10px] uppercase tracking-[0.12em] text-muted font-bold">
             Account

@@ -53,7 +53,7 @@ export function feeStructuresRouter(): Router {
 
   router.get(
     '/',
-    requireRole('admin', 'superadmin', 'finance'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const programId = (req.query.programId as string | undefined) ?? undefined;
@@ -93,7 +93,7 @@ export function feeStructuresRouter(): Router {
 
   router.get(
     '/:id',
-    requireRole('admin', 'superadmin', 'finance'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const doc = await findFeeStructureById(req.params.id ?? '');

@@ -15,7 +15,7 @@ function resolveStudentId(req: Request, paramName: string): string {
 
 function assertCanView(req: Request, targetId: string): void {
   const { role, userId } = req.auth!;
-  if (role === 'admin' || role === 'finance' || role === 'superadmin') return;
+  if (role === 'admin' || role === 'superadmin') return;
   if (Types.ObjectId.isValid(targetId) && userId.equals(new Types.ObjectId(targetId))) {
     return;
   }
@@ -29,7 +29,7 @@ export function studentFeesRouter(): Router {
   // (and admissions_officers) must not be able to probe a student's fees by
   // calling /students/me/fees. The assertCanView() body below already does an
   // identity check, but explicit role gating keeps the surface readable.
-  router.use(requireRole('student', 'admin', 'finance', 'superadmin'));
+  router.use(requireRole('student', 'admin', 'superadmin'));
 
   router.get(
     '/:id/fees',
@@ -52,7 +52,7 @@ export function studentFeesRouter(): Router {
 export function myFeesRouter(): Router {
   const router = Router();
   router.use(requireAuth);
-  router.use(requireRole('student', 'admin', 'finance', 'superadmin'));
+  router.use(requireRole('student', 'admin', 'superadmin'));
   router.get(
     '/fees',
     async (req: Request, res: Response, next: NextFunction) => {

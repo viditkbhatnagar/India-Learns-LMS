@@ -142,12 +142,16 @@ export function coursesRouter(): Router {
 
   router.patch(
     '/:id',
-    requireRole('admin', 'superadmin'),
+    // M10r — Faculty assigned to the course can edit content fields
+    // (summary). Structural fields (name, slug, facultyIds, etc.) remain
+    // admin-only — the service enforces the field allowlist per role.
+    requireRole('admin', 'superadmin', 'faculty'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = UpdateBody.parse(req.body);
         const doc = await updateCourse(req.params.id ?? '', body, {
           role: req.auth!.role,
+          userId: req.auth!.userId,
           actorUserId: req.auth!.userId,
           ...requestContext(req),
         });

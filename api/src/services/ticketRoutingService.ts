@@ -7,7 +7,8 @@ import { nextRoutingSlot } from './counterService.js';
 //   academic       → course faculty if linked, else round-robin Faculty with isCourseCoordinator
 //   administration → round-robin admin in deptTag='operations' (falls back to any admin)
 //   technical      → round-robin admin in deptTag='it' (falls back to any admin)
-//   finance        → round-robin finance
+//   finance        → round-robin admin in deptTag='finance' (falls back to any admin)
+//                    [M10r — `finance` role removed; admin owns finance now]
 //   complaints     → first superadmin (notifications go to whole superadmin pool)
 
 export interface RouteTicketInput {
@@ -98,8 +99,14 @@ export async function routeTicket(input: RouteTicketInput): Promise<RouteResult>
       };
     }
     case 'finance': {
-      const finance = await findActive({ role: 'finance' });
-      const picked = await pickRoundRobin(finance, 'finance');
+      // M10r — `finance` role removed. Prefer admins tagged with deptTag='finance';
+      // fall back to any admin so finance-category tickets always land somewhere.
+      const preferred = await findActive({ role: 'admin', deptTag: 'finance' });
+      let picked = await pickRoundRobin(preferred, 'admin_finance');
+      if (!picked) {
+        const fallback = await findActive({ role: 'admin' });
+        picked = await pickRoundRobin(fallback, 'admin_any');
+      }
       return {
         assigneeUserId: picked?._id ?? null,
         notifyUserIds: picked ? [picked._id] : [],

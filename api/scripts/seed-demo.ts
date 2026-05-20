@@ -89,18 +89,25 @@ async function ensureFaculty(): Promise<HydratedUser> {
   });
 }
 
+/**
+ * M10r — `finance` role removed; admin handles every finance action. We keep
+ * this helper as a thin wrapper that returns the first admin user so existing
+ * callers (which pass the returned id as `actorUserId`) keep working without
+ * touching every call site.
+ */
 async function ensureFinance(): Promise<HydratedUser> {
-  const email = 'finance-demo-1@luc.local';
-  const existing = await User.findOne({ email });
-  if (existing) return existing;
+  const admin = await User.findOne({ role: 'admin', deletedAt: null });
+  if (admin) return admin;
+  // Defensive fallback: if no admin exists yet, create a demo one so the rest
+  // of the seed-demo script can attribute payments.
   return User.create({
-    role: 'finance',
+    role: 'admin',
     code: null,
-    name: 'Demo Finance One',
-    email,
+    name: 'Demo Admin (finance fallback)',
+    email: 'admin-demo-1@luc.local',
     phoneE164: '+911234500091',
     status: 'active',
-    passwordHash: await hashPassword('Finance#12345'),
+    passwordHash: await hashPassword('Admin#12345'),
     passwordUpdatedAt: NOW,
     deptTag: 'finance',
   });

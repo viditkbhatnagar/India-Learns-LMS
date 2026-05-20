@@ -9,7 +9,7 @@ export function feeRemindersRouter(): Router {
 
   router.post(
     '/reminders/send/:installmentId',
-    requireRole('finance', 'admin'),
+    requireRole('admin', 'superadmin'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const result = await sendManualReminder(req.params.installmentId ?? '');

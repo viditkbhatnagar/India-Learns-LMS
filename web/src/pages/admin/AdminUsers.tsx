@@ -76,7 +76,6 @@ export function AdminUsers() {
               <option value="all">All roles</option>
               <option value="student">Students</option>
               <option value="faculty">Faculty</option>
-              <option value="finance">Finance</option>
               <option value="admin">Admins</option>
               <option value="superadmin">Superadmins</option>
             </select>
@@ -228,7 +227,6 @@ export function AdminInviteUser() {
             >
               <option value="student">Student</option>
               <option value="faculty">Faculty</option>
-              <option value="finance">Finance</option>
               <option value="admin">Admin</option>
             </select>
           </label>
