@@ -18,7 +18,7 @@ import {
   revokeRefreshToken,
   rotateRefreshToken,
 } from './refreshTokenService.js';
-import { signAccessToken } from './tokenService.js';
+import { signAccessToken, sha256 } from './tokenService.js';
 import { findUserByEmail, toUserDto } from './userService.js';
 import { getIntegrations } from '../integrations/index.js';
 
@@ -51,6 +51,11 @@ export async function login(
   password: string,
   ctx: RequestContext,
 ): Promise<TokenPair> {
+  // Q-M2-02 / DPDP — never store the plaintext email in audit details.
+  // Hash the normalized address so the row is still useful for "who tried
+  // to sign in" debugging (admin hashes a guess and compares) without
+  // retaining recoverable PII in the audit log.
+  const emailHash = sha256(email.trim().toLowerCase());
   const user = await findUserByEmail(email);
   if (!user || user.deletedAt || user.status === 'revoked') {
     await recordAudit({
@@ -58,7 +63,7 @@ export async function login(
       action: 'auth.login.failure',
       targetType: 'User',
       targetId: user?._id ?? null,
-      details: { email, reason: 'unknown_user' },
+      details: { emailHash, reason: 'unknown_user' },
       ip: ctx.ip,
       ua: ctx.ua,
     });
@@ -70,7 +75,7 @@ export async function login(
       action: 'auth.login.failure',
       targetType: 'User',
       targetId: user._id,
-      details: { email, reason: 'locked' },
+      details: { emailHash, reason: 'locked' },
       ip: ctx.ip,
       ua: ctx.ua,
     });
@@ -101,7 +106,7 @@ export async function login(
       action: 'auth.login.failure',
       targetType: 'User',
       targetId: user._id,
-      details: { email, reason: 'bad_password' },
+      details: { emailHash, reason: 'bad_password' },
       ip: ctx.ip,
       ua: ctx.ua,
     });
@@ -122,7 +127,7 @@ export async function login(
       action: 'auth.login.failure',
       targetType: 'User',
       targetId: user._id,
-      details: { email, reason: 'suspended_manual' },
+      details: { emailHash, reason: 'suspended_manual' },
       ip: ctx.ip,
       ua: ctx.ua,
     });
@@ -228,7 +233,9 @@ export async function requestPasswordReset(
     action: 'auth.password_reset_requested',
     targetType: 'User',
     targetId: user?._id ?? null,
-    details: { email: normalized, found: Boolean(user) },
+    // Q-M2-02 / DPDP — hash, don't store plaintext. Admin can debug by
+    // hashing a suspected address and matching against `emailHash`.
+    details: { emailHash: sha256(normalized), found: Boolean(user) },
     ip: ctx.ip,
     ua: ctx.ua,
   });
