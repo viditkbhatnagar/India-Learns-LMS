@@ -33,6 +33,8 @@ const JOB_PATHS = {
   'sla-timers': '/v1/jobs/sla-timers',
   'digest-faculty-weekly': '/v1/jobs/digest-faculty-weekly',
   'notifications-retry': '/v1/jobs/notifications-retry',
+  // Q-M4-03 — nightly retention sweep.
+  'notifications-cleanup': '/v1/jobs/notifications-cleanup',
   // Admissions module (M3b + M9).
   'admissions-referee-reminders': '/v1/jobs/admissions-referee-reminders',
   'admissions-audit-head-snapshot': '/v1/jobs/admissions-audit-head-snapshot',

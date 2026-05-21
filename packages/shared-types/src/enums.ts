@@ -316,6 +316,9 @@ export const AUDIT_ACTIONS = [
   'notification.retry_succeeded',
   'notification.retry_exhausted',
   'jobs.notifications_retry.invoked',
+  // Q-M4-03 — nightly retention sweep
+  'jobs.notifications_cleanup.invoked',
+  'notification.archived',
   // Post-M9 — assignments (stakeholder follow-up)
   'assignment.created',
   'assignment.updated',
