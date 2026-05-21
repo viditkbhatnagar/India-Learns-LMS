@@ -54,6 +54,10 @@ export function ReportsPage() {
   const [courseId, setCourseId] = useState<string>('');
   const [from, setFrom] = useState<string>(monthAgoIso());
   const [to, setTo] = useState<string>(todayIso());
+  // M10y — optional "sessions held" window. Only used by the attendance
+  // report; service falls back to the full enrolment range when blank.
+  const [sessionsHeldFrom, setSessionsHeldFrom] = useState<string>('');
+  const [sessionsHeldTo, setSessionsHeldTo] = useState<string>('');
   const [downloadErr, setDownloadErr] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -78,7 +82,15 @@ export function ReportsPage() {
     batchId && (kind === 'batch-summary' || (from && to && from <= to)),
   );
 
-  const queryKey = [kind, batchId, from, to, courseId || '_all'];
+  const queryKey = [
+    kind,
+    batchId,
+    from,
+    to,
+    courseId || '_all',
+    sessionsHeldFrom || '_any',
+    sessionsHeldTo || '_any',
+  ];
   const reportQ = useQuery({
     queryKey,
     enabled: filtersReady,
@@ -89,6 +101,8 @@ export function ReportsPage() {
           from,
           to,
           courseId: courseId || undefined,
+          sessionsHeldFrom: sessionsHeldFrom || undefined,
+          sessionsHeldTo: sessionsHeldTo || undefined,
         });
       }
       if (kind === 'batch-summary') {
@@ -112,6 +126,10 @@ export function ReportsPage() {
         params.from = from;
         params.to = to;
         if (courseId) params.courseId = courseId;
+        if (kind === 'attendance') {
+          if (sessionsHeldFrom) params.sessionsHeldFrom = sessionsHeldFrom;
+          if (sessionsHeldTo) params.sessionsHeldTo = sessionsHeldTo;
+        }
       }
       const blob = await reportsApi.download(kind, format, params);
       const url = URL.createObjectURL(blob);
@@ -239,6 +257,49 @@ export function ReportsPage() {
                   </select>
                 </label>
               </>
+            )}
+          </div>
+        )}
+
+        {/* Attendance-only: narrow the count to sessions whose held-date falls
+            inside [sessionsHeldFrom, sessionsHeldTo]. Blank = use the From/To
+            range above. */}
+        {kind === 'attendance' && batchesQ.data && batchesQ.data.length > 0 && (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3 pt-3 border-t border-black/5">
+            <div className="text-xs uppercase tracking-wider text-muted font-bold sm:col-span-2 lg:col-span-4">
+              Sessions held filter <span className="font-normal normal-case text-muted/80">(optional — narrows to sessions actually held in this window)</span>
+            </div>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-xs uppercase tracking-wider text-muted font-bold">Held from</span>
+              <input
+                type="date"
+                value={sessionsHeldFrom}
+                onChange={(e) => setSessionsHeldFrom(e.target.value)}
+                className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-xs uppercase tracking-wider text-muted font-bold">Held to</span>
+              <input
+                type="date"
+                value={sessionsHeldTo}
+                onChange={(e) => setSessionsHeldTo(e.target.value)}
+                className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+              />
+            </label>
+            {(sessionsHeldFrom || sessionsHeldTo) && (
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSessionsHeldFrom('');
+                    setSessionsHeldTo('');
+                  }}
+                  className="text-xs text-muted underline underline-offset-2 hover:text-brand-navy"
+                >
+                  Clear held-date filter
+                </button>
+              </div>
             )}
           </div>
         )}

@@ -125,6 +125,8 @@ export function reportsRouter(): Router {
           from: filters.from,
           to: filters.to,
           courseId: filters.courseId ?? null,
+          sessionsHeldFrom: filters.sessionsHeldFrom ?? null,
+          sessionsHeldTo: filters.sessionsHeldTo ?? null,
         });
         if (format === 'xlsx') {
           const buf = await renderAttendanceReportXlsx(report);

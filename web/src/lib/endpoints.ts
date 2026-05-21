@@ -909,6 +909,9 @@ export const reportsApi = {
     from: string;
     to: string;
     courseId?: string;
+    // M10u/M10y — narrow the universe to sessions actually held inside this window.
+    sessionsHeldFrom?: string;
+    sessionsHeldTo?: string;
   }): Promise<AttendanceReportDto> {
     const res = await api.get<{ data: AttendanceReportDto }>('/reports/attendance', {
       params: query,
