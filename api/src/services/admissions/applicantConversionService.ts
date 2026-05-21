@@ -24,7 +24,10 @@ import { appendAdmissionsAudit } from './admissionsAuditService.js';
 // Each block is best-effort: a missing/malformed step doesn't block the
 // conversion, it just leaves that User field null for the student to fill
 // in via the Profile screen later.
-function copyPersonalDetailsFromDraft(
+// Exported so the one-time backfill script (api/scripts/backfill-personal-details.ts)
+// can reuse the same logic — keeps the conversion path and the backfill
+// path from drifting.
+export function copyPersonalDetailsFromDraft(
   draftData: Record<string, unknown>,
   user: {
     name: string;
