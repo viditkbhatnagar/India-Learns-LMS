@@ -129,6 +129,49 @@ export interface AssignmentSubmissionsReportDto {
   cells: AssignmentSubmissionsReportCell[];
 }
 
+// ---------- Staff attendance report (Q-M10-followup-faculty-staff) -----
+//
+// Aggregates `StaffAttendance` rows over a date window. Admin sees every
+// staff row; faculty only see their own (route layer enforces).
+
+export type StaffAttendanceReportRole = 'faculty' | 'admin' | 'superadmin' | 'admissions_officer';
+
+export interface StaffAttendanceReportFilters {
+  from: string; // YYYY-MM-DD inclusive
+  to: string; // YYYY-MM-DD inclusive
+  // Restrict to a single role bucket (e.g. only "faculty"). Optional —
+  // omit to include every staff role with at least one mark in the range.
+  role?: StaffAttendanceReportRole | null;
+  // Restrict to a single user. Optional. Faculty role auto-scopes to self.
+  userId?: string | null;
+}
+
+export interface StaffAttendanceReportRow {
+  userId: string;
+  userCode: string | null;
+  userName: string;
+  role: StaffAttendanceReportRole;
+  presentCount: number;
+  absentCount: number;
+  lateCount: number;
+  leaveCount: number;
+  halfDayCount: number;
+  totalMarked: number;
+  // Attendance rate over `totalMarked` (excludes unmarked days). Range
+  // 0-100, rounded to one decimal. Present + late + half_day (×0.5) count
+  // as attended; absent + leave do not.
+  attendanceRate: number;
+}
+
+export interface StaffAttendanceReportDto {
+  filters: StaffAttendanceReportFilters;
+  generatedAt: string;
+  // Distinct dates in [from, to] that had at least one mark; useful for
+  // "working-days denominator" context in the preview header.
+  workingDayCount: number;
+  rows: StaffAttendanceReportRow[];
+}
+
 // ---------- Format negotiation ----------------------------------------
 
 export const REPORT_FORMATS = ['json', 'xlsx', 'pdf'] as const;

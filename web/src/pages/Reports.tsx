@@ -6,6 +6,7 @@ import type {
   BatchDto,
   BatchSummaryReportDto,
   CourseDto,
+  StaffAttendanceReportDto,
 } from 'india-learns-shared-types';
 import { batchesApi, coursesApi, reportsApi } from '../lib/endpoints.js';
 import { Card, CardHeader } from '../components/ui/Card.js';
@@ -22,12 +23,17 @@ import { PageHeader } from '../components/ui/PageHeader.js';
 // they can only pull batches they teach. The error surface for that is
 // the standard 403 ErrorAlert.
 
-type ReportKind = 'attendance' | 'batch-summary' | 'assignment-submissions';
+type ReportKind =
+  | 'attendance'
+  | 'batch-summary'
+  | 'assignment-submissions'
+  | 'staff-attendance';
 
 const KIND_LABEL: Record<ReportKind, string> = {
   attendance: 'Attendance',
   'batch-summary': 'Batch summary',
   'assignment-submissions': 'Assignment submissions',
+  'staff-attendance': 'Staff attendance',
 };
 
 const KIND_DESCRIPTION: Record<ReportKind, string> = {
@@ -37,7 +43,17 @@ const KIND_DESCRIPTION: Record<ReportKind, string> = {
     'One-page rollup — enrolment, average attendance, assignment status counts, fees collected vs outstanding.',
   'assignment-submissions':
     'Matrix of submission status per assignment per student in the date range.',
+  'staff-attendance':
+    'Per-staff attendance over a date range. Faculty see only their own row; admin sees all roles.',
 };
+
+const STAFF_ROLE_OPTIONS = [
+  { value: '', label: 'All staff roles' },
+  { value: 'faculty', label: 'Faculty' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'superadmin', label: 'Superadmin' },
+  { value: 'admissions_officer', label: 'Admissions officer' },
+] as const;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -58,6 +74,8 @@ export function ReportsPage() {
   // report; service falls back to the full enrolment range when blank.
   const [sessionsHeldFrom, setSessionsHeldFrom] = useState<string>('');
   const [sessionsHeldTo, setSessionsHeldTo] = useState<string>('');
+  // Q-M10-followup-faculty-staff — staff-attendance tab filters.
+  const [staffRole, setStaffRole] = useState<string>('');
   const [downloadErr, setDownloadErr] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -77,9 +95,11 @@ export function ReportsPage() {
     }
   }, [batchesQ.data, batchId]);
 
+  // Staff attendance is the one tab that doesn't need a batch picker.
+  const needsBatch = kind !== 'staff-attendance';
   const needsRange = kind !== 'batch-summary';
   const filtersReady = Boolean(
-    batchId && (kind === 'batch-summary' || (from && to && from <= to)),
+    (needsBatch ? batchId : true) && (kind === 'batch-summary' || (from && to && from <= to)),
   );
 
   const queryKey = [
@@ -90,6 +110,7 @@ export function ReportsPage() {
     courseId || '_all',
     sessionsHeldFrom || '_any',
     sessionsHeldTo || '_any',
+    staffRole || '_any',
   ];
   const reportQ = useQuery({
     queryKey,
@@ -108,6 +129,15 @@ export function ReportsPage() {
       if (kind === 'batch-summary') {
         return reportsApi.batchSummary({ batchId });
       }
+      if (kind === 'staff-attendance') {
+        return reportsApi.staffAttendance({
+          from,
+          to,
+          role: staffRole
+            ? (staffRole as 'faculty' | 'admin' | 'superadmin' | 'admissions_officer')
+            : undefined,
+        });
+      }
       return reportsApi.assignmentSubmissions({
         batchId,
         from,
@@ -121,7 +151,8 @@ export function ReportsPage() {
     setDownloadErr(null);
     setDownloading(true);
     try {
-      const params: Record<string, string> = { batchId };
+      const params: Record<string, string> = {};
+      if (needsBatch) params.batchId = batchId;
       if (needsRange) {
         params.from = from;
         params.to = to;
@@ -130,12 +161,17 @@ export function ReportsPage() {
           if (sessionsHeldFrom) params.sessionsHeldFrom = sessionsHeldFrom;
           if (sessionsHeldTo) params.sessionsHeldTo = sessionsHeldTo;
         }
+        if (kind === 'staff-attendance' && staffRole) {
+          params.role = staffRole;
+        }
       }
       const blob = await reportsApi.download(kind, format, params);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${kind}-${batchId}-${needsRange ? `${from}-to-${to}` : 'summary'}.${format}`;
+      a.download = `${kind}-${needsBatch ? batchId : 'staff'}-${
+        needsRange ? `${from}-to-${to}` : 'summary'
+      }.${format}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -189,21 +225,60 @@ export function ReportsPage() {
 
       {/* Filters */}
       <Card>
-        <CardHeader title="Filters" subtitle="Pick a batch and (for date-scoped reports) a window." />
-        {batchesQ.isLoading && <Skeleton lines={2} />}
-        {batchesQ.isError && (
+        <CardHeader title="Filters" subtitle="Pick a batch and (for date-scoped reports) a window. Staff attendance reports don't need a batch." />
+        {needsBatch && batchesQ.isLoading && <Skeleton lines={2} />}
+        {needsBatch && batchesQ.isError && (
           <ErrorAlert
             message={(batchesQ.error as Error).message}
             onRetry={() => batchesQ.refetch()}
           />
         )}
-        {batchesQ.data && batchesQ.data.length === 0 && (
+        {needsBatch && batchesQ.data && batchesQ.data.length === 0 && (
           <EmptyState
             title="No batches yet"
             message="Create a batch under Programs → Batches to enable reports."
           />
         )}
-        {batchesQ.data && batchesQ.data.length > 0 && (
+        {/* Staff attendance: no batch picker, just date + role */}
+        {!needsBatch && (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-xs uppercase tracking-wider text-muted font-bold">From</span>
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-xs uppercase tracking-wider text-muted font-bold">To</span>
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-xs uppercase tracking-wider text-muted font-bold">
+                Role (optional)
+              </span>
+              <select
+                value={staffRole}
+                onChange={(e) => setStaffRole(e.target.value)}
+                className="rounded-xl border border-black/10 px-3 py-2.5 bg-white"
+              >
+                {STAFF_ROLE_OPTIONS.map((o) => (
+                  <option key={o.value || 'all'} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+        {needsBatch && batchesQ.data && batchesQ.data.length > 0 && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-xs uppercase tracking-wider text-muted font-bold">Batch</span>
@@ -350,7 +425,64 @@ export function ReportsPage() {
       {reportQ.data && kind === 'assignment-submissions' && (
         <SubmissionsPreview report={reportQ.data as AssignmentSubmissionsReportDto} />
       )}
+      {reportQ.data && kind === 'staff-attendance' && (
+        <StaffAttendancePreview report={reportQ.data as StaffAttendanceReportDto} />
+      )}
     </div>
+  );
+}
+
+function StaffAttendancePreview({ report }: { report: StaffAttendanceReportDto }) {
+  return (
+    <Card>
+      <CardHeader
+        title="Staff attendance"
+        subtitle={`${report.filters.from} → ${report.filters.to} · ${report.workingDayCount} day${
+          report.workingDayCount === 1 ? '' : 's'
+        } with marks · ${report.rows.length} staff member${report.rows.length === 1 ? '' : 's'}`}
+      />
+      {report.rows.length === 0 ? (
+        <EmptyState
+          title="No marks in this range"
+          message="Faculty self-marks via /faculty/attendance; admin overrides via /admin/staff-attendance."
+        />
+      ) : (
+        <div className="overflow-x-auto -mx-6 px-6">
+          <table className="w-full text-sm min-w-[760px]">
+            <thead>
+              <tr className="text-left text-muted text-[11px] uppercase tracking-wider font-bold border-b border-black/5">
+                <th className="py-3 pr-4">Code</th>
+                <th className="py-3 pr-4">Staff</th>
+                <th className="py-3 pr-4">Role</th>
+                <th className="py-3 pr-4 text-right">Present</th>
+                <th className="py-3 pr-4 text-right">Absent</th>
+                <th className="py-3 pr-4 text-right">Late</th>
+                <th className="py-3 pr-4 text-right">Leave</th>
+                <th className="py-3 pr-4 text-right">Half-day</th>
+                <th className="py-3 pr-2 text-right">Rate</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/5">
+              {report.rows.map((r) => (
+                <tr key={r.userId} className="hover:bg-surface-muted/50">
+                  <td className="py-2.5 pr-4 font-mono text-xs">{r.userCode ?? '—'}</td>
+                  <td className="py-2.5 pr-4 font-medium text-brand-navy">{r.userName}</td>
+                  <td className="py-2.5 pr-4 text-xs">{r.role}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">{r.presentCount}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">{r.absentCount}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">{r.lateCount}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">{r.leaveCount}</td>
+                  <td className="py-2.5 pr-4 text-right tabular-nums">{r.halfDayCount}</td>
+                  <td className="py-2.5 pr-2 text-right tabular-nums font-semibold">
+                    {r.totalMarked > 0 ? `${r.attendanceRate.toFixed(1)}%` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
   );
 }
 

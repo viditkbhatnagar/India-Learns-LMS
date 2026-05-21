@@ -40,6 +40,7 @@ import type {
   ApplyToJobInput,
   AssignmentSubmissionsReportDto,
   AttendanceReportDto,
+  StaffAttendanceReportDto,
   BatchSummaryReportDto,
   ChatMessageDto,
   CompanyDto,
@@ -958,8 +959,21 @@ export const reportsApi = {
     );
     return res.data.data;
   },
+  // Q-M10-followup-faculty-staff — staff attendance roll-up.
+  async staffAttendance(query: {
+    from: string;
+    to: string;
+    role?: 'faculty' | 'admin' | 'superadmin' | 'admissions_officer';
+    userId?: string;
+  }): Promise<StaffAttendanceReportDto> {
+    const res = await api.get<{ data: StaffAttendanceReportDto }>(
+      '/reports/staff-attendance',
+      { params: query },
+    );
+    return res.data.data;
+  },
   async downloadXlsx(
-    kind: 'attendance' | 'batch-summary' | 'assignment-submissions',
+    kind: 'attendance' | 'batch-summary' | 'assignment-submissions' | 'staff-attendance',
     query: Record<string, string>,
   ): Promise<Blob> {
     const res = await api.get<Blob>(`/reports/${kind}`, {
@@ -970,7 +984,7 @@ export const reportsApi = {
   },
   // M10i — Generic download for either Excel or PDF format.
   async download(
-    kind: 'attendance' | 'batch-summary' | 'assignment-submissions',
+    kind: 'attendance' | 'batch-summary' | 'assignment-submissions' | 'staff-attendance',
     format: 'xlsx' | 'pdf',
     query: Record<string, string>,
   ): Promise<Blob> {
