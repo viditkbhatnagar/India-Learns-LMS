@@ -617,7 +617,7 @@ function CreditNotesCard({
       amountPaise: number;
     }) => creditNotesApi.apply(creditNoteId, { installmentId, amountPaise }),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['finance', 'student-fees', studentId] });
+      qc.invalidateQueries({ queryKey: ['finance', 'student-fees', studentId] });
     },
   });
   const openInstallments = installments.filter(

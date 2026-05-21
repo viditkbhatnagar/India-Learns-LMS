@@ -98,53 +98,50 @@ async function main(): Promise<void> {
         skipped: true,
       });
       skipCount += 1;
-      continue;
-    }
+    } else {
+      const mutable = {
+        name: u.name,
+        dateOfBirth: u.dateOfBirth,
+        personalAddress: u.personalAddress,
+        emergencyContact: u.emergencyContact,
+        parentGuardian: u.parentGuardian,
+      };
+      copyPersonalDetailsFromDraft(draft.data as Record<string, unknown>, mutable);
 
-    const mutable = {
-      name: u.name,
-      dateOfBirth: u.dateOfBirth,
-      personalAddress: u.personalAddress,
-      emergencyContact: u.emergencyContact,
-      parentGuardian: u.parentGuardian,
-    };
-    copyPersonalDetailsFromDraft(draft.data as Record<string, unknown>, mutable);
+      const filled: string[] = [];
+      if (before.dateOfBirth == null && mutable.dateOfBirth != null) filled.push('dateOfBirth');
+      if (before.personalAddress == null && mutable.personalAddress != null) {
+        filled.push('personalAddress');
+      }
+      if (before.emergencyContact == null && mutable.emergencyContact != null) {
+        filled.push('emergencyContact');
+      }
+      if (before.parentGuardian == null && mutable.parentGuardian != null) {
+        filled.push('parentGuardian');
+      }
 
-    const filled: string[] = [];
-    if (before.dateOfBirth == null && mutable.dateOfBirth != null) filled.push('dateOfBirth');
-    if (before.personalAddress == null && mutable.personalAddress != null) {
-      filled.push('personalAddress');
-    }
-    if (before.emergencyContact == null && mutable.emergencyContact != null) {
-      filled.push('emergencyContact');
-    }
-    if (before.parentGuardian == null && mutable.parentGuardian != null) {
-      filled.push('parentGuardian');
-    }
-
-    rows.push({
-      userId: String(u._id),
-      userCode: u.code ?? null,
-      userEmail: u.email,
-      filled,
-      skipped: filled.length === 0,
-    });
-    if (filled.length === 0) {
-      skipCount += 1;
-      continue;
-    }
-    if (apply) {
-      u.dateOfBirth = mutable.dateOfBirth;
-      // The User model uses Mixed for these structured fields, so direct
-      // assignment is fine — mongoose tracks dirty paths.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (u as any).personalAddress = mutable.personalAddress;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (u as any).emergencyContact = mutable.emergencyContact;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (u as any).parentGuardian = mutable.parentGuardian;
-      await u.save();
-      writeCount += 1;
+      rows.push({
+        userId: String(u._id),
+        userCode: u.code ?? null,
+        userEmail: u.email,
+        filled,
+        skipped: filled.length === 0,
+      });
+      if (filled.length === 0) {
+        skipCount += 1;
+      } else if (apply) {
+        u.dateOfBirth = mutable.dateOfBirth;
+        // The User model uses Mixed for these structured fields, so direct
+        // assignment is fine — mongoose tracks dirty paths.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (u as any).personalAddress = mutable.personalAddress;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (u as any).emergencyContact = mutable.emergencyContact;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (u as any).parentGuardian = mutable.parentGuardian;
+        await u.save();
+        writeCount += 1;
+      }
     }
   }
 
