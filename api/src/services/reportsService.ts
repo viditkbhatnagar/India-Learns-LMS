@@ -11,6 +11,10 @@ import type {
   AttendanceReportRow,
   BatchSummaryReportDto,
   BatchSummaryReportFilters,
+  StaffAttendanceReportDto,
+  StaffAttendanceReportFilters,
+  StaffAttendanceReportRole,
+  StaffAttendanceReportRow,
 } from 'india-learns-shared-types';
 import { HttpError } from '../middleware/error.js';
 import {
@@ -23,6 +27,7 @@ import {
   Invoice,
   Program,
   SessionModel,
+  StaffAttendance,
   User,
 } from '../models/index.js';
 
@@ -381,5 +386,111 @@ export async function buildAssignmentSubmissionsReport(
     assignments,
     students,
     cells,
+  };
+}
+
+// --------- Staff attendance report -----------------------------------
+//
+// Aggregates `StaffAttendance` rows over a date window. Admin sees every
+// staff member; faculty only see their own (route layer enforces by
+// forcing `userId=self`). Status weights for the rate:
+//   present + late + (half_day × 0.5) → attended
+//   absent + leave                    → not attended
+//   excluded statuses                 → none currently
+
+const STAFF_ROLES_FOR_REPORT: StaffAttendanceReportRole[] = [
+  'faculty',
+  'admin',
+  'superadmin',
+  'admissions_officer',
+];
+
+export async function buildStaffAttendanceReport(
+  filters: StaffAttendanceReportFilters,
+): Promise<StaffAttendanceReportDto> {
+  const { from, to } = dayBoundsUtc(filters.from, filters.to);
+
+  const rowFilter: Record<string, unknown> = {
+    date: { $gte: from, $lte: to },
+  };
+  if (filters.userId) {
+    if (!Types.ObjectId.isValid(filters.userId)) {
+      throw new HttpError(404, 'NOT_FOUND', 'User not found.');
+    }
+    rowFilter.userId = new Types.ObjectId(filters.userId);
+  }
+
+  const records = await StaffAttendance.find(rowFilter)
+    .select({ userId: 1, status: 1, date: 1 })
+    .lean();
+
+  // Roster — the set of staff with at least one mark in the window.
+  const userIds = Array.from(new Set(records.map((r) => String(r.userId))));
+  const userObjIds = userIds.map((id) => new Types.ObjectId(id));
+  const userQuery: Record<string, unknown> = {
+    _id: { $in: userObjIds },
+    deletedAt: null,
+  };
+  if (filters.role) {
+    userQuery.role = filters.role;
+  } else {
+    userQuery.role = { $in: STAFF_ROLES_FOR_REPORT };
+  }
+  const users = await User.find(userQuery)
+    .select({ name: 1, code: 1, role: 1 })
+    .lean();
+  const userMap = new Map(
+    users.map((u) => [
+      String(u._id),
+      {
+        name: u.name as string,
+        code: (u.code as string | null) ?? null,
+        role: u.role as StaffAttendanceReportRole,
+      },
+    ]),
+  );
+
+  // Aggregate per user.
+  type Counts = { present: number; absent: number; late: number; leave: number; half_day: number };
+  const counts = new Map<string, Counts>();
+  for (const id of userMap.keys()) {
+    counts.set(id, { present: 0, absent: 0, late: 0, leave: 0, half_day: 0 });
+  }
+  for (const r of records) {
+    const slot = counts.get(String(r.userId));
+    if (!slot) continue; // row belongs to a user the role filter excluded
+    const s = r.status as keyof Counts;
+    if (s in slot) slot[s] += 1;
+  }
+
+  const rows: StaffAttendanceReportRow[] = [...counts.entries()].map(([uid, c]) => {
+    const display = userMap.get(uid)!;
+    const totalMarked = c.present + c.absent + c.late + c.leave + c.half_day;
+    const attended = c.present + c.late + c.half_day * 0.5;
+    const rate = totalMarked > 0 ? Math.round((attended / totalMarked) * 1000) / 10 : 0;
+    return {
+      userId: uid,
+      userCode: display.code,
+      userName: display.name,
+      role: display.role,
+      presentCount: c.present,
+      absentCount: c.absent,
+      lateCount: c.late,
+      leaveCount: c.leave,
+      halfDayCount: c.half_day,
+      totalMarked,
+      attendanceRate: rate,
+    };
+  });
+  rows.sort((a, b) => a.userName.localeCompare(b.userName));
+
+  const workingDays = new Set<string>();
+  for (const r of records) workingDays.add((r.date as Date).toISOString().slice(0, 10));
+
+  return {
+    filters,
+    generatedAt: new Date().toISOString(),
+    workingDayCount: workingDays.size,
+    rows,
   };
 }

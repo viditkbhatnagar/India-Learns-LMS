@@ -40,6 +40,7 @@ import type {
   ApplyToJobInput,
   AssignmentSubmissionsReportDto,
   AttendanceReportDto,
+  StaffAttendanceReportDto,
   BatchSummaryReportDto,
   ChatMessageDto,
   CompanyDto,
@@ -687,10 +688,10 @@ export const enrollmentsApi = {
     const res = await api.get<{ data: { enrollment: EnrollmentDto } }>(`/enrollments/${id}`);
     return res.data.data.enrollment;
   },
-  async issueCertificate(id: string) {
+  async issueCertificate(id: string, opts: { force?: boolean } = {}) {
     const res = await api.post<{ data: { certificate: CertificateDto; reissued: boolean } }>(
       `/enrollments/${id}/issue-certificate`,
-      {},
+      opts.force ? { force: true } : {},
     );
     return res.data.data;
   },
@@ -863,6 +864,28 @@ export const feesApi = {
   },
 };
 
+// Q-M5-02 — apply outstanding credit notes to specific installments.
+export const creditNotesApi = {
+  async apply(
+    creditNoteId: string,
+    input: { installmentId: string; amountPaise?: number },
+  ) {
+    const res = await api.post<{
+      data: {
+        creditNote: {
+          id: string;
+          code: string;
+          balancePaise: number;
+          consumed: boolean;
+        };
+        appliedPaise: number;
+        installmentId: string;
+      };
+    }>(`/credit-notes/${creditNoteId}/apply`, input);
+    return res.data.data;
+  },
+};
+
 // Admin-only resources used by the M9 deep-CRUD screens. Endpoints exist on
 // the API since M3–M6; the wrappers were missing from the M8 web port.
 export const batchesApi = {
@@ -909,6 +932,9 @@ export const reportsApi = {
     from: string;
     to: string;
     courseId?: string;
+    // M10u/M10y — narrow the universe to sessions actually held inside this window.
+    sessionsHeldFrom?: string;
+    sessionsHeldTo?: string;
   }): Promise<AttendanceReportDto> {
     const res = await api.get<{ data: AttendanceReportDto }>('/reports/attendance', {
       params: query,
@@ -933,8 +959,21 @@ export const reportsApi = {
     );
     return res.data.data;
   },
+  // Q-M10-followup-faculty-staff — staff attendance roll-up.
+  async staffAttendance(query: {
+    from: string;
+    to: string;
+    role?: 'faculty' | 'admin' | 'superadmin' | 'admissions_officer';
+    userId?: string;
+  }): Promise<StaffAttendanceReportDto> {
+    const res = await api.get<{ data: StaffAttendanceReportDto }>(
+      '/reports/staff-attendance',
+      { params: query },
+    );
+    return res.data.data;
+  },
   async downloadXlsx(
-    kind: 'attendance' | 'batch-summary' | 'assignment-submissions',
+    kind: 'attendance' | 'batch-summary' | 'assignment-submissions' | 'staff-attendance',
     query: Record<string, string>,
   ): Promise<Blob> {
     const res = await api.get<Blob>(`/reports/${kind}`, {
@@ -945,7 +984,7 @@ export const reportsApi = {
   },
   // M10i — Generic download for either Excel or PDF format.
   async download(
-    kind: 'attendance' | 'batch-summary' | 'assignment-submissions',
+    kind: 'attendance' | 'batch-summary' | 'assignment-submissions' | 'staff-attendance',
     format: 'xlsx' | 'pdf',
     query: Record<string, string>,
   ): Promise<Blob> {

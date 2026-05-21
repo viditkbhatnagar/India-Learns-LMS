@@ -17,6 +17,7 @@ import {
 } from 'india-learns-shared-types';
 import { HttpError } from '../middleware/error.js';
 import { enqueueNotification } from './notificationService.js';
+import { renderTemplate } from './notificationTemplates.js';
 import {
   Company,
   Enrollment,
@@ -327,13 +328,16 @@ export async function updateJobPosting(
         .lean();
       if (students.length > 0) {
         const company = await Company.findById(doc.companyId).select({ name: 1 }).lean();
+        const rendered = renderTemplate('job.posted', {
+          jobTitle: doc.title,
+          companyName: company?.name ?? 'A company',
+          programNameHint: doc.location ?? null,
+        });
         await enqueueNotification({
           type: 'placement.job_posted',
           recipients: students.map((s: { _id: Types.ObjectId }) => s._id),
-          title: `New job opening: ${doc.title}`,
-          body: `${company?.name ?? 'A company'} is hiring for ${doc.title}${
-            doc.location ? ` in ${doc.location}` : ''
-          }. View details on the Jobs page.`,
+          title: rendered.title,
+          body: rendered.body,
           data: { jobPostingId: doc._id.toString() },
         });
       }

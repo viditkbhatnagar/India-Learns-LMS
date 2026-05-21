@@ -16,7 +16,8 @@
     "test:coverage": "vitest run --coverage",
     "seed:superadmin": "tsx scripts/seed-superadmin.ts",
     "seed": "tsx scripts/seed.ts",
-    "seed:demo": "tsx scripts/seed-demo.ts"
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "backfill:personal-details": "tsx scripts/backfill-personal-details.ts"
   },
   "dependencies": {
     "@sentry/node": "^8.40.0",

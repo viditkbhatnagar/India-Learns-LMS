@@ -30,6 +30,7 @@ import { feeStructuresRouter } from './feeStructures.js';
 import { generateFeesRouter } from './generateFees.js';
 import { studentFeesRouter, myFeesRouter } from './studentFees.js';
 import { paymentsRouter } from './payments.js';
+import { creditNotesRouter } from './creditNotes.js';
 import { receiptsRouter } from './receipts.js';
 import { feeRemindersRouter } from './feeReminders.js';
 import { suspensionOverrideRouter } from './suspensionOverride.js';
@@ -183,6 +184,8 @@ export function v1Router(): Router {
   router.use('/fee-structures', feeStructuresRouter());
   router.use('/payments', paymentsRouter());
   router.use('/finance/payments', paymentsRouter());
+  // Q-M5-02 — apply credit notes to specific installments.
+  router.use('/credit-notes', creditNotesRouter());
   router.use('/receipts', receiptsRouter());
   router.use('/fees', feeRemindersRouter());
   // /v1/me/tickets and /v1/tickets/me are aliases (D-031) — both land on

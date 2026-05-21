@@ -115,6 +115,50 @@ describe('certificateService', () => {
     expect(reissue).not.toBeNull();
   });
 
+  it('issueForEnrollment with force=true reissues, overwrites URL, audits previous values (Q-M8-02)', async () => {
+    const { enrolment } = await seedCompletedEnrolment();
+
+    const first = await issueForEnrollment({
+      enrollmentId: enrolment._id,
+      actor: 'admin',
+    });
+    expect(first.reissued).toBe(false);
+    const firstUrl = first.certificate.certificateUrl;
+    const firstProviderId = first.certificate.providerId;
+    expect(spies.certificate.calls).toHaveLength(1);
+
+    // Listener-driven calls should NOT honor force even if mistakenly passed.
+    // Only admin-actor + force flips into the reissue path.
+    const listenerWithForce = await issueForEnrollment({
+      enrollmentId: enrolment._id,
+      actor: 'listener',
+      force: true,
+    });
+    expect(listenerWithForce.reissued).toBe(true);
+    expect(spies.certificate.calls).toHaveLength(1);
+
+    // Admin force triggers a real adapter call; new URL/providerId overwrite.
+    const reissued = await issueForEnrollment({
+      enrollmentId: enrolment._id,
+      actor: 'admin',
+      force: true,
+    });
+    expect(reissued.reissued).toBe(false);
+    expect(spies.certificate.calls).toHaveLength(2);
+    expect(reissued.certificate.certificateUrl).not.toBe(firstUrl);
+
+    // Audit row carries the previous URL/providerId for traceability.
+    const audits = await AuditLog.find({
+      action: 'certificate.issued',
+      targetId: enrolment._id,
+    }).sort({ createdAt: 1 });
+    expect(audits).toHaveLength(2);
+    const second = audits[1]!.details as Record<string, unknown>;
+    expect(second.forced).toBe(true);
+    expect(second.previousCertificateUrl).toBe(firstUrl);
+    expect(second.previousProviderId).toBe(firstProviderId);
+  });
+
   it('issueForEnrollment throws INTEGRATION_FAILED when adapter fails and persists error', async () => {
     const { enrolment } = await seedCompletedEnrolment();
     spies.certificate.failNext = true;

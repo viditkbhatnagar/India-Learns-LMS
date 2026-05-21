@@ -17,6 +17,7 @@ import { recordAudit } from './auditService.js';
 import { assertFacultyOwnsCourse } from './authzService.js';
 import { nowUtc } from './clockService.js';
 import { enqueueNotification } from './notificationService.js';
+import { renderTemplate } from './notificationTemplates.js';
 
 export interface FeedbackCtx {
   actorUserId: Types.ObjectId;
@@ -279,11 +280,14 @@ export async function publishFeedback(
   });
 
   try {
+    const rendered = renderTemplate('feedback.published', {
+      summary: entry.summary,
+    });
     await enqueueNotification({
       type: 'feedback.published',
       recipients: [entry.studentId],
-      title: `New feedback from your faculty`,
-      body: entry.summary.slice(0, 500),
+      title: rendered.title,
+      body: rendered.body,
       data: {
         feedbackId: entry._id.toString(),
         courseId: entry.courseId.toString(),
