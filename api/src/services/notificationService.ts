@@ -20,6 +20,7 @@ import {
 } from '../models/index.js';
 import { recordApiCost } from './apiCostService.js';
 import { nowUtc } from './clockService.js';
+import { renderTemplate } from './notificationTemplates.js';
 
 // BRD §6.1: WhatsApp is reserved for fee-due, payment-received, ticket-updated.
 // Timetable does NOT use WhatsApp (D-037). Fee upcoming T-14/T+3 stay email-only.
@@ -411,24 +412,15 @@ export async function notifyTimetableChange(
     (id) => new Types.ObjectId(id),
   );
 
-  const actionLabel: Record<string, string> = {
-    cancel: 'cancelled',
-    reschedule: 'rescheduled',
-    add: 'added',
-    updated: 'updated',
-    deleted: 'removed',
-  };
-  const verb = actionLabel[payload.action] ?? payload.action;
-
-  const title = `Timetable update: ${payload.courseName} ${verb}`;
-  const bodyLines = [
-    `Batch: ${payload.batchName}`,
-    `Course: ${payload.courseName}`,
-    `Date: ${payload.istDate} (IST)`,
-    `Change: ${verb}`,
-  ];
-  if (payload.reason) bodyLines.push(`Reason: ${payload.reason}`);
-  const body = bodyLines.join('\n');
+  // Q-M4-05 — copy lives in notificationTemplates.ts so ops can edit
+  // without touching the change-detection logic above.
+  const { title, body } = renderTemplate('timetable.change', {
+    courseName: payload.courseName,
+    batchName: payload.batchName,
+    istDate: payload.istDate,
+    action: payload.action,
+    reason: payload.reason ?? null,
+  });
 
   return enqueueNotification({
     type: 'timetable.change',

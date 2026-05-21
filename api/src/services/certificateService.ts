@@ -18,6 +18,7 @@ import {
   registerListener,
 } from './domainEventService.js';
 import { enqueueNotification } from './notificationService.js';
+import { renderTemplate } from './notificationTemplates.js';
 
 // M8 — Certificate issuance service (TRD §6, PRD §13).
 // * Idempotent: re-calling issueForEnrollment on an already-issued enrolment
@@ -173,18 +174,25 @@ export async function issueForEnrollment(
     });
 
     // Notify the student — email + in-app per PRD §14.3.
-    await enqueueNotification({
-      type: 'certificate.issued',
-      recipients: [enrolment.studentId],
-      title: `Congratulations! Your ${course.name} certificate is ready.`,
-      body: `You've completed ${course.name}. Download your certificate: ${result.certificateUrl}`,
-      data: {
-        enrolmentId: enrolment._id.toString(),
-        courseId: enrolment.courseId.toString(),
+    // Copy via notificationTemplates.ts (Q-M4-05).
+    {
+      const rendered = renderTemplate('certificate.issued', {
         courseName: course.name,
         certificateUrl: result.certificateUrl,
-      },
-    });
+      });
+      await enqueueNotification({
+        type: 'certificate.issued',
+        recipients: [enrolment.studentId],
+        title: rendered.title,
+        body: rendered.body,
+        data: {
+          enrolmentId: enrolment._id.toString(),
+          courseId: enrolment.courseId.toString(),
+          courseName: course.name,
+          certificateUrl: result.certificateUrl,
+        },
+      });
+    }
 
     // Publish domain event so downstream consumers (analytics, CSV exports)
     // can react. Persisted via DomainEvent collection.
@@ -305,12 +313,14 @@ export function registerCertificateListener(): void {
       ]);
       if (!student || !course || admins.length === 0) return;
       const studentLabel = student.code ? `${student.name} (${student.code})` : student.name;
+      const rendered = renderTemplate('student.course_completed', {
+        studentLabel,
+        courseName: course.name,
+      });
       await enqueueNotification({
         type: 'student.course_completed',
-        title: `${studentLabel} completed ${course.name}`,
-        body:
-          `${studentLabel} just finished the ${course.name} course. ` +
-          'A certificate is being issued; you can verify on the enrolment page.',
+        title: rendered.title,
+        body: rendered.body,
         recipients: admins.map((a) => a._id),
         data: {
           enrolmentId,

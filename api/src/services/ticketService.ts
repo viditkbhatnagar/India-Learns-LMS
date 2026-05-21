@@ -24,6 +24,7 @@ import { recordAudit } from './auditService.js';
 import { nowUtc } from './clockService.js';
 import { nextTicketCode } from './counterService.js';
 import { enqueueNotification } from './notificationService.js';
+import { renderTemplate } from './notificationTemplates.js';
 import { routeTicket } from './ticketRoutingService.js';
 import { addBusinessDaysWithLoad } from './businessDayService.js';
 
@@ -225,11 +226,17 @@ export async function createTicket(
       ? routing.notifyUserIds
       : [];
     if (notifyIds.length > 0) {
+      const rendered = renderTemplate('ticket.created', {
+        category: ticket.category,
+        code: ticket.code,
+        subject: ticket.subject,
+        descriptionPreview: ticket.description.slice(0, 500),
+      });
       await enqueueNotification({
         type: 'ticket.created',
         recipients: notifyIds,
-        title: `New ${ticket.category} ticket: ${ticket.code}`,
-        body: `${ticket.subject}\n\n${ticket.description.slice(0, 500)}`,
+        title: rendered.title,
+        body: rendered.body,
         data: {
           ticketId: ticket._id.toString(),
           ticketCode: ticket.code,
@@ -339,13 +346,16 @@ export async function transitionTicket(
     recipients.push(ticket.assigneeUserId);
   }
   try {
+    const rendered = renderTemplate('ticket.state_changed', {
+      code: ticket.code,
+      state: ticket.state,
+      note: note && note.length > 0 ? `Status: ${ticket.state}\nNote: ${note}` : null,
+    });
     await enqueueNotification({
       type: 'ticket.state_changed',
       recipients,
-      title: `Ticket ${ticket.code} is now ${ticket.state}`,
-      body: note && note.length > 0
-        ? `Status: ${ticket.state}\nNote: ${note}`
-        : `Status: ${ticket.state}`,
+      title: rendered.title,
+      body: rendered.body,
       data: {
         ticketId: ticket._id.toString(),
         ticketCode: ticket.code,
@@ -462,11 +472,15 @@ export async function assignTicket(
   ];
   if (recipients.length > 0) {
     try {
+      const rendered = renderTemplate('ticket.assignment_updated', {
+        code: ticket.code,
+        subject: ticket.subject,
+      });
       await enqueueNotification({
         type: 'ticket.assigned',
         recipients,
-        title: `Ticket ${ticket.code} — assignment updated`,
-        body: ticket.subject,
+        title: rendered.title,
+        body: rendered.body,
         data: { ticketId: ticket._id.toString(), ticketCode: ticket.code },
       });
     } catch {
@@ -575,11 +589,16 @@ export async function requestReopen(
 
   try {
     if (routing.notifyUserIds.length > 0) {
+      const rendered = renderTemplate('ticket.reopen_request', {
+        childCode: child.code,
+        parentCode: original.code,
+        reason: trimmedReason,
+      });
       await enqueueNotification({
         type: 'ticket.created',
         recipients: routing.notifyUserIds,
-        title: `Reopen request: ${child.code}`,
-        body: `Parent: ${original.code}\nReason: ${trimmedReason}`,
+        title: rendered.title,
+        body: rendered.body,
         data: {
           ticketId: child._id.toString(),
           ticketCode: child.code,
@@ -713,11 +732,15 @@ export async function addComment(
 
     const recipients = Array.from(recipientSet.values());
     if (recipients.length > 0) {
+      const rendered = renderTemplate('ticket.commented', {
+        code: ticket.code,
+        bodyPreview: body.slice(0, 500),
+      });
       await enqueueNotification({
         type: 'ticket.commented',
         recipients,
-        title: `Ticket ${ticket.code} has a new reply`,
-        body: body.slice(0, 500),
+        title: rendered.title,
+        body: rendered.body,
         data: {
           ticketId: ticket._id.toString(),
           ticketCode: ticket.code,

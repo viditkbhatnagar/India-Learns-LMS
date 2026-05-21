@@ -20,7 +20,7 @@ import { recordAudit } from './auditService.js';
 import { nextCreditNoteCode } from './counterService.js';
 import { nowUtc } from './clockService.js';
 import { enqueueNotification } from './notificationService.js';
-import { formatPaiseAsRupees } from './amountInWordsService.js';
+import { renderTemplate } from './notificationTemplates.js';
 import { persistReceipt, getSignedReceiptUrl } from './receiptService.js';
 import { reconcileForStudent } from './suspensionService.js';
 
@@ -232,11 +232,15 @@ export async function recordPayment(
   // fees.paid notification (inapp + email + whatsapp if enabled).
   try {
     const receiptUrl = await getSignedReceiptUrl(receipt, 3600);
+    const rendered = renderTemplate('fees.paid', {
+      amountPaise: payment.amountPaise,
+      receiptCode: receipt.code,
+    });
     await enqueueNotification({
       type: 'fees.paid',
       recipients: [studentObjectId],
-      title: 'Payment received',
-      body: `We have received your payment of ${formatPaiseAsRupees(payment.amountPaise)}. Your receipt ${receipt.code} is ready to download.`,
+      title: rendered.title,
+      body: rendered.body,
       data: {
         paymentId: payment._id.toString(),
         receiptId: receipt._id.toString(),

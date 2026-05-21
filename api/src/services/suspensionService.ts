@@ -10,6 +10,7 @@ import {
 import { recordAudit, scrubUser } from './auditService.js';
 import { nowUtc } from './clockService.js';
 import { enqueueNotification } from './notificationService.js';
+import { renderTemplate } from './notificationTemplates.js';
 
 const DAY_MS = 86_400_000;
 const WARN1_THRESHOLD_DAYS = 14;
@@ -192,12 +193,17 @@ export async function reconcileForStudent(
         ip: ctx.ip,
         ua: ctx.ua,
       });
-      await enqueueNotification({
-        type: 'fees.suspended',
-        recipients: [user._id],
-        title: 'Access suspended — fee outstanding',
-        body: `Your India Learns access has been suspended because a fee installment is ${evaluation.maxOverdueDays} days overdue. Please contact Finance or raise a Finance ticket to restore access.`,
-      });
+      {
+        const rendered = renderTemplate('fees.suspended', {
+          maxOverdueDays: evaluation.maxOverdueDays,
+        });
+        await enqueueNotification({
+          type: 'fees.suspended',
+          recipients: [user._id],
+          title: rendered.title,
+          body: rendered.body,
+        });
+      }
     }
     if (transitioned && target !== 'suspended' && prevStage === 'suspended') {
       await recordAudit({
