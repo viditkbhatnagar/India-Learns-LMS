@@ -1,13 +1,24 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { EnrollmentDto, FeeInstallmentDto, InvoiceDto } from 'india-learns-shared-types';
+import type {
+  CreditNoteDto,
+  EnrollmentDto,
+  FeeInstallmentDto,
+  InvoiceDto,
+} from 'india-learns-shared-types';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { EmptyState, ErrorAlert, Skeleton } from '../../components/ui/States.js';
-import { adminEnrollmentsApi, installmentsApi, studentsApi, usersApi } from '../../lib/endpoints.js';
+import {
+  adminEnrollmentsApi,
+  creditNotesApi,
+  installmentsApi,
+  studentsApi,
+  usersApi,
+} from '../../lib/endpoints.js';
 import { ApiHttpError } from '../../lib/api.js';
 import { formatIstDate, formatIstDateTime, formatMoney } from '../../lib/format.js';
 
@@ -82,6 +93,14 @@ export function FinanceStudentDetailPage() {
       <InstallmentsCard
         studentId={id}
         invoices={fees.invoices}
+        installments={fees.installments}
+      />
+
+      {/* Q-M5-02 — outstanding credit notes for this student. Admin can
+          apply each one against a specific installment. */}
+      <CreditNotesCard
+        studentId={id}
+        creditNotes={fees.creditNotes}
         installments={fees.installments}
       />
 
@@ -569,5 +588,177 @@ function DeclaredTotalCard({
         </div>
       )}
     </Card>
+  );
+}
+
+// Q-M5-02 — credit notes are issued automatically when a payment is reversed
+// or when a record-payment call overpays. They sat with consumed=false and
+// no way to apply them; finance had to record a fresh payment to use the
+// credit. This card surfaces all outstanding credit notes and lets finance
+// burn them down against any open installment.
+function CreditNotesCard({
+  studentId,
+  creditNotes,
+  installments,
+}: {
+  studentId: string;
+  creditNotes: CreditNoteDto[];
+  installments: FeeInstallmentDto[];
+}) {
+  const qc = useQueryClient();
+  const apply = useMutation({
+    mutationFn: ({
+      creditNoteId,
+      installmentId,
+      amountPaise,
+    }: {
+      creditNoteId: string;
+      installmentId: string;
+      amountPaise: number;
+    }) => creditNotesApi.apply(creditNoteId, { installmentId, amountPaise }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['finance', 'student-fees', studentId] });
+    },
+  });
+  const openInstallments = installments.filter(
+    (i) => i.status !== 'paid' && i.status !== 'waived',
+  );
+  const outstanding = creditNotes.filter((c) => !c.consumed && c.balancePaise > 0);
+
+  if (creditNotes.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader
+        title="Credit notes"
+        subtitle="Issued from reversed payments or overpayments. Apply against any open installment."
+      />
+      {outstanding.length === 0 ? (
+        <EmptyState
+          title="No outstanding credit"
+          message="Every credit note is fully consumed."
+        />
+      ) : (
+        <ul className="divide-y divide-black/5">
+          {outstanding.map((cn) => (
+            <CreditNoteRow
+              key={cn.id}
+              creditNote={cn}
+              installments={openInstallments}
+              applying={apply.isPending}
+              error={
+                apply.isError && apply.variables?.creditNoteId === cn.id
+                  ? (apply.error as Error).message
+                  : null
+              }
+              onApply={({ installmentId, amountPaise }) =>
+                apply.mutate({ creditNoteId: cn.id, installmentId, amountPaise })
+              }
+            />
+          ))}
+        </ul>
+      )}
+      {creditNotes.some((c) => c.consumed) && (
+        <details className="mt-3 text-sm text-muted">
+          <summary className="cursor-pointer hover:text-brand-navy">
+            Show consumed ({creditNotes.filter((c) => c.consumed).length})
+          </summary>
+          <ul className="mt-2 divide-y divide-black/5">
+            {creditNotes
+              .filter((c) => c.consumed)
+              .map((cn) => (
+                <li key={cn.id} className="py-2 flex items-center justify-between">
+                  <span className="font-mono text-xs">{cn.code}</span>
+                  <span className="text-xs text-muted">
+                    {formatMoney(cn.amountPaise)} · {cn.reason || '—'}
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </details>
+      )}
+    </Card>
+  );
+}
+
+function CreditNoteRow({
+  creditNote,
+  installments,
+  applying,
+  error,
+  onApply,
+}: {
+  creditNote: CreditNoteDto;
+  installments: FeeInstallmentDto[];
+  applying: boolean;
+  error: string | null;
+  onApply: (args: { installmentId: string; amountPaise: number }) => void;
+}) {
+  const firstOpen = installments[0]?.id ?? '';
+  const [installmentId, setInstallmentId] = useState<string>(firstOpen);
+  const [amountRupees, setAmountRupees] = useState<string>(
+    String(creditNote.balancePaise / 100),
+  );
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    const paise = Math.round(Number(amountRupees) * 100);
+    if (!installmentId || !Number.isFinite(paise) || paise <= 0) return;
+    onApply({ installmentId, amountPaise: paise });
+  }
+
+  return (
+    <li className="py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-mono text-sm text-brand-navy">{creditNote.code}</p>
+          <p className="text-xs text-muted">
+            balance {formatMoney(creditNote.balancePaise)} of{' '}
+            {formatMoney(creditNote.amountPaise)} · {creditNote.reason || 'no reason'}
+          </p>
+          <p className="text-xs text-muted mt-0.5">
+            issued {formatIstDate(creditNote.issuedAt)}
+          </p>
+        </div>
+        <Badge tone="accent" size="sm">
+          {formatMoney(creditNote.balancePaise)} unused
+        </Badge>
+      </div>
+      {installments.length === 0 ? (
+        <p className="text-xs text-muted mt-2">
+          No open installments to apply against right now.
+        </p>
+      ) : (
+        <form className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 items-end" onSubmit={submit}>
+          <label className="text-xs">
+            <span className="block uppercase tracking-wider text-muted font-bold">Installment</span>
+            <select
+              value={installmentId}
+              onChange={(e) => setInstallmentId(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 bg-white text-sm"
+            >
+              {installments.map((inst) => (
+                <option key={inst.id} value={inst.id}>
+                  {inst.label} · due {formatIstDate(inst.dueDate)} ·{' '}
+                  {formatMoney(inst.amountPaise - inst.paidPaise)} open
+                </option>
+              ))}
+            </select>
+          </label>
+          <Input
+            label="Amount (₹)"
+            type="number"
+            min="0"
+            step="0.01"
+            value={amountRupees}
+            onChange={(e) => setAmountRupees(e.target.value)}
+          />
+          <Button type="submit" loading={applying} disabled={!installmentId}>
+            Apply
+          </Button>
+        </form>
+      )}
+      {error && <ErrorAlert message={error} />}
+    </li>
   );
 }

@@ -863,6 +863,28 @@ export const feesApi = {
   },
 };
 
+// Q-M5-02 — apply outstanding credit notes to specific installments.
+export const creditNotesApi = {
+  async apply(
+    creditNoteId: string,
+    input: { installmentId: string; amountPaise?: number },
+  ) {
+    const res = await api.post<{
+      data: {
+        creditNote: {
+          id: string;
+          code: string;
+          balancePaise: number;
+          consumed: boolean;
+        };
+        appliedPaise: number;
+        installmentId: string;
+      };
+    }>(`/credit-notes/${creditNoteId}/apply`, input);
+    return res.data.data;
+  },
+};
+
 // Admin-only resources used by the M9 deep-CRUD screens. Endpoints exist on
 // the API since M3–M6; the wrappers were missing from the M8 web port.
 export const batchesApi = {

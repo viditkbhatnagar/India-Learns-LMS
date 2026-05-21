@@ -269,6 +269,8 @@ export const AUDIT_ACTIONS = [
   'fees.payment.reversed',
   'fees.receipt.issued',
   'fees.credit_note.issued',
+  'fees.credit_note.applied',
+  'fees.credit_note.consumed',
   'fees.reminder.sent',
   'fees.suspension.auto_suspended',
   'fees.suspension.lifted',

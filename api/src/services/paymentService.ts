@@ -396,3 +396,168 @@ export function toCreditNoteDto(doc: HydratedCreditNote): CreditNoteDto {
     issuedAt: doc.issuedAt.toISOString(),
   };
 }
+
+// Q-M5-02 — Apply a credit note to a specific installment.
+//
+// Until this lands, credit notes from reversed payments and overpayments
+// sat with `consumed=false` and Finance had to record a fresh payment
+// against the installment, leaving the credit note dangling. This endpoint
+// lets Finance burn down the credit-note balance directly:
+//
+//   POST /v1/credit-notes/:id/apply
+//   { installmentId, amountPaise? }   // amount defaults to min(balance, due)
+//
+// Behaviour:
+//   * 404 if credit note / installment / student missing
+//   * 409 if credit note already consumed (balance = 0)
+//   * 409 if installment already paid / waived
+//   * 422 if amountPaise exceeds either remaining balance OR open due
+//   * Applies amount → installment.paidPaise + invoice.paidPaise rollups,
+//     decrements CreditNote.balancePaise, sets `consumed=true` when balance
+//     hits zero; runs reconcileForStudent so a fees-suspension lifts
+//     immediately when the last overdue installment clears.
+//   * Audit: `fees.credit_note.applied` + `fees.credit_note.consumed`
+//     (the latter only when balance reaches zero).
+export interface ApplyCreditNoteInput {
+  installmentId: string;
+  amountPaise?: number;
+}
+
+export interface ApplyCreditNoteCtx {
+  actorUserId: Types.ObjectId;
+  ip?: string;
+  ua?: string;
+}
+
+export interface ApplyCreditNoteResult {
+  creditNote: HydratedCreditNote;
+  appliedPaise: number;
+  installmentId: Types.ObjectId;
+}
+
+export async function applyCreditNote(
+  creditNoteId: string,
+  input: ApplyCreditNoteInput,
+  ctx: ApplyCreditNoteCtx,
+): Promise<ApplyCreditNoteResult> {
+  if (!Types.ObjectId.isValid(creditNoteId)) {
+    throw new HttpError(404, 'CREDIT_NOTE_NOT_FOUND', 'Credit note not found.');
+  }
+  if (!Types.ObjectId.isValid(input.installmentId)) {
+    throw new HttpError(404, 'NOT_FOUND', 'Installment not found.');
+  }
+  const cn = await CreditNote.findById(creditNoteId);
+  if (!cn) {
+    throw new HttpError(404, 'CREDIT_NOTE_NOT_FOUND', 'Credit note not found.');
+  }
+  if (cn.consumed || cn.balancePaise <= 0) {
+    throw new HttpError(
+      409,
+      'CREDIT_NOTE_CONSUMED',
+      'Credit note already fully consumed.',
+    );
+  }
+  const inst = await FeeInstallment.findById(input.installmentId);
+  if (!inst) {
+    throw new HttpError(404, 'NOT_FOUND', 'Installment not found.');
+  }
+  if (!inst.studentId.equals(cn.studentId)) {
+    throw new HttpError(
+      409,
+      'CREDIT_NOTE_STUDENT_MISMATCH',
+      'Credit note belongs to a different student.',
+    );
+  }
+  const open = inst.amountPaise - inst.paidPaise;
+  if (open <= 0 || inst.status === 'paid' || inst.status === 'waived') {
+    throw new HttpError(
+      409,
+      'INSTALLMENT_ALREADY_PAID',
+      'Cannot apply a credit note to a paid or waived installment.',
+    );
+  }
+
+  // Default amount: min(remaining cn balance, open due). Caller can request
+  // a smaller partial amount; rejecting larger keeps allocation invariants
+  // intact.
+  const requested = input.amountPaise ?? Math.min(cn.balancePaise, open);
+  if (!Number.isFinite(requested) || requested <= 0) {
+    throw new HttpError(422, 'VALIDATION_FAILED', 'amountPaise must be > 0.');
+  }
+  if (requested > cn.balancePaise) {
+    throw new HttpError(
+      422,
+      'CREDIT_NOTE_OVERAPPLIED',
+      `Requested ${requested} exceeds credit-note balance ${cn.balancePaise}.`,
+    );
+  }
+  if (requested > open) {
+    throw new HttpError(
+      422,
+      'PAYMENT_OVERAPPLIED',
+      `Requested ${requested} exceeds open balance ${open}.`,
+    );
+  }
+
+  inst.paidPaise += requested;
+  if (inst.paidPaise >= inst.amountPaise) {
+    inst.status = 'paid';
+  } else if (inst.paidPaise > 0) {
+    inst.status = 'partial';
+  }
+  await inst.save();
+
+  const invoice = await Invoice.findById(inst.invoiceId);
+  if (invoice) {
+    invoice.paidPaise += requested;
+    invoice.balancePaise = Math.max(0, invoice.totalPaise - invoice.paidPaise);
+    invoice.status = invoice.balancePaise === 0 ? 'settled' : 'open';
+    await invoice.save();
+  }
+
+  cn.balancePaise -= requested;
+  const justConsumed = cn.balancePaise === 0;
+  if (justConsumed) cn.consumed = true;
+  await cn.save();
+
+  await recordAudit({
+    actorUserId: ctx.actorUserId,
+    action: 'fees.credit_note.applied',
+    targetType: 'CreditNote',
+    targetId: cn._id,
+    details: {
+      installmentId: inst._id.toString(),
+      invoiceId: inst.invoiceId.toString(),
+      amountPaise: requested,
+      remainingBalancePaise: cn.balancePaise,
+    },
+    ip: ctx.ip,
+    ua: ctx.ua,
+  });
+  if (justConsumed) {
+    await recordAudit({
+      actorUserId: ctx.actorUserId,
+      action: 'fees.credit_note.consumed',
+      targetType: 'CreditNote',
+      targetId: cn._id,
+      details: { totalAppliedPaise: cn.amountPaise },
+      ip: ctx.ip,
+      ua: ctx.ua,
+    });
+  }
+
+  // If applying the credit cleared the last overdue installment, this
+  // lifts the auto-suspension exactly the same way a fresh payment would.
+  await reconcileForStudent(cn.studentId, {
+    actorUserId: ctx.actorUserId,
+    audit: true,
+    ip: ctx.ip,
+    ua: ctx.ua,
+  });
+
+  return {
+    creditNote: cn,
+    appliedPaise: requested,
+    installmentId: inst._id,
+  };
+}
