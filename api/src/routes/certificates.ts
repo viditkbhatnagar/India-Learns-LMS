@@ -44,10 +44,18 @@ export function enrollmentCertificateAdminRouter(): Router {
     '/:id/issue-certificate',
     async (req: Request, res: Response, next: NextFunction) => {
       try {
+        // Q-M8-02 — accept `?force=1` (or `{ force: true }` in body) to
+        // force a real reissue. Without it, an already-issued enrolment
+        // gets the existing URL back (idempotent short-circuit).
+        const force =
+          req.query.force === '1' ||
+          req.query.force === 'true' ||
+          (req.body && req.body.force === true);
         const result = await issueForEnrollment({
           enrollmentId: req.params.id ?? '',
           actor: 'admin',
           actorUserId: req.auth!.user._id,
+          force,
         });
         res.status(result.reissued ? 200 : 201).json({
           data: { certificate: result.certificate, reissued: result.reissued },

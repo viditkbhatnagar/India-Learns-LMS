@@ -687,10 +687,10 @@ export const enrollmentsApi = {
     const res = await api.get<{ data: { enrollment: EnrollmentDto } }>(`/enrollments/${id}`);
     return res.data.data.enrollment;
   },
-  async issueCertificate(id: string) {
+  async issueCertificate(id: string, opts: { force?: boolean } = {}) {
     const res = await api.post<{ data: { certificate: CertificateDto; reissued: boolean } }>(
       `/enrollments/${id}/issue-certificate`,
-      {},
+      opts.force ? { force: true } : {},
     );
     return res.data.data;
   },

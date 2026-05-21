@@ -34,6 +34,13 @@ export interface IssueForEnrollmentInput {
   enrollmentId: Types.ObjectId | string;
   actor: 'listener' | 'admin';
   actorUserId?: Types.ObjectId | null;
+  // Q-M8-02 — Force a fresh issue even when `certificateUrl` is already
+  // set. Used when a course is republished after the original cert was
+  // issued and admin wants the certificate to reflect the new content.
+  // The current url + providerId are preserved on the audit row as
+  // `previousCertificateUrl` / `previousProviderId` before being cleared
+  // and re-issued through the adapter.
+  force?: boolean;
 }
 
 export interface IssueForEnrollmentResult {
@@ -85,8 +92,10 @@ export async function issueForEnrollment(
     throw new HttpError(500, 'INTERNAL', 'Enrolment references missing course or student.');
   }
 
-  // Idempotent short-circuit: if already issued, return existing row.
-  if (enrolment.certificateUrl) {
+  // Idempotent short-circuit: if already issued and not forcing, return
+  // the existing row. Listeners never force — only an explicit admin
+  // POST with ?force=1 (or { force: true }) gets to the re-issue path.
+  if (enrolment.certificateUrl && !(input.force && input.actor === 'admin')) {
     if (input.actor === 'admin') {
       await recordAudit({
         actorUserId: input.actorUserId ?? null,
@@ -103,6 +112,17 @@ export async function issueForEnrollment(
       certificate: toCertificateDto(enrolment, course.name),
       reissued: true,
     };
+  }
+
+  // Forced reissue path — capture the previous URL/provider for the audit
+  // row, then clear them so the adapter call below treats this like a fresh
+  // issuance. The new providerId / certificateUrl overwrite on success.
+  const previousCertificateUrl = input.force ? enrolment.certificateUrl : null;
+  const previousProviderId = input.force ? enrolment.certificateProviderId : null;
+  if (input.force) {
+    enrolment.certificateUrl = null;
+    enrolment.certificateProviderId = null;
+    enrolment.certificateIssuedAt = null;
   }
 
   const env = loadEnv();
@@ -140,6 +160,15 @@ export async function issueForEnrollment(
         providerId: result.providerId,
         certificateUrl: result.certificateUrl,
         courseName: course.name,
+        // Q-M8-02 — when forced, surface the displaced cert so an admin
+        // reviewing the audit trail can correlate "old cert" → "new cert".
+        ...(input.force
+          ? {
+              forced: true,
+              previousCertificateUrl,
+              previousProviderId,
+            }
+          : {}),
       },
     });
 
