@@ -1,4 +1,4 @@
-import { Readable } from 'node:stream';
+import type { Readable } from 'node:stream';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -60,10 +60,6 @@ function client(): S3Client {
       : {}),
   });
   return cachedClient;
-}
-
-function bucketName(): string {
-  return loadEnv().AWS_S3_BUCKET;
 }
 
 function urlForId(id: Types.ObjectId | string): string {

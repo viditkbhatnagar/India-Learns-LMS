@@ -1,6 +1,6 @@
-import { Readable } from 'node:stream';
+import type { Readable } from 'node:stream';
 import mongoose from 'mongoose';
-import { GridFSBucket, ObjectId, type Db } from 'mongodb';
+import { GridFSBucket, type Db, type ObjectId } from 'mongodb';
 import {
   HeadObjectCommand,
   PutObjectCommand,
