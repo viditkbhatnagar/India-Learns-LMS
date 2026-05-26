@@ -14,7 +14,9 @@ const UploadBody = z.object({
 export function storageRouter(): Router {
   const router = Router();
   router.use(requireAuth);
-  router.use(requireRole('admin', 'faculty'));
+  // Storage service-layer (requestUploadTicket) already enforces the
+  // admin/superadmin/faculty rule; the gate here is the coarse filter.
+  router.use(requireRole('admin', 'superadmin', 'faculty'));
 
   router.post(
     '/upload-url',

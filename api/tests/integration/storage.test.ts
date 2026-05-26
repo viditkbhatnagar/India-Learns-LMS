@@ -10,6 +10,7 @@ import {
   makeFaculty,
   makeProgram,
   makeStudent,
+  makeUser,
 } from '../helpers/factories.js';
 
 describe('POST /v1/storage/upload-url', () => {
@@ -107,5 +108,16 @@ describe('POST /v1/storage/upload-url', () => {
       .set(bearer(at))
       .send({ folder: 'course-pdfs', filename: 'x.pdf', contentType: 'application/pdf' });
     expect(res.status).toBe(403);
+  });
+
+  it('superadmin gets an upload ticket', async () => {
+    const sa = await makeUser({ role: 'superadmin', password: 'Super#12345' });
+    const at = await tokenFor(sa);
+    const res = await http()
+      .post('/v1/storage/upload-url')
+      .set(bearer(at))
+      .send({ folder: 'course-pdfs', filename: 'x.pdf', contentType: 'application/pdf' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.ticket.provider).toBe('stub');
   });
 });

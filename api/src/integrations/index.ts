@@ -72,15 +72,22 @@ function build(): Integrations {
     stub || !env.WHATSAPP_ENABLED
       ? new ConsoleWhatsAppAdapter()
       : new MetaWabaAdapter();
-  // Storage provider order:
-  //   1. INTEGRATIONS_MODE=stub or STORAGE_PROVIDER=stub → in-memory stub.
-  //   2. STORAGE_PROVIDER=s3 → AWS S3 (default; bytes in S3, metadata in
-  //      the FileMeta Mongo collection).
-  //   3. STORAGE_PROVIDER=mongo → legacy GridFS in the app's Atlas DB.
-  //   4. STORAGE_PROVIDER=cloudinary → Cloudinary CDN.
-  // S3 is the default once the bucket + AWS_* env vars are set.
+  // Storage is selected by STORAGE_PROVIDER alone — independent of the
+  // master INTEGRATIONS_MODE switch. This lets a UAT environment keep
+  // email/WhatsApp stubbed (INTEGRATIONS_MODE=stub) while still writing
+  // real bytes to S3 (STORAGE_PROVIDER=s3). Email + WhatsApp + Certifier
+  // remain gated by INTEGRATIONS_MODE because they have user-visible
+  // side effects (real messages to real students) that a UAT operator
+  // should opt into explicitly.
+  //
+  // Provider order:
+  //   STORAGE_PROVIDER=stub       → in-memory stub.
+  //   STORAGE_PROVIDER=s3         → AWS S3 (default; bytes in S3,
+  //                                 metadata in FileMeta).
+  //   STORAGE_PROVIDER=mongo      → legacy GridFS in the app's Atlas DB.
+  //   STORAGE_PROVIDER=cloudinary → Cloudinary CDN.
   const storage: StorageAdapter =
-    stub || env.STORAGE_PROVIDER === 'stub'
+    env.STORAGE_PROVIDER === 'stub'
       ? new ConsoleStorageAdapter()
       : env.STORAGE_PROVIDER === 's3'
         ? new S3StorageAdapter()

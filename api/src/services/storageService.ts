@@ -52,8 +52,10 @@ export async function requestUploadTicket(
     filename: input.filename,
     contentType: input.contentType,
   });
+  // Storage is decoupled from INTEGRATIONS_MODE — see api/src/integrations/index.ts
+  // for the rationale.
   const provider: StorageUploadTicketResponse['provider'] =
-    env.INTEGRATIONS_MODE === 'stub' || env.STORAGE_PROVIDER === 'stub'
+    env.STORAGE_PROVIDER === 'stub'
       ? 'stub'
       : env.STORAGE_PROVIDER === 's3'
         ? 's3'
