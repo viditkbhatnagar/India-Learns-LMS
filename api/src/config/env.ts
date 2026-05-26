@@ -28,16 +28,30 @@ const EnvSchema = z.object({
   META_WABA_PHONE_ID: z.string().optional().default(''),
   META_WABA_ACCESS_TOKEN: z.string().optional().default(''),
 
-  // M10q — Three providers now. `mongo` writes files to GridFS in the
-  // same Atlas cluster the rest of the app uses; pick this when you
-  // don't have Cloudinary keys yet. `cloudinary` stays the long-term
-  // recommendation once volume grows (it has a CDN + transformations).
-  // Default flipped to `mongo` so production storage Just Works the
-  // moment Atlas is connected.
-  STORAGE_PROVIDER: z.enum(['cloudinary', 'mongo', 'stub']).default('mongo'),
+  // Storage providers, in order of preference for production:
+  //   s3         → AWS S3 (default; bucket in ap-south-1 for DPDP alignment)
+  //   mongo      → GridFS in the app's Atlas cluster (legacy; pre-S3 default)
+  //   cloudinary → CDN with transformations (kept for optional flip)
+  //   stub       → in-memory, used by tests and INTEGRATIONS_MODE=stub
+  STORAGE_PROVIDER: z.enum(['s3', 'cloudinary', 'mongo', 'stub']).default('s3'),
   CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
   CLOUDINARY_API_KEY: z.string().optional().default(''),
   CLOUDINARY_API_SECRET: z.string().optional().default(''),
+
+  // AWS S3 (production file storage). Region is fixed to ap-south-1 by
+  // default to match the Atlas cluster's region and DPDP Act 2023
+  // data-residency alignment (CLAUDE.md §3). The SDK reads keys from
+  // AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY env vars automatically;
+  // we accept them here so loadEnv() can validate they exist when
+  // STORAGE_PROVIDER=s3.
+  AWS_REGION: z.string().default('ap-south-1'),
+  AWS_S3_BUCKET: z.string().optional().default(''),
+  AWS_ACCESS_KEY_ID: z.string().optional().default(''),
+  AWS_SECRET_ACCESS_KEY: z.string().optional().default(''),
+  // Optional override for S3-compatible providers (MinIO, LocalStack) in tests.
+  AWS_S3_ENDPOINT: z.string().optional().default(''),
+  // Signed-URL TTL for direct browser downloads (presigned GET).
+  AWS_S3_SIGNED_URL_TTL_SEC: z.coerce.number().int().positive().default(300),
 
   CERTIFIER_ENABLED: z
     .string()
