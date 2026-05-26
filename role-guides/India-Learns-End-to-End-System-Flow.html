@@ -1,0 +1,1105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>India Learns LMS — End-to-End System Flow</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --navy: #132B5E;
+    --orange: #F28C2C;
+    --cream: #FAF6EE;
+    --ink: #1A1A1A;
+    --muted: #5C5C5C;
+    --rule: #D8D2C4;
+    --pale-navy: #E3E8F5;
+    --soft-green: #E8F5E9;
+    --soft-orange: #FFF3E0;
+    --soft-red: #FFEBEE;
+    --soft-blue: #E1F5FE;
+    --soft-purple: #F3E5F5;
+    --success: #2E7D32;
+    --draft: #F9A825;
+    --danger: #C62828;
+    --light-bg: #F4F4F4;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Calibri, Arial, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    line-height: 1.55;
+    font-size: 15px;
+  }
+
+  /* Layout */
+  .wrap { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+  nav.toc {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: var(--navy); color: #fff; padding: 24px 18px; font-size: 13px;
+  }
+  nav.toc .brand { color: var(--orange); font-weight: 700; font-size: 11px; letter-spacing: 0.08em; margin-bottom: 8px; }
+  nav.toc h1 { margin: 0 0 18px; font-size: 18px; color: #fff; }
+  nav.toc a {
+    display: block; color: #fff; text-decoration: none; padding: 6px 10px;
+    border-left: 3px solid transparent; margin: 1px 0;
+  }
+  nav.toc a:hover { background: rgba(255,255,255,0.08); border-left-color: var(--orange); }
+  nav.toc .group { color: var(--orange); font-weight: 700; font-size: 10px; letter-spacing: 0.1em; margin: 14px 0 4px 10px; text-transform: uppercase; }
+
+  main { padding: 36px 56px 80px; max-width: 1100px; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, var(--navy) 0%, #1d4099 100%);
+    color: #fff; padding: 48px; border-radius: 14px; margin-bottom: 36px;
+  }
+  .hero .kicker { color: var(--orange); font-weight: 700; font-size: 13px; letter-spacing: 0.1em; }
+  .hero h1 { font-size: 40px; margin: 12px 0 8px; line-height: 1.1; }
+  .hero p { font-size: 17px; max-width: 720px; opacity: 0.92; }
+  .hero .pills { margin-top: 18px; }
+  .hero .pill {
+    display: inline-block; background: rgba(255,255,255,0.14); color: #fff;
+    padding: 5px 12px; border-radius: 20px; font-size: 12px; margin-right: 6px;
+  }
+
+  /* Section */
+  section { margin: 56px 0; scroll-margin-top: 16px; }
+  section > h2 {
+    color: var(--navy); font-size: 28px; margin: 0 0 6px;
+    padding-bottom: 8px; border-bottom: 4px solid var(--orange);
+    display: inline-block;
+  }
+  section > .lede { color: var(--muted); font-size: 16px; margin: 0 0 24px; }
+  h3 { color: var(--navy); font-size: 19px; margin: 28px 0 8px; }
+  h4 { color: var(--orange); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; margin: 16px 0 6px; }
+
+  /* Diagram container */
+  .diagram {
+    background: var(--cream); border: 1px solid var(--rule);
+    border-radius: 10px; padding: 18px; margin: 14px 0 22px; overflow-x: auto;
+  }
+  .diagram .label {
+    font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 6px;
+  }
+
+  /* Role cards */
+  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 16px 0; }
+  .role {
+    border: 1px solid var(--rule); border-radius: 10px; padding: 16px;
+    background: #fff; display: flex; flex-direction: column; gap: 6px;
+  }
+  .role .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 14px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.05em; color: #fff; width: fit-content;
+  }
+  .role h4 { color: var(--navy); font-size: 16px; margin: 0; text-transform: none; letter-spacing: 0; }
+  .role p { margin: 0; font-size: 13px; color: var(--muted); }
+  .role.admin .badge { background: #5E35B1; }
+  .role.superadmin .badge { background: #283593; }
+  .role.finance .badge { background: #00897B; }
+  .role.faculty .badge { background: var(--orange); }
+  .role.student .badge { background: #1565C0; }
+
+  /* Capability tables */
+  table.cap {
+    width: 100%; border-collapse: collapse; margin: 14px 0 22px; font-size: 13px;
+  }
+  table.cap th, table.cap td {
+    text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top;
+  }
+  table.cap th { background: var(--pale-navy); color: var(--navy); font-size: 12px; }
+  table.cap td.yes { color: var(--success); font-weight: 700; }
+  table.cap td.no { color: var(--muted); }
+
+  /* Callout */
+  .callout {
+    border-left: 4px solid var(--orange);
+    background: var(--soft-orange);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0;
+    font-size: 14px;
+  }
+  .callout strong { color: var(--navy); }
+  .callout.success { border-color: var(--success); background: var(--soft-green); }
+  .callout.danger { border-color: var(--danger); background: var(--soft-red); }
+  .callout.info { border-color: #1565C0; background: var(--soft-blue); }
+
+  /* Step cards */
+  .steps { display: grid; gap: 10px; margin: 14px 0; }
+  .step {
+    display: grid; grid-template-columns: 36px 1fr; gap: 14px; align-items: start;
+    padding: 12px 14px; border: 1px solid var(--rule); border-radius: 8px; background: #fff;
+  }
+  .step .num {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--navy);
+    color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 14px;
+  }
+  .step strong { color: var(--navy); display: block; margin-bottom: 2px; }
+
+  /* Tags */
+  .tag {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px;
+    background: var(--light-bg); color: var(--muted); margin-right: 4px; vertical-align: middle;
+  }
+  .tag.admin { background: #EDE7F6; color: #5E35B1; }
+  .tag.superadmin { background: #E8EAF6; color: #283593; }
+  .tag.finance { background: #E0F2F1; color: #00897B; }
+  .tag.faculty { background: var(--soft-orange); color: var(--orange); }
+  .tag.student { background: var(--soft-blue); color: #1565C0; }
+  .tag.system { background: #F5F5F5; color: var(--muted); }
+
+  /* Print */
+  @media print {
+    .wrap { grid-template-columns: 1fr; }
+    nav.toc { display: none; }
+    main { padding: 20px; max-width: 100%; }
+    section { page-break-inside: avoid; margin: 28px 0; }
+    .hero { background: var(--navy) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+
+  code {
+    background: var(--light-bg); padding: 1px 6px; border-radius: 3px;
+    font-family: "SF Mono", Consolas, Monaco, monospace; font-size: 13px; color: var(--navy);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="toc">
+  <div class="brand">INDIA LEARNS LMS</div>
+  <h1>End-to-End System Flow</h1>
+
+  <div class="group">Overview</div>
+  <a href="#big-picture">1. The big picture</a>
+  <a href="#cast">2. Cast of characters</a>
+  <a href="#capabilities">3. Who can do what</a>
+
+  <div class="group">Course lifecycle</div>
+  <a href="#phase1-authoring">4. Authoring in Curriculum Generator</a>
+  <a href="#phase2-import">5. Import into LMS</a>
+  <a href="#phase3-admin-setup">6. Admin setup & assignment</a>
+  <a href="#phase4-publish">7. Sandbox → Published</a>
+
+  <div class="group">Operations</div>
+  <a href="#phase5-faculty">8. Faculty teaching workflow</a>
+  <a href="#phase6-student">9. Student learning workflow</a>
+  <a href="#phase7-grading">10. Grading workflow</a>
+  <a href="#phase8-attendance">11. Attendance & completion</a>
+
+  <div class="group">Business processes</div>
+  <a href="#phase9-fees">12. Fees lifecycle</a>
+  <a href="#phase10-tickets">13. Tickets & SLA</a>
+  <a href="#phase11-feedback">14. Feedback &amp; assessments</a>
+  <a href="#phase12-certificates">15. Completion &amp; certificates</a>
+
+  <div class="group">Cross-cutting</div>
+  <a href="#cross-notifications">16. Notifications</a>
+  <a href="#cross-audit">17. Audit & oversight</a>
+
+  <div class="group">State machines</div>
+  <a href="#states-all">18. All state machines</a>
+  <a href="#glossary">19. Glossary</a>
+</nav>
+
+<main>
+
+<div class="hero">
+  <div class="kicker">END-TO-END SYSTEM REFERENCE</div>
+  <h1>India Learns LMS — How everything fits together</h1>
+  <p>From a Subject-Matter Expert writing curriculum to a student receiving their final certificate.
+     One document, one path through the system, every role explained, every state shown.</p>
+  <div class="pills">
+    <span class="pill">5 roles</span>
+    <span class="pill">12 lifecycle phases</span>
+    <span class="pill">6 state machines</span>
+    <span class="pill">15+ flow charts</span>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<section id="big-picture">
+  <h2>1. The big picture — a course from zero to certificate</h2>
+  <p class="lede">Every course in India Learns travels the same path. Here it is, end to end.</p>
+
+  <div class="diagram">
+    <div class="label">High-level course lifecycle (all roles)</div>
+<pre class="mermaid">
+flowchart LR
+  classDef sme fill:#E1F5FE,stroke:#1565C0,color:#0D47A1
+  classDef admin fill:#EDE7F6,stroke:#5E35B1,color:#311B92
+  classDef faculty fill:#FFF3E0,stroke:#F28C2C,color:#E65100
+  classDef student fill:#E1F5FE,stroke:#1565C0,color:#0D47A1
+  classDef system fill:#F5F5F5,stroke:#9E9E9E,color:#424242
+
+  A[SME submits<br/>Excel template]:::sme
+  B[Curriculum Generator<br/>13-step AI workflow]:::system
+  C[Workflow approved]:::admin
+  D[Admin imports<br/>to LMS]:::admin
+  E[Course created<br/>state: Sandbox]:::admin
+  F[Admin creates<br/>Batch + Cohort]:::admin
+  G[Admin assigns<br/>Faculty]:::admin
+  H[Admin enrols<br/>Students]:::admin
+  I[Faculty reviews<br/>content in sandbox]:::faculty
+  J[Admin flips<br/>to Published]:::admin
+  K[Students see<br/>course on dashboard]:::student
+  L[Faculty teaches<br/>sessions]:::faculty
+  M[Students attend<br/>+ submit work]:::student
+  N[Faculty grades<br/>two-step flow]:::faculty
+  O[Course completion<br/>auto-detected]:::system
+  P[Certificate<br/>issued]:::system
+
+  A --> B --> C --> D --> E
+  E --> F --> G --> H --> I --> J
+  J --> K --> L
+  L --> M --> N
+  N --> O --> P
+</pre>
+  </div>
+
+  <div class="callout info">
+    <strong>Reading the diagram:</strong> blue = curriculum/system, purple = admin actions, orange = faculty actions, light blue = student actions. The flow is mostly linear, but in practice many sessions run in parallel — faculty are teaching Module 2 while students are still submitting Module 1 assignments.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="cast">
+  <h2>2. Cast of characters — the five roles</h2>
+  <p class="lede">India Learns has five distinct roles. Each sees a different dashboard and has different powers.</p>
+
+  <div class="roles">
+    <div class="role superadmin">
+      <span class="badge">SUPER ADMIN</span>
+      <h4>Super Admin</h4>
+      <p>System owner. Full read access everywhere — including faculty private notes via oversight. Creates Admin accounts. Configures the whole tenant.</p>
+    </div>
+    <div class="role admin">
+      <span class="badge">ADMIN</span>
+      <h4>Admin</h4>
+      <p>The operator. Creates courses, batches, programs. Enrols students. Assigns faculty. Resolves tickets. Has rights to undo past 7-day windows.</p>
+    </div>
+    <div class="role finance">
+      <span class="badge">FINANCE</span>
+      <h4>Finance</h4>
+      <p>Money mover. Records payments, generates receipts, tracks fee installments, triggers suspensions when invoices go unpaid past warnings.</p>
+    </div>
+    <div class="role faculty">
+      <span class="badge">FACULTY</span>
+      <h4>Faculty (Teacher)</h4>
+      <p>Daily teaching. Takes attendance. Runs sessions. Grades assignments. Provides feedback. Cannot create courses, only teach what's assigned.</p>
+    </div>
+    <div class="role student">
+      <span class="badge">STUDENT</span>
+      <h4>Student</h4>
+      <p>The learner. Sees published courses on their dashboard. Attends classes (marked by faculty), submits assignments, views grades after publish.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="capabilities">
+  <h2>3. Who can do what — the permissions matrix</h2>
+  <p class="lede">At a glance: every major action, every role.</p>
+
+  <table class="cap">
+    <thead>
+      <tr><th>Action</th><th>Super Admin</th><th>Admin</th><th>Finance</th><th>Faculty</th><th>Student</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Create / edit a course</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Import curriculum from Generator</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Create batch / cohort</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Assign faculty to a course</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Enrol a student</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Flip Sandbox → Published</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Take attendance</td><td class="yes">✓ oversight</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td></tr>
+      <tr><td>Mark session complete</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td></tr>
+      <tr><td>Grade an assignment</td><td class="yes">✓ oversight</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td></tr>
+      <tr><td>Publish a grade</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td></tr>
+      <tr><td>Submit assignment</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+      <tr><td>Record a payment</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Generate receipt</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Suspend a student</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓ auto</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Raise a ticket</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+      <tr><td>Resolve a ticket</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓ finance</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>View other faculty's private notes</td><td class="yes">✓ oversight</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td>Export reports / CSV</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓ finance</td><td class="yes">✓ own</td><td class="no">—</td></tr>
+      <tr><td>Issue certificates</td><td class="yes">✓ auto</td><td class="yes">✓ auto</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase1-authoring">
+  <h2>4. Phase 1 — Authoring in the Curriculum Generator</h2>
+  <p class="lede">Before a course exists in the LMS, it's built in the Curriculum Generator — an AI-assisted authoring tool that converts a Subject-Matter Expert's outline into a complete 13-step course package.</p>
+
+  <h3>Who's involved</h3>
+  <div class="roles">
+    <div class="role admin"><span class="badge">SME</span><h4>Subject-Matter Expert</h4><p>An industry expert. Fills in the Excel template that seeds the workflow.</p></div>
+    <div class="role admin"><span class="badge">CURRICULUM LEAD</span><h4>Curriculum Lead</h4><p>Reviews AI output between steps. Edits where AI got it wrong. Approves to advance.</p></div>
+    <div class="role admin"><span class="badge">AI</span><h4>OpenAI (via Generator)</h4><p>Generates content for each step using RAG over an approved knowledge base.</p></div>
+  </div>
+
+  <h3>The 13-step workflow</h3>
+  <div class="diagram">
+    <div class="label">Curriculum Generator — 13 steps</div>
+<pre class="mermaid">
+flowchart TB
+  classDef step fill:#E1F5FE,stroke:#1565C0,color:#0D47A1
+  classDef gate fill:#FFF3E0,stroke:#F28C2C,color:#E65100
+
+  S1[Step 1<br/>Program Foundation]:::step
+  S2[Step 2<br/>Competency &amp; KSA Framework]:::step
+  S3[Step 3<br/>Program Learning Outcomes]:::step
+  S4[Step 4<br/>Course Framework &amp; MLOs]:::step
+  S5[Step 5<br/>Topic-Level Sources]:::step
+  S6[Step 6<br/>Reading Lists]:::step
+  S7[Step 7<br/>Auto-Gradable Assessments]:::step
+  S8[Step 8<br/>Case Studies]:::step
+  S9[Step 9<br/>Glossary]:::step
+  S10[Step 10<br/>Lesson Plans]:::step
+  S11[Step 11<br/>PowerPoint Decks]:::step
+  S12[Step 12<br/>Assignment Packs]:::step
+  S13[Step 13<br/>Summative Exam]:::step
+  REVIEW{Lead review<br/>at each step}:::gate
+  DONE[Workflow ready<br/>for export]:::gate
+
+  S1 --> REVIEW --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11 --> S12 --> S13 --> DONE
+</pre>
+  </div>
+
+  <div class="callout info">
+    <strong>Key tech detail:</strong> Steps 10, 11, 12 are queued module-by-module (one Bull queue per step). A 6-module course generates assignment packs for module 1 first, then auto-chains to module 2, etc. This means a course gets ready in waves, not all at once.
+  </div>
+
+  <h3>Output of Phase 1</h3>
+  <p>A <code>CurriculumWorkflow</code> document in MongoDB with all 13 step outputs. The Generator does NOT push to the LMS automatically — Admin pulls it in (next phase).</p>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase2-import">
+  <h2>5. Phase 2 — Import into the LMS</h2>
+  <p class="lede">Admin uses the LMS's "Import from Curriculum Generator" feature to pull an approved workflow into a new course.</p>
+
+  <h3>The import flow</h3>
+  <div class="diagram">
+    <div class="label">Curriculum Generator → LMS handoff</div>
+<pre class="mermaid">
+sequenceDiagram
+  participant Admin
+  participant LMS
+  participant Gen as Curriculum Generator
+  participant DB as MongoDB
+
+  Admin->>LMS: Click "Import from Generator"
+  LMS->>Gen: GET /workflow/:id
+  Gen-->>LMS: Full workflow JSON (steps 1-13)
+  LMS->>LMS: Transform &amp; dedupe<br/>(modules, sessions, materials)
+  LMS->>DB: Create Course (state=Sandbox)
+  LMS->>DB: Create Modules, Sessions
+  LMS->>DB: Attach materials (PDFs, decks)
+  LMS->>DB: Create Assignments<br/>(from step 12)
+  LMS->>DB: Write Audit log entry
+  LMS-->>Admin: Course created<br/>(Sandbox state)
+</pre>
+  </div>
+
+  <h3>What gets created</h3>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div><strong>Course shell</strong>The Course document with title, code (e.g. AVI-101), <code>state: "sandbox"</code>, and a reference back to the source workflow ID.</div></div>
+    <div class="step"><div class="num">2</div><div><strong>Modules</strong>One per logical grouping — built from Step 4's MLOs (Module Learning Outcomes).</div></div>
+    <div class="step"><div class="num">3</div><div><strong>Sessions</strong>One per lesson plan from Step 10. Includes description, duration, materials.</div></div>
+    <div class="step"><div class="num">4</div><div><strong>Materials</strong>PPT decks from Step 11 attached to their respective sessions.</div></div>
+    <div class="step"><div class="num">5</div><div><strong>Assignments</strong>One per assignment pack from Step 12. Each has its own variant (self-study / hybrid / in-person).</div></div>
+    <div class="step"><div class="num">6</div><div><strong>Auto-generated sessions</strong>A final assessment session is auto-added at the end of the course, sourced from Step 13.</div></div>
+  </div>
+
+  <div class="callout danger">
+    <strong>Important constraint:</strong> Faculty and students cannot see the course yet. <code>state: "sandbox"</code> hides it from everyone except Admin and assigned reviewers.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase3-admin-setup">
+  <h2>6. Phase 3 — Admin setup &amp; assignment</h2>
+  <p class="lede">Admin now configures the course for actual delivery — creating a batch, assigning faculty, enrolling students.</p>
+
+  <h3>The setup flow</h3>
+  <div class="diagram">
+    <div class="label">Admin setup of an imported course</div>
+<pre class="mermaid">
+flowchart TD
+  classDef admin fill:#EDE7F6,stroke:#5E35B1,color:#311B92
+  classDef sys fill:#F5F5F5,stroke:#9E9E9E,color:#424242
+
+  A[Open course<br/>in Sandbox]:::admin
+  B[Set fee structure<br/>installments &amp; due dates]:::admin
+  C[Create Batch / Cohort<br/>name, start date, capacity]:::admin
+  D[Set weekly timetable<br/>recurring slots]:::admin
+  E[Assign Faculty<br/>by email lookup]:::admin
+  F[Faculty notified<br/>via email + in-app]:::sys
+  G[Enrol Students<br/>individually or CSV]:::admin
+  H[Magic-link invite<br/>sent to each]:::sys
+  I[Students set password<br/>land on dashboard]:::sys
+
+  A --> B --> C --> D --> E --> F --> G --> H --> I
+</pre>
+  </div>
+
+  <h3>Faculty assignment — what happens</h3>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div><strong>Admin types faculty email</strong>System looks up the user. If they don't exist, admin must create the faculty account first.</div></div>
+    <div class="step"><div class="num">2</div><div><strong>Role &amp; scope confirmed</strong>Admin confirms this person has the Faculty role and assigns them to <em>this specific course in this specific batch</em>.</div></div>
+    <div class="step"><div class="num">3</div><div><strong>Audit log entry</strong>The assignment is logged with timestamp, actor, target. Visible to Super Admin.</div></div>
+    <div class="step"><div class="num">4</div><div><strong>Faculty sees the course</strong>Next time the faculty logs in, the course appears in "My Courses" with state "Sandbox".</div></div>
+    <div class="step"><div class="num">5</div><div><strong>Faculty cannot teach yet</strong>Sandbox means students can't see it. Faculty can review/prepare but no attendance, no grading.</div></div>
+  </div>
+
+  <h3>Student enrolment — what happens</h3>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div><strong>Admin enrols (individually or via CSV)</strong>Each student row needs: name, email, phone, program, batch.</div></div>
+    <div class="step"><div class="num">2</div><div><strong>Student gets a code</strong>Auto-generated: <code>IL-2026-0001</code>, <code>IL-2026-0002</code>, …</div></div>
+    <div class="step"><div class="num">3</div><div><strong>Enrolment record created</strong>Links Student ↔ Batch ↔ Course with validity dates.</div></div>
+    <div class="step"><div class="num">4</div><div><strong>Fee invoice generated</strong>Based on the fee structure set in step B above. Splits into installments per schedule.</div></div>
+    <div class="step"><div class="num">5</div><div><strong>Magic-link invite email</strong>Sent to the student's email. Link valid for 7 days.</div></div>
+    <div class="step"><div class="num">6</div><div><strong>Student sets password &amp; lands</strong>Student dashboard opens. But: until course is Published, course list is empty for them.</div></div>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase4-publish">
+  <h2>7. Phase 4 — Sandbox → Published</h2>
+  <p class="lede">The state flip that turns a course live.</p>
+
+  <div class="diagram">
+    <div class="label">Course state machine</div>
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Sandbox: Admin imports / creates
+  Sandbox --> Sandbox: Faculty reviews,<br/>edits order,<br/>fixes typos
+  Sandbox --> Published: Admin clicks "Publish"<br/>(confirmation dialog)
+  Published --> Published: Live teaching<br/>attendance, grading
+  Published --> Archived: Course end-date<br/>auto-archive
+  Archived --> [*]
+</pre>
+  </div>
+
+  <h3>Before publishing, Admin checks</h3>
+  <ul>
+    <li>Faculty has reviewed all sessions and confirmed the content is correct.</li>
+    <li>Timetable is set — students need to know when class meets.</li>
+    <li>Fee structure is set — students will see their invoice.</li>
+    <li>All enrolled students have set their password (or at least have the invite).</li>
+    <li>The first session's materials (deck, PDF) actually open in the slide viewer.</li>
+  </ul>
+
+  <h3>What happens at the moment of publish</h3>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div><strong>Admin clicks Publish</strong>Confirmation dialog: "This will make the course visible to all enrolled students. Continue?"</div></div>
+    <div class="step"><div class="num">2</div><div><strong>State flips in MongoDB</strong><code>course.state = "published"</code> + audit log entry.</div></div>
+    <div class="step"><div class="num">3</div><div><strong>Notifications fire</strong>Each enrolled student gets an email + in-app + WhatsApp: "Your course X is now live."</div></div>
+    <div class="step"><div class="num">4</div><div><strong>Faculty's dashboard updates</strong>Course badge changes from "Sandbox" to "Published". Attendance + grading now work.</div></div>
+    <div class="step"><div class="num">5</div><div><strong>Students see the course</strong>Next dashboard load: course appears with module list, first session highlighted.</div></div>
+  </div>
+
+  <div class="callout success">
+    <strong>Reversible?</strong> Yes — Admin can flip back to Sandbox, but students lose access until re-published. Not recommended once teaching has started. Use only if a major content issue is found.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase5-faculty">
+  <h2>8. Phase 5 — Faculty teaching workflow</h2>
+  <p class="lede">The day-to-day. Faculty's loop from "class starts" to "session complete".</p>
+
+  <div class="diagram">
+    <div class="label">Faculty's per-session workflow</div>
+<pre class="mermaid">
+flowchart TD
+  classDef faculty fill:#FFF3E0,stroke:#F28C2C,color:#E65100
+  classDef sys fill:#F5F5F5,stroke:#9E9E9E,color:#424242
+  classDef student fill:#E1F5FE,stroke:#1565C0,color:#0D47A1
+
+  A[Faculty signs in]:::faculty
+  B[Dashboard shows<br/>This Week card]:::sys
+  C[Click today's class]:::faculty
+  D[Session detail opens]:::sys
+  E[Click Open viewer<br/>flip slides]:::faculty
+  F[Take attendance<br/>toggle exceptions]:::faculty
+  G[Click Save attendance]:::faculty
+  H[Mark Complete button<br/>now enabled]:::sys
+  I[Click Mark Complete]:::faculty
+  J[Session = Done]:::sys
+  K[Student dashboard<br/>shows green tick]:::student
+  L[7-day undo<br/>banner appears]:::sys
+
+  A --> B --> C --> D --> E --> F --> G --> H --> I --> J --> K
+  J --> L
+</pre>
+  </div>
+
+  <h3>Faculty's capabilities</h3>
+  <ul>
+    <li><span class="tag faculty">view</span> Sessions, materials, assignment briefs.</li>
+    <li><span class="tag faculty">do</span> Take attendance, mark sessions complete (with 7-day undo).</li>
+    <li><span class="tag faculty">do</span> Drag-reorder sessions within or across modules (non-final sessions only).</li>
+    <li><span class="tag faculty">do</span> Grade submissions — save as draft, refine, publish.</li>
+    <li><span class="tag faculty">do</span> Write private notes per session (faculty-only, except oversight).</li>
+    <li><span class="tag faculty">do</span> Raise tickets, message students via ticket replies.</li>
+  </ul>
+
+  <h3>Faculty's restrictions</h3>
+  <ul>
+    <li><span class="tag system">no</span> Cannot change course content (descriptions, slides, assignments — those come from curriculum).</li>
+    <li><span class="tag system">no</span> Cannot add new sessions or assignments.</li>
+    <li><span class="tag system">no</span> Cannot flip Sandbox/Published — that's admin only.</li>
+    <li><span class="tag system">no</span> Cannot see other faculty's courses or private notes.</li>
+    <li><span class="tag system">no</span> Cannot enrol or suspend students.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase6-student">
+  <h2>9. Phase 6 — Student learning workflow</h2>
+  <p class="lede">The student's experience from invite email to certificate.</p>
+
+  <div class="diagram">
+    <div class="label">Student journey through a course</div>
+<pre class="mermaid">
+flowchart TD
+  classDef student fill:#E1F5FE,stroke:#1565C0,color:#0D47A1
+  classDef sys fill:#F5F5F5,stroke:#9E9E9E,color:#424242
+
+  A[Get magic-link email]:::sys
+  B[Click link, set password]:::student
+  C[Dashboard with<br/>course cards]:::sys
+  D[Click into a course]:::student
+  E[See module → session tree]:::sys
+  F[Open a session]:::student
+  G[View materials<br/>read description]:::student
+  H{Attend class<br/>in person}:::student
+  I[Faculty marks<br/>attendance]:::sys
+  J[Open assignment]:::student
+  K[Submit response<br/>+ attach files]:::student
+  L[State = submitted<br/>awaiting feedback]:::sys
+  M{Wait for<br/>grade publish}
+  N[Notification:<br/>grade published]:::sys
+  O[View score<br/>+ feedback]:::student
+  P[Continue through<br/>all sessions]:::student
+  Q[Final assessment]:::student
+  R[Course completion<br/>auto-detected]:::sys
+  S[Certificate issued<br/>+ emailed]:::sys
+
+  A --> B --> C --> D --> E --> F --> G --> H --> I
+  G --> J --> K --> L --> M --> N --> O
+  O --> P --> Q --> R --> S
+</pre>
+  </div>
+
+  <h3>Student capabilities</h3>
+  <ul>
+    <li><span class="tag student">view</span> Their courses, modules, sessions, materials.</li>
+    <li><span class="tag student">view</span> Their attendance %, grades, feedback (after publish only).</li>
+    <li><span class="tag student">view</span> Their fee invoice, payment history, receipts.</li>
+    <li><span class="tag student">view</span> Their timetable, certificates earned.</li>
+    <li><span class="tag student">do</span> Submit assignments, resubmit if window open.</li>
+    <li><span class="tag student">do</span> Raise tickets (Academic / Technical / Finance / Complaint).</li>
+    <li><span class="tag student">do</span> Update profile, change password.</li>
+  </ul>
+
+  <h3>What students CANNOT see</h3>
+  <ul>
+    <li><span class="tag system">hidden</span> Other students' grades or attendance.</li>
+    <li><span class="tag system">hidden</span> Faculty's private notes.</li>
+    <li><span class="tag system">hidden</span> Draft grades — only published grades are visible.</li>
+    <li><span class="tag system">hidden</span> Sandbox courses (until Published).</li>
+    <li><span class="tag system">hidden</span> Admin/Finance dashboards.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase7-grading">
+  <h2>10. Phase 7 — Grading workflow (the two-step flow)</h2>
+  <p class="lede">India Learns's grading is deliberately two-step: faculty save drafts privately, then publish when ready. Editing a published grade auto-reverts it to draft.</p>
+
+  <div class="diagram">
+    <div class="label">Submission state machine</div>
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> NotStarted: Assignment created
+  NotStarted --> Submitted: Student submits
+  Submitted --> Submitted: Resubmit<br/>(if window open)
+  Submitted --> GradedDraft: Faculty saves draft
+  GradedDraft --> GradedDraft: Faculty edits<br/>(score / feedback)
+  GradedDraft --> Published: Faculty clicks Publish
+  Published --> GradedDraft: Faculty edits<br/>(auto-revert)
+  Published --> [*]: End of course
+  Submitted --> Missing: Past due, no submission
+  Missing --> Submitted: Late submission accepted
+</pre>
+  </div>
+
+  <h3>Grading sequence — one student, one assignment</h3>
+  <div class="diagram">
+    <div class="label">Grading sequence</div>
+<pre class="mermaid">
+sequenceDiagram
+  participant Student
+  participant LMS
+  participant Faculty
+  participant N as Notification Service
+
+  Student->>LMS: Submit assignment (text + files)
+  LMS->>LMS: state = submitted
+  LMS->>N: Notify faculty (in-app)
+  Faculty->>LMS: Open grading screen
+  Faculty->>LMS: Score: 17 / 20<br/>Feedback: "Solid work…"
+  Faculty->>LMS: Click "Save draft"
+  LMS->>LMS: state = graded_draft<br/>(invisible to student)
+  Faculty->>LMS: Reopen, edit score → 18
+  Faculty->>LMS: Click "Publish"
+  LMS->>LMS: state = published
+  LMS->>N: Notify student (email + WA + in-app)
+  Student->>LMS: View grade + feedback
+</pre>
+  </div>
+
+  <div class="callout">
+    <strong>Why two steps?</strong> Forces a deliberate "I'm sure" moment before a grade goes visible. Faculty can refine privately as many times as they want. No accidental sends.
+  </div>
+
+  <h3>Bulk publish</h3>
+  <p>From the gradebook, faculty can select multiple draft rows and bulk-publish in one action. One audit log entry per row. Notifications fire for each student.</p>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase8-attendance">
+  <h2>11. Phase 8 — Attendance &amp; session completion</h2>
+  <p class="lede">The faculty's daily ritual.</p>
+
+  <div class="diagram">
+    <div class="label">Session lifecycle</div>
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> NotStarted: Session created at import
+  NotStarted --> InProgress: First attendance saved
+  InProgress --> InProgress: More attendance edits
+  InProgress --> Complete: Faculty marks complete
+  Complete --> InProgress: Undo within 7 days
+  Complete --> Locked: 7 days pass
+  Locked --> InProgress: Admin override only
+  Complete --> [*]
+  Locked --> [*]
+</pre>
+  </div>
+
+  <div class="diagram">
+    <div class="label">Attendance — statuses and their meaning</div>
+<pre class="mermaid">
+flowchart LR
+  classDef present fill:#E8F5E9,stroke:#2E7D32,color:#1B5E20
+  classDef late fill:#FFF3E0,stroke:#F9A825,color:#E65100
+  classDef absent fill:#FFEBEE,stroke:#C62828,color:#B71C1C
+  classDef excused fill:#F5F5F5,stroke:#9E9E9E,color:#424242
+
+  P[Present<br/>full session attended<br/>counts towards %]:::present
+  L[Late<br/>partial attendance<br/>counts towards %]:::late
+  A[Absent<br/>did not attend<br/>counts AGAINST %]:::absent
+  E[Excused<br/>pre-approved<br/>NEUTRAL — does not count]:::excused
+</pre>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase9-fees">
+  <h2>12. Phase 9 — Fees lifecycle</h2>
+  <p class="lede">From admission fee to suspension. This is the most complex module in the LMS — it's the system's only money-handling component.</p>
+
+  <div class="diagram">
+    <div class="label">Fee lifecycle (one student, one course)</div>
+<pre class="mermaid">
+flowchart TD
+  classDef finance fill:#E0F2F1,stroke:#00897B,color:#004D40
+  classDef sys fill:#F5F5F5,stroke:#9E9E9E,color:#424242
+  classDef student fill:#E1F5FE,stroke:#1565C0,color:#0D47A1
+  classDef danger fill:#FFEBEE,stroke:#C62828,color:#B71C1C
+
+  A[Admin enrols student]:::sys
+  B[FeeStructure applied<br/>e.g. ₹60,000 in 4 installments]:::sys
+  C[Invoice generated<br/>INV-2026-000012]:::sys
+  D[FeeInstallment rows<br/>I1, I2, I3, I4]:::sys
+  E[Student dashboard<br/>shows fee status]:::student
+  F[Student pays offline<br/>cash/cheque/UPI]:::student
+  G[Finance records<br/>Payment entry]:::finance
+  H[Receipt PDF<br/>RCP-2026-000001]:::sys
+  I[Email to student<br/>+ portal download]:::sys
+  J{All installments<br/>paid?}
+  K[Fee status: Cleared]:::sys
+  L[Installment overdue]:::danger
+  M[Reminder 1<br/>day -3 before due]:::sys
+  N[Reminder 2<br/>due date]:::sys
+  O[Reminder 3<br/>day +3 after]:::sys
+  P[Warning 1<br/>day +7]:::danger
+  Q[Warning 2<br/>day +14]:::danger
+  R[Auto-suspension<br/>day +21]:::danger
+  S[Admin override?]
+
+  A --> B --> C --> D --> E --> F --> G --> H --> I --> J
+  J -- yes --> K
+  J -- no, overdue --> L
+  L --> M --> N --> O --> P --> Q --> R --> S
+  S -- yes --> E
+  S -- no --> R
+</pre>
+  </div>
+
+  <h3>The 7 reminder fire points</h3>
+  <ol>
+    <li><strong>Day −3</strong> before due — gentle reminder.</li>
+    <li><strong>Day 0</strong> on due date — "Payment due today".</li>
+    <li><strong>Day +3</strong> — "Overdue, please pay".</li>
+    <li><strong>Day +7</strong> — Warning 1: "Account at risk".</li>
+    <li><strong>Day +14</strong> — Warning 2: "Final warning, suspension imminent".</li>
+    <li><strong>Day +21</strong> — Auto-suspension triggered. Course access removed.</li>
+    <li><strong>Day +28</strong> — Escalation to Admin for manual review.</li>
+  </ol>
+
+  <h3>Suspension state machine</h3>
+  <div class="diagram">
+    <div class="label">Student status — suspension flow</div>
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Active: Enrolment created
+  Active --> Active: Payments on time
+  Active --> AtRisk: 7+ days overdue
+  AtRisk --> Active: Payment received
+  AtRisk --> Suspended: 21+ days overdue
+  Suspended --> Active: Payment + admin override
+  Suspended --> Withdrawn: 60+ days no payment
+  Withdrawn --> [*]
+</pre>
+  </div>
+
+  <div class="callout danger">
+    <strong>Auto-suspension impact:</strong> Student loses access to course content, cannot submit, attendance frozen. Faculty sees "Suspended" badge. Re-activation requires payment + Admin override.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase10-tickets">
+  <h2>13. Phase 10 — Tickets &amp; SLA</h2>
+  <p class="lede">The support system. Any role can raise a ticket — Academic, Technical, Finance, or Complaint.</p>
+
+  <div class="diagram">
+    <div class="label">Ticket lifecycle</div>
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Open: User raises ticket
+  Open --> Acknowledged: Admin/Finance opens<br/>(within 24h SLA)
+  Acknowledged --> InProgress: Response posted
+  InProgress --> InProgress: Threaded replies
+  InProgress --> Resolved: Marked resolved<br/>(within 5d SLA)
+  Resolved --> Closed: Auto-close after 7 days
+  Resolved --> Reopened: User reopens<br/>(within 14 days)
+  Reopened --> InProgress
+  Closed --> [*]
+</pre>
+  </div>
+
+  <h3>Ticket categories &amp; routing</h3>
+  <table class="cap">
+    <thead><tr><th>Category</th><th>Routed to</th><th>SLA — Ack</th><th>SLA — Resolve</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Academic</strong> — content, faculty, sessions</td><td>Admin</td><td>24 hours</td><td>5 days</td></tr>
+      <tr><td><strong>Technical</strong> — bugs, access, login</td><td>Admin / dev team</td><td>24 hours</td><td>5 days</td></tr>
+      <tr><td><strong>Finance</strong> — payments, receipts, refunds</td><td>Finance</td><td>24 hours</td><td>5 days</td></tr>
+      <tr><td><strong>Complaint</strong> — formal grievance</td><td>Admin (escalated)</td><td>24 hours</td><td>15 business days</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout info">
+    <strong>Complaint precondition:</strong> Students can only raise a Complaint ticket if they have at least one prior Resolved or Closed ticket. Forces them to try the regular support route first.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase11-feedback">
+  <h2>14. Phase 11 — Feedback &amp; assessments</h2>
+  <p class="lede">Beyond per-assignment grades, the system has structured feedback at three levels.</p>
+
+  <div class="diagram">
+    <div class="label">Feedback hierarchy</div>
+<pre class="mermaid">
+flowchart TB
+  classDef fb fill:#FFF3E0,stroke:#F28C2C,color:#E65100
+
+  L1[Per-assignment<br/>rubric + written]:::fb
+  L2[Per-module<br/>summary feedback]:::fb
+  L3[Per-assessment<br/>final exam feedback]:::fb
+  L4[Course-level<br/>cumulative summary]:::fb
+
+  L1 --> L2 --> L3 --> L4
+</pre>
+  </div>
+
+  <h3>Assessment types</h3>
+  <ul>
+    <li><strong>Module quizzes</strong> — multiple choice, auto-graded by the system.</li>
+    <li><strong>Module assignments</strong> — short answer / essay, manually graded by faculty.</li>
+    <li><strong>Final exam</strong> — mixed MCQ + essay, auto + manual grading.</li>
+    <li><strong>Capstone</strong> (where applicable) — multi-week project, faculty graded.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="phase12-certificates">
+  <h2>15. Phase 12 — Completion &amp; certificates</h2>
+  <p class="lede">The system auto-detects when a student has met the completion criteria and issues a certificate via Certifier.io.</p>
+
+  <div class="diagram">
+    <div class="label">Certificate issuance flow</div>
+<pre class="mermaid">
+flowchart TD
+  classDef student fill:#E1F5FE,stroke:#1565C0,color:#0D47A1
+  classDef sys fill:#F5F5F5,stroke:#9E9E9E,color:#424242
+  classDef cert fill:#E8F5E9,stroke:#2E7D32,color:#1B5E20
+
+  A[Student submits<br/>final assignment]:::student
+  B[Faculty grades<br/>+ publishes]:::sys
+  C[System checks<br/>completion criteria]:::sys
+  D{All criteria met?<br/>- 75%+ attendance<br/>- 50%+ on all assessments<br/>- Final exam pass<br/>- Fees cleared}
+  E[Course state per student<br/>= Completed]:::sys
+  F[Certifier.io API call]:::sys
+  G[Certificate generated<br/>unique verifiable URL]:::cert
+  H[Email to student<br/>with cert link]:::sys
+  I[Cert appears on<br/>student dashboard]:::student
+  J[Not yet]:::sys
+
+  A --> B --> C --> D
+  D -- yes --> E --> F --> G --> H --> I
+  D -- no --> J
+</pre>
+  </div>
+
+  <h3>Completion criteria (default)</h3>
+  <ul>
+    <li>Attendance ≥ 75% across all sessions.</li>
+    <li>Grade ≥ 50% on every graded assignment.</li>
+    <li>Final exam passed.</li>
+    <li>All fee installments cleared.</li>
+    <li>No active suspension.</li>
+  </ul>
+  <p>Admin can override individual criteria for edge cases (with audit log entry).</p>
+</section>
+
+<!-- ================================================================ -->
+<section id="cross-notifications">
+  <h2>16. Cross-cutting — Notifications</h2>
+  <p class="lede">Three channels: in-app, email, WhatsApp. Each user controls which fires for which event.</p>
+
+  <div class="diagram">
+    <div class="label">Notification routing</div>
+<pre class="mermaid">
+flowchart LR
+  classDef event fill:#FFF3E0,stroke:#F28C2C,color:#E65100
+  classDef channel fill:#E1F5FE,stroke:#1565C0,color:#0D47A1
+  classDef user fill:#EDE7F6,stroke:#5E35B1,color:#311B92
+
+  E1[Class scheduled / changed]:::event
+  E2[Grade published]:::event
+  E3[Fee reminder fires]:::event
+  E4[Ticket replied]:::event
+  E5[Course published]:::event
+  E6[Suspension triggered]:::event
+
+  C1[In-app]:::channel
+  C2[Email - Resend]:::channel
+  C3[WhatsApp - WABA]:::channel
+
+  P[User preferences<br/>matrix]:::user
+
+  E1 --> P
+  E2 --> P
+  E3 --> P
+  E4 --> P
+  E5 --> P
+  E6 --> P
+  P --> C1
+  P --> C2
+  P --> C3
+</pre>
+  </div>
+
+  <h3>Always-on alerts (cannot be turned off)</h3>
+  <ul>
+    <li>System errors affecting their account.</li>
+    <li>Suspension / withdrawal events.</li>
+    <li>Final certificate issuance.</li>
+    <li>Password change confirmations.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="cross-audit">
+  <h2>17. Cross-cutting — Audit log &amp; oversight</h2>
+  <p class="lede">Every write by a staff role (Admin, Finance, Faculty) is logged. Super Admin can review.</p>
+
+  <h3>What gets logged</h3>
+  <ul>
+    <li><span class="tag admin">admin</span> Course create/edit, batch create, enrolment, faculty assignment.</li>
+    <li><span class="tag finance">finance</span> Payment recorded, receipt generated, suspension flipped.</li>
+    <li><span class="tag faculty">faculty</span> Attendance saved, session complete, grade saved/published.</li>
+    <li><span class="tag system">system</span> Auto-suspensions, certificate issuance, scheduled job results.</li>
+  </ul>
+
+  <h3>Each log entry contains</h3>
+  <code>{ actor, action, target, before, after, at, ip, userAgent }</code>
+
+  <div class="callout">
+    <strong>Super Admin oversight:</strong> Can read (not edit) every record in the system, including faculty private notes. Used only for incident review, never routine.
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="states-all">
+  <h2>18. All state machines in one place</h2>
+  <p class="lede">Six states machines drive the system. Bookmark this section as a reference.</p>
+
+  <h3>Course state</h3>
+  <div class="diagram">
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Sandbox
+  Sandbox --> Published: Admin publishes
+  Published --> Sandbox: Admin reverts<br/>(rare)
+  Published --> Archived: End date passed
+</pre>
+  </div>
+
+  <h3>Session state (per session, per batch)</h3>
+  <div class="diagram">
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> NotStarted
+  NotStarted --> InProgress: First attendance saved
+  InProgress --> Complete: Faculty marks complete
+  Complete --> InProgress: Undo within 7 days
+  Complete --> Locked: 7 days pass
+</pre>
+  </div>
+
+  <h3>Submission / grade state</h3>
+  <div class="diagram">
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> NotStarted
+  NotStarted --> Submitted: Student submits
+  Submitted --> GradedDraft: Faculty saves draft
+  GradedDraft --> Published: Faculty publishes
+  Published --> GradedDraft: Faculty edits<br/>(auto-revert)
+</pre>
+  </div>
+
+  <h3>Enrolment status</h3>
+  <div class="diagram">
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Active
+  Active --> AtRisk: 7d overdue
+  AtRisk --> Active: Payment
+  AtRisk --> Suspended: 21d overdue
+  Suspended --> Active: Payment + override
+  Active --> Completed: All criteria met
+  Suspended --> Withdrawn: 60d no payment
+</pre>
+  </div>
+
+  <h3>Invoice / installment state</h3>
+  <div class="diagram">
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Pending
+  Pending --> Paid: Full payment
+  Pending --> PartiallyPaid: Partial payment
+  PartiallyPaid --> Paid: Remaining payment
+  Pending --> Overdue: Past due date
+  PartiallyPaid --> Overdue: Past due date
+  Overdue --> Paid: Late payment
+  Overdue --> WrittenOff: Admin writes off
+</pre>
+  </div>
+
+  <h3>Ticket state</h3>
+  <div class="diagram">
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Open
+  Open --> Acknowledged: Admin/Finance opens
+  Acknowledged --> InProgress: First reply
+  InProgress --> Resolved: Marked resolved
+  Resolved --> Closed: Auto, 7 days
+  Resolved --> Reopened: User reopens
+  Reopened --> InProgress
+</pre>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="glossary">
+  <h2>19. Glossary</h2>
+  <p class="lede">Quick definitions for every term used in this document.</p>
+
+  <table class="cap">
+    <tbody>
+      <tr><td><strong>Batch / Cohort</strong></td><td>A group of students who start a program together. Each batch has its own timetable.</td></tr>
+      <tr><td><strong>Curriculum Generator</strong></td><td>The AI-assisted authoring tool used by SMEs and Curriculum Leads to build courses before they enter the LMS.</td></tr>
+      <tr><td><strong>SME</strong></td><td>Subject-Matter Expert. The industry professional who seeds a course with the Excel template.</td></tr>
+      <tr><td><strong>Sandbox</strong></td><td>A course state. Built but not yet visible to students. Safe to edit.</td></tr>
+      <tr><td><strong>Published</strong></td><td>A course state. Live and visible to enrolled students.</td></tr>
+      <tr><td><strong>Module</strong></td><td>A grouping of related sessions. Course → modules → sessions.</td></tr>
+      <tr><td><strong>Session</strong></td><td>A single lesson. Has its own page with materials + attendance.</td></tr>
+      <tr><td><strong>Assignment</strong></td><td>Work the student submits. Faculty grades it.</td></tr>
+      <tr><td><strong>Submission</strong></td><td>The student's response to an assignment (text + files).</td></tr>
+      <tr><td><strong>Draft (grade)</strong></td><td>Score saved but not yet visible to the student.</td></tr>
+      <tr><td><strong>Published (grade)</strong></td><td>Score visible to the student. Editing flips back to Draft.</td></tr>
+      <tr><td><strong>Audit log</strong></td><td>System record of every staff write — who did what, when, before/after.</td></tr>
+      <tr><td><strong>Magic link</strong></td><td>Passwordless email link used for first-time invitation and password reset.</td></tr>
+      <tr><td><strong>FeeInstallment</strong></td><td>One scheduled chunk of fees (e.g. installment 2 of 4).</td></tr>
+      <tr><td><strong>Receipt</strong></td><td>The PDF document generated when Finance records a payment.</td></tr>
+      <tr><td><strong>SLA</strong></td><td>Service Level Agreement — the response/resolution time guarantee on tickets.</td></tr>
+      <tr><td><strong>Certifier.io</strong></td><td>The third-party service that generates verifiable digital certificates.</td></tr>
+      <tr><td><strong>WABA</strong></td><td>WhatsApp Business API — the channel for WhatsApp notifications.</td></tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top: 32px; color: var(--muted); font-style: italic; font-size: 13px;">
+    Companion to India-Learns-LMS-Faculty-Guide-v4.pptx. Prepared for Vidit. India Learns LMS — 2026.
+  </p>
+</section>
+
+</main>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "base",
+    themeVariables: {
+      primaryColor: "#E3E8F5",
+      primaryTextColor: "#132B5E",
+      primaryBorderColor: "#132B5E",
+      lineColor: "#5C5C5C",
+      fontFamily: "Calibri, Arial, sans-serif",
+      fontSize: "14px"
+    },
+    flowchart: { htmlLabels: true, curve: "basis", useMaxWidth: true },
+    sequence: { useMaxWidth: true, mirrorActors: false },
+    stateDiagram: { useMaxWidth: true }
+  });
+</script>
+</body>
+</html>
