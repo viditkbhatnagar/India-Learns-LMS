@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
@@ -15,12 +16,16 @@ export function AdminEnrollmentDetailPage() {
     enabled: !!id,
   });
   const issue = useMutation({
-    mutationFn: () => enrollmentsApi.issueCertificate(id),
+    mutationFn: (opts: { force?: boolean } = {}) => enrollmentsApi.issueCertificate(id, opts),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['enrollment', id] }),
   });
   const generateFees = useMutation({
     mutationFn: () => adminEnrollmentsApi.generateFees(id),
   });
+  // Q-M8-02 — guard the destructive reissue path behind a confirmation
+  // step so an admin can't accidentally invalidate a live certificate URL
+  // by clicking the button twice.
+  const [confirmReissue, setConfirmReissue] = useState(false);
   if (q.isLoading) return <Skeleton lines={6} />;
   if (q.isError) return <ErrorAlert message={(q.error as Error).message} />;
   if (!q.data) return null;
@@ -52,14 +57,56 @@ export function AdminEnrollmentDetailPage() {
         ) : (
           <p className="text-sm text-muted">No certificate yet.</p>
         )}
-        <Button
-          className="mt-3"
-          loading={issue.isPending}
-          onClick={() => issue.mutate()}
-          disabled={!e.completed}
-        >
-          {e.certificateUrl ? 'Reissue certificate' : 'Issue certificate'}
-        </Button>
+        {!e.certificateUrl && (
+          <Button
+            className="mt-3"
+            loading={issue.isPending}
+            onClick={() => issue.mutate({})}
+            disabled={!e.completed}
+          >
+            Issue certificate
+          </Button>
+        )}
+        {e.certificateUrl && !confirmReissue && (
+          <Button
+            className="mt-3"
+            variant="secondary"
+            onClick={() => setConfirmReissue(true)}
+            disabled={!e.completed}
+          >
+            Force reissue (new certificate)
+          </Button>
+        )}
+        {e.certificateUrl && confirmReissue && (
+          <div className="mt-3 p-3 rounded-xl border border-warning/30 bg-warning/5 space-y-2">
+            <p className="text-sm text-brand-navy">
+              This calls Certifier with a fresh idempotency key and overwrites the existing
+              certificate URL. The student will receive a new download link. Continue?
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                loading={issue.isPending}
+                onClick={() => {
+                  issue.mutate(
+                    { force: true },
+                    { onSettled: () => setConfirmReissue(false) },
+                  );
+                }}
+              >
+                Yes, reissue
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmReissue(false)}
+                disabled={issue.isPending}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
         {!e.completed && (
           <p className="text-xs text-muted mt-2">
             Enrolment must be completed (course done + exam passed) before a certificate can be issued.

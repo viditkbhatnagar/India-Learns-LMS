@@ -18,6 +18,7 @@ import {
   registerListener,
 } from './domainEventService.js';
 import { enqueueNotification } from './notificationService.js';
+import { renderTemplate } from './notificationTemplates.js';
 
 // M8 — Certificate issuance service (TRD §6, PRD §13).
 // * Idempotent: re-calling issueForEnrollment on an already-issued enrolment
@@ -34,6 +35,13 @@ export interface IssueForEnrollmentInput {
   enrollmentId: Types.ObjectId | string;
   actor: 'listener' | 'admin';
   actorUserId?: Types.ObjectId | null;
+  // Q-M8-02 — Force a fresh issue even when `certificateUrl` is already
+  // set. Used when a course is republished after the original cert was
+  // issued and admin wants the certificate to reflect the new content.
+  // The current url + providerId are preserved on the audit row as
+  // `previousCertificateUrl` / `previousProviderId` before being cleared
+  // and re-issued through the adapter.
+  force?: boolean;
 }
 
 export interface IssueForEnrollmentResult {
@@ -85,8 +93,10 @@ export async function issueForEnrollment(
     throw new HttpError(500, 'INTERNAL', 'Enrolment references missing course or student.');
   }
 
-  // Idempotent short-circuit: if already issued, return existing row.
-  if (enrolment.certificateUrl) {
+  // Idempotent short-circuit: if already issued and not forcing, return
+  // the existing row. Listeners never force — only an explicit admin
+  // POST with ?force=1 (or { force: true }) gets to the re-issue path.
+  if (enrolment.certificateUrl && !(input.force && input.actor === 'admin')) {
     if (input.actor === 'admin') {
       await recordAudit({
         actorUserId: input.actorUserId ?? null,
@@ -103,6 +113,17 @@ export async function issueForEnrollment(
       certificate: toCertificateDto(enrolment, course.name),
       reissued: true,
     };
+  }
+
+  // Forced reissue path — capture the previous URL/provider for the audit
+  // row, then clear them so the adapter call below treats this like a fresh
+  // issuance. The new providerId / certificateUrl overwrite on success.
+  const previousCertificateUrl = input.force ? enrolment.certificateUrl : null;
+  const previousProviderId = input.force ? enrolment.certificateProviderId : null;
+  if (input.force) {
+    enrolment.certificateUrl = null;
+    enrolment.certificateProviderId = null;
+    enrolment.certificateIssuedAt = null;
   }
 
   const env = loadEnv();
@@ -140,22 +161,38 @@ export async function issueForEnrollment(
         providerId: result.providerId,
         certificateUrl: result.certificateUrl,
         courseName: course.name,
+        // Q-M8-02 — when forced, surface the displaced cert so an admin
+        // reviewing the audit trail can correlate "old cert" → "new cert".
+        ...(input.force
+          ? {
+              forced: true,
+              previousCertificateUrl,
+              previousProviderId,
+            }
+          : {}),
       },
     });
 
     // Notify the student — email + in-app per PRD §14.3.
-    await enqueueNotification({
-      type: 'certificate.issued',
-      recipients: [enrolment.studentId],
-      title: `Congratulations! Your ${course.name} certificate is ready.`,
-      body: `You've completed ${course.name}. Download your certificate: ${result.certificateUrl}`,
-      data: {
-        enrolmentId: enrolment._id.toString(),
-        courseId: enrolment.courseId.toString(),
+    // Copy via notificationTemplates.ts (Q-M4-05).
+    {
+      const rendered = renderTemplate('certificate.issued', {
         courseName: course.name,
         certificateUrl: result.certificateUrl,
-      },
-    });
+      });
+      await enqueueNotification({
+        type: 'certificate.issued',
+        recipients: [enrolment.studentId],
+        title: rendered.title,
+        body: rendered.body,
+        data: {
+          enrolmentId: enrolment._id.toString(),
+          courseId: enrolment.courseId.toString(),
+          courseName: course.name,
+          certificateUrl: result.certificateUrl,
+        },
+      });
+    }
 
     // Publish domain event so downstream consumers (analytics, CSV exports)
     // can react. Persisted via DomainEvent collection.
@@ -276,12 +313,14 @@ export function registerCertificateListener(): void {
       ]);
       if (!student || !course || admins.length === 0) return;
       const studentLabel = student.code ? `${student.name} (${student.code})` : student.name;
+      const rendered = renderTemplate('student.course_completed', {
+        studentLabel,
+        courseName: course.name,
+      });
       await enqueueNotification({
         type: 'student.course_completed',
-        title: `${studentLabel} completed ${course.name}`,
-        body:
-          `${studentLabel} just finished the ${course.name} course. ` +
-          'A certificate is being issued; you can verify on the enrolment page.',
+        title: rendered.title,
+        body: rendered.body,
         recipients: admins.map((a) => a._id),
         data: {
           enrolmentId,

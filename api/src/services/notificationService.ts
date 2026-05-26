@@ -20,6 +20,7 @@ import {
 } from '../models/index.js';
 import { recordApiCost } from './apiCostService.js';
 import { nowUtc } from './clockService.js';
+import { renderTemplate } from './notificationTemplates.js';
 
 // BRD §6.1: WhatsApp is reserved for fee-due, payment-received, ticket-updated.
 // Timetable does NOT use WhatsApp (D-037). Fee upcoming T-14/T+3 stay email-only.
@@ -411,24 +412,15 @@ export async function notifyTimetableChange(
     (id) => new Types.ObjectId(id),
   );
 
-  const actionLabel: Record<string, string> = {
-    cancel: 'cancelled',
-    reschedule: 'rescheduled',
-    add: 'added',
-    updated: 'updated',
-    deleted: 'removed',
-  };
-  const verb = actionLabel[payload.action] ?? payload.action;
-
-  const title = `Timetable update: ${payload.courseName} ${verb}`;
-  const bodyLines = [
-    `Batch: ${payload.batchName}`,
-    `Course: ${payload.courseName}`,
-    `Date: ${payload.istDate} (IST)`,
-    `Change: ${verb}`,
-  ];
-  if (payload.reason) bodyLines.push(`Reason: ${payload.reason}`);
-  const body = bodyLines.join('\n');
+  // Q-M4-05 — copy lives in notificationTemplates.ts so ops can edit
+  // without touching the change-detection logic above.
+  const { title, body } = renderTemplate('timetable.change', {
+    courseName: payload.courseName,
+    batchName: payload.batchName,
+    istDate: payload.istDate,
+    action: payload.action,
+    reason: payload.reason ?? null,
+  });
 
   return enqueueNotification({
     type: 'timetable.change',
@@ -582,5 +574,58 @@ export async function retryFailedNotifications(
     succeeded,
     failed,
     skipped,
+  };
+}
+
+// Q-M4-03 — nightly retention sweep so the in-app inbox doesn't grow
+// unbounded. Two windows, both configurable via env so ops can tighten
+// in response to volume without a code change:
+//   - READ_RETAIN_DAYS (default 90): once a user has marked a notification
+//     read, we keep it for this long before deletion. Most apps surface
+//     this as "Cleared notifications older than 3 months".
+//   - UNREAD_RETAIN_DAYS (default 365): hard ceiling on unread rows so
+//     a dormant student doesn't accumulate a year of fee + class noise.
+//
+// Idempotent: deletion is a single bulk Mongo op; running twice in the
+// same minute deletes once and is a no-op the second time.
+export interface CleanupSweepResult {
+  readDeleted: number;
+  unreadDeleted: number;
+  cutoffs: {
+    read: Date;
+    unread: Date;
+  };
+}
+
+export interface CleanupNotificationsInput {
+  now: Date;
+  readRetainDays?: number;
+  unreadRetainDays?: number;
+}
+
+export async function cleanupOldNotifications(
+  input: CleanupNotificationsInput,
+): Promise<CleanupSweepResult> {
+  const env = loadEnv();
+  const readDays = input.readRetainDays ?? env.NOTIFICATIONS_READ_RETAIN_DAYS;
+  const unreadDays = input.unreadRetainDays ?? env.NOTIFICATIONS_UNREAD_RETAIN_DAYS;
+  const readCutoff = new Date(input.now.getTime() - readDays * 86_400_000);
+  const unreadCutoff = new Date(input.now.getTime() - unreadDays * 86_400_000);
+
+  const readRes = await Notification.deleteMany({
+    readAt: { $ne: null, $lt: readCutoff },
+  });
+  const unreadRes = await Notification.deleteMany({
+    readAt: null,
+    createdAt: { $lt: unreadCutoff },
+  });
+
+  return {
+    readDeleted: readRes.deletedCount ?? 0,
+    unreadDeleted: unreadRes.deletedCount ?? 0,
+    cutoffs: {
+      read: readCutoff,
+      unread: unreadCutoff,
+    },
   };
 }

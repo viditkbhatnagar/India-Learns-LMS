@@ -15,6 +15,7 @@ import type { AuthContext } from '../middleware/auth.js';
 import { recordAudit } from './auditService.js';
 import { assertFacultyOwnsCourse } from './authzService.js';
 import { enqueueNotification } from './notificationService.js';
+import { renderTemplate } from './notificationTemplates.js';
 
 // Two-step grading state machine — see models/assignmentSubmission.ts.
 //
@@ -264,14 +265,18 @@ export async function publishGrade(
   });
 
   try {
-    await enqueueNotification({
-      type: 'assignment.graded',
-      recipients: [submission.studentId],
-      title: `${assignment.title} graded`,
-      body:
+    const rendered = renderTemplate('assignment.graded', {
+      assignmentTitle: assignment.title,
+      scoreText:
         submission.score !== null
           ? `You scored ${submission.score} / ${assignment.maxScore}.`
           : 'Your assignment has been graded.',
+    });
+    await enqueueNotification({
+      type: 'assignment.graded',
+      recipients: [submission.studentId],
+      title: rendered.title,
+      body: rendered.body,
       data: {
         assignmentId: assignment._id.toString(),
         submissionId: submission._id.toString(),

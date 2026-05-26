@@ -135,6 +135,20 @@ services:
     envVars:
       - fromGroup: il-app-secrets
 
+  # Q-M4-03 — nightly retention sweep: bulk-delete read notifications older
+  # than NOTIFICATIONS_READ_RETAIN_DAYS (90d) and unread older than
+  # NOTIFICATIONS_UNREAD_RETAIN_DAYS (365d).
+  - type: cron
+    name: il-cron-notifications-cleanup
+    runtime: node
+    region: singapore
+    plan: starter
+    schedule: "45 19 * * *" # 19:45 UTC = 01:15 IST nightly (off-peak)
+    buildCommand: ":"
+    startCommand: node scripts/sign-job-jwt.mjs notifications-cleanup
+    envVars:
+      - fromGroup: il-app-secrets
+
   # Admissions M3b — daily referee reminder (7-day nudge) + token expiry sweep.
   - type: cron
     name: il-cron-admissions-referee-reminders

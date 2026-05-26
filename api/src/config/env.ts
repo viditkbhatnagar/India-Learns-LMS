@@ -104,6 +104,11 @@ const EnvSchema = z.object({
   NOTIFICATIONS_RETRY_MAX: z.coerce.number().int().positive().default(3),
   NOTIFICATIONS_RETRY_WINDOW_HOURS: z.coerce.number().int().positive().default(24),
 
+  // Q-M4-03 — nightly retention sweep. Defaults are conservative; tighten
+  // via Render env if the inbox-render API spends >50ms in a hot route.
+  NOTIFICATIONS_READ_RETAIN_DAYS: z.coerce.number().int().positive().default(90),
+  NOTIFICATIONS_UNREAD_RETAIN_DAYS: z.coerce.number().int().positive().default(365),
+
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),

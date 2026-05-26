@@ -10,6 +10,7 @@ import {
   buildAssignmentSubmissionsReport,
   buildAttendanceReport,
   buildBatchSummaryReport,
+  buildStaffAttendanceReport,
 } from '../services/reportsService.js';
 import {
   renderAssignmentSubmissionsReportPdf,
@@ -18,6 +19,8 @@ import {
   renderAttendanceReportXlsx,
   renderBatchSummaryReportPdf,
   renderBatchSummaryReportXlsx,
+  renderStaffAttendanceReportPdf,
+  renderStaffAttendanceReportXlsx,
 } from '../services/reportRenderers.js';
 
 // M10 — Reports module routes (LMS_Faculty_Features §4).
@@ -125,6 +128,8 @@ export function reportsRouter(): Router {
           from: filters.from,
           to: filters.to,
           courseId: filters.courseId ?? null,
+          sessionsHeldFrom: filters.sessionsHeldFrom ?? null,
+          sessionsHeldTo: filters.sessionsHeldTo ?? null,
         });
         if (format === 'xlsx') {
           const buf = await renderAttendanceReportXlsx(report);
@@ -160,6 +165,54 @@ export function reportsRouter(): Router {
         if (format === 'pdf') {
           const buf = await renderBatchSummaryReportPdf(report);
           sendPdf(res, `batch-summary-${report.batchCode}.pdf`, buf);
+          return;
+        }
+        res.status(200).json({ data: report });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // GET /v1/reports/staff-attendance — Q-M10-followup-faculty-staff.
+  // Date-scoped, optional role filter (faculty / admin / superadmin /
+  // admissions_officer), optional userId. Faculty role auto-scopes to
+  // self regardless of what's in the query — they cannot pull other
+  // staff members' attendance.
+  router.get(
+    '/staff-attendance',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { format } = FormatQuery.parse(req.query);
+        const SchemaQuery = z.object({
+          from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'from must be YYYY-MM-DD'),
+          to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'to must be YYYY-MM-DD'),
+          role: z
+            .enum(['faculty', 'admin', 'superadmin', 'admissions_officer'])
+            .optional(),
+          userId: z.string().min(1).optional(),
+        });
+        const filters = SchemaQuery.parse(req.query);
+        // Faculty role can only ever see their own data — overwrite any
+        // userId query they passed.
+        const effectiveUserId =
+          req.auth!.role === 'faculty'
+            ? req.auth!.userId.toString()
+            : (filters.userId ?? null);
+        const report = await buildStaffAttendanceReport({
+          from: filters.from,
+          to: filters.to,
+          role: filters.role ?? null,
+          userId: effectiveUserId,
+        });
+        if (format === 'xlsx') {
+          const buf = await renderStaffAttendanceReportXlsx(report);
+          sendXlsx(res, `staff-attendance-${filters.from}-to-${filters.to}.xlsx`, buf);
+          return;
+        }
+        if (format === 'pdf') {
+          const buf = await renderStaffAttendanceReportPdf(report);
+          sendPdf(res, `staff-attendance-${filters.from}-to-${filters.to}.pdf`, buf);
           return;
         }
         res.status(200).json({ data: report });

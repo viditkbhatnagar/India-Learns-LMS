@@ -17,6 +17,7 @@
     "seed:superadmin": "tsx scripts/seed-superadmin.ts",
     "seed": "tsx scripts/seed.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
+    "backfill:personal-details": "tsx scripts/backfill-personal-details.ts",
     "migrate:gridfs-to-s3": "tsx scripts/migrate-gridfs-to-s3.ts"
   },
   "dependencies": {

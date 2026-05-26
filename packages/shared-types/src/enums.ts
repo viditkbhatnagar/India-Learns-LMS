@@ -269,6 +269,8 @@ export const AUDIT_ACTIONS = [
   'fees.payment.reversed',
   'fees.receipt.issued',
   'fees.credit_note.issued',
+  'fees.credit_note.applied',
+  'fees.credit_note.consumed',
   'fees.reminder.sent',
   'fees.suspension.auto_suspended',
   'fees.suspension.lifted',
@@ -316,6 +318,9 @@ export const AUDIT_ACTIONS = [
   'notification.retry_succeeded',
   'notification.retry_exhausted',
   'jobs.notifications_retry.invoked',
+  // Q-M4-03 — nightly retention sweep
+  'jobs.notifications_cleanup.invoked',
+  'notification.archived',
   // Post-M9 — assignments (stakeholder follow-up)
   'assignment.created',
   'assignment.updated',

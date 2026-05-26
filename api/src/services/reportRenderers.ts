@@ -4,6 +4,7 @@ import type {
   AssignmentSubmissionsReportDto,
   AttendanceReportDto,
   BatchSummaryReportDto,
+  StaffAttendanceReportDto,
 } from 'india-learns-shared-types';
 
 // M10 — Excel + PDF renderers for the three Reports (LMS_Faculty_Features
@@ -472,6 +473,105 @@ export async function renderAssignmentSubmissionsReportPdf(
       cols[5]!.x,
       y,
       { width: cols[5]!.w, align: 'right' },
+    );
+    doc.moveDown(0.3);
+  }
+
+  return streamToBuffer(doc);
+}
+
+// --------- Staff attendance --------------------------------------------
+
+export async function renderStaffAttendanceReportXlsx(
+  report: StaffAttendanceReportDto,
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'India Learns';
+  wb.created = new Date(report.generatedAt);
+  const ws = wb.addWorksheet('Staff attendance');
+
+  addTitleBlock(ws, 'Staff attendance report', [
+    ['Date range', `${report.filters.from} → ${report.filters.to}`],
+    ['Role filter', report.filters.role ?? 'All staff roles'],
+    ['Working days in range', String(report.workingDayCount)],
+    ['Generated', new Date(report.generatedAt).toLocaleString('en-IN')],
+  ]);
+
+  const header = ws.addRow([
+    'Staff code',
+    'Staff name',
+    'Role',
+    'Present',
+    'Absent',
+    'Late',
+    'Leave',
+    'Half day',
+    'Marked',
+    'Attendance %',
+  ]);
+  styleHeaderRow(header);
+
+  for (const r of report.rows) {
+    ws.addRow([
+      r.userCode ?? '',
+      r.userName,
+      r.role,
+      r.presentCount,
+      r.absentCount,
+      r.lateCount,
+      r.leaveCount,
+      r.halfDayCount,
+      r.totalMarked,
+      r.attendanceRate,
+    ]);
+  }
+  ws.getColumn(1).width = 14;
+  ws.getColumn(2).width = 32;
+  ws.getColumn(3).width = 18;
+  for (let i = 4; i <= 10; i += 1) ws.getColumn(i).width = 12;
+  ws.getColumn(10).numFmt = '0.0"%"';
+
+  return Buffer.from(await wb.xlsx.writeBuffer());
+}
+
+export async function renderStaffAttendanceReportPdf(
+  report: StaffAttendanceReportDto,
+): Promise<Buffer> {
+  const doc = new PDFDocument({ size: 'A4', margin: 36 });
+
+  doc.fontSize(16).fillColor('#0F2F4F').text('Staff attendance report', { underline: false });
+  doc.moveDown(0.3);
+  doc.fontSize(10).fillColor('#444');
+  doc.text(`Date range: ${report.filters.from} → ${report.filters.to}`);
+  doc.text(`Role filter: ${report.filters.role ?? 'All staff roles'}`);
+  doc.text(`Working days in range: ${report.workingDayCount}`);
+  doc.text(`Generated: ${new Date(report.generatedAt).toLocaleString('en-IN')}`);
+  doc.moveDown(0.6);
+
+  // Header row.
+  doc.fontSize(9).fillColor('#0F2F4F').font('Helvetica-Bold');
+  doc.text('Staff', 36, doc.y, { continued: true, width: 180 });
+  doc.text('Role', { continued: true, width: 80 });
+  doc.text('P', { continued: true, width: 30, align: 'right' });
+  doc.text('A', { continued: true, width: 30, align: 'right' });
+  doc.text('L', { continued: true, width: 30, align: 'right' });
+  doc.text('Lv', { continued: true, width: 30, align: 'right' });
+  doc.text('Half', { continued: true, width: 36, align: 'right' });
+  doc.text('Rate', { width: 50, align: 'right' });
+  doc.moveDown(0.25);
+  doc.font('Helvetica').fillColor('#222');
+
+  for (const r of report.rows) {
+    doc.text(r.userName, 36, doc.y, { continued: true, width: 180 });
+    doc.text(r.role, { continued: true, width: 80 });
+    doc.text(String(r.presentCount), { continued: true, width: 30, align: 'right' });
+    doc.text(String(r.absentCount), { continued: true, width: 30, align: 'right' });
+    doc.text(String(r.lateCount), { continued: true, width: 30, align: 'right' });
+    doc.text(String(r.leaveCount), { continued: true, width: 30, align: 'right' });
+    doc.text(String(r.halfDayCount), { continued: true, width: 36, align: 'right' });
+    doc.text(
+      r.totalMarked > 0 ? `${r.attendanceRate.toFixed(1)}%` : '—',
+      { width: 50, align: 'right' },
     );
     doc.moveDown(0.3);
   }

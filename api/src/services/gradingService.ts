@@ -22,6 +22,7 @@ import {
 } from './assessmentScoring.js';
 import { checkAllActiveEnrolmentsForStudentCourse } from './courseCompletionService.js';
 import { enqueueNotification } from './notificationService.js';
+import { renderTemplate } from './notificationTemplates.js';
 
 export interface GradingCtx {
   actorUserId: Types.ObjectId;
@@ -181,11 +182,16 @@ export async function gradeExamAttempt(
 
   if (allEssaysGraded && attempt.totalScorePercent !== null) {
     try {
+      const rendered = renderTemplate('assessment.graded.exam', {
+        examTitle: exam.title,
+        scorePercent: attempt.totalScorePercent,
+        passed: attempt.passed ?? false,
+      });
       await enqueueNotification({
         type: 'assessment.graded',
         recipients: [attempt.studentId],
-        title: `Exam graded: ${exam.title}`,
-        body: `Your score: ${attempt.totalScorePercent.toFixed(1)}% — ${attempt.passed ? 'Passed' : 'Not passed'}`,
+        title: rendered.title,
+        body: rendered.body,
         data: {
           examId: exam._id.toString(),
           attemptId: attempt._id.toString(),
