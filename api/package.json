@@ -17,9 +17,12 @@
     "seed:superadmin": "tsx scripts/seed-superadmin.ts",
     "seed": "tsx scripts/seed.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
-    "backfill:personal-details": "tsx scripts/backfill-personal-details.ts"
+    "backfill:personal-details": "tsx scripts/backfill-personal-details.ts",
+    "migrate:gridfs-to-s3": "tsx scripts/migrate-gridfs-to-s3.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1053.0",
+    "@aws-sdk/s3-request-presigner": "^3.1053.0",
     "@sentry/node": "^8.40.0",
     "@types/multer": "^2.1.0",
     "argon2": "^0.40.3",

@@ -245,3 +245,8 @@ export type { VisitorLeadDoc, HydratedVisitorLead } from './visitorLead.js';
 // M10u — Staff attendance (LMS_Requirements §4 "students and staff").
 export { StaffAttendance } from './staffAttendance.js';
 export type { StaffAttendanceDoc, HydratedStaffAttendance } from './staffAttendance.js';
+
+// S3 file metadata (bytes live in S3; this is the per-file index that
+// powers the /v1/files/:id resolver).
+export { FileMeta } from './fileMeta.js';
+export type { FileMetaDoc, HydratedFileMeta } from './fileMeta.js';

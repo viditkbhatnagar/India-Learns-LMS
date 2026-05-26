@@ -749,3 +749,32 @@ Append-only log. Every entry: ID, date, decision, why, source.
 - Staff attendance is enforced server-side (role gate + facultyCanMarkFor check). Faculty UI button auto-handles the upsert.
 - Faculty publishes courses (D-096) is unchanged; staff attendance is the new addition this PR.
 - Public form is rate-limited but otherwise open — if abuse becomes a problem later we can add CAPTCHA. The system actor pattern (first active superadmin) keeps the audit trail intact.
+
+## D-098 — File storage migrated from MongoDB GridFS to AWS S3
+**Date:** 2026-05-26
+**Why:** User asked to move uploads off MongoDB entirely and onto S3. GridFS had been the default since D-094 (M10q). S3 gives us standard object storage (versioning, lifecycle rules, cross-account replication, CDN-readiness via CloudFront later) and stops bloating the Atlas cluster with file bytes.
+
+**Setup:**
+- Bucket: `india-learns-lms-prod` in `ap-south-1` (Mumbai) for DPDP Act 2023 data-residency alignment (matches Atlas region).
+- Hardening: BucketOwnerEnforced (ACLs disabled), full block-public-access, default AES256 + bucket-key encryption, versioning ENABLED.
+- IAM user `vidit` (account 635394566074) owns the keys used in dev; production should issue a least-privilege IAM user scoped to s3:PutObject/GetObject/DeleteObject/ListBucket on this bucket.
+
+**Architecture:**
+- `S3StorageAdapter` (api/src/integrations/s3StorageAdapter.ts) implements the same `StorageAdapter` interface as the GridFS, Cloudinary, and Stub adapters. Bytes go to S3; per-file metadata (filename, contentType, size, folder, uploader) lives in the new `FileMeta` Mongo collection (api/src/models/fileMeta.ts) keyed by ObjectId.
+- S3 object key layout: `<folder>/<file-objectid-hex>` so the bucket browses cleanly in the console.
+- `url` returned by upload() is still `${API_ORIGIN}/v1/files/<id>` — same contract as GridFS, so URL fields stored anywhere in Mongo (course materials, ticket attachments, avatars) keep resolving after the cutover.
+- `/v1/files/:id` route tries S3 first (FileMeta lookup → S3 GetObject stream), falls back to GridFS for any not-yet-migrated file. Once the migration completes the GridFS path is effectively dead but kept as a safety net.
+
+**Provider switching:** `STORAGE_PROVIDER=s3|mongo|cloudinary|stub`. Default flipped to `s3`. Required env vars when `s3`: `AWS_REGION`, `AWS_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. Optional: `AWS_S3_ENDPOINT` (LocalStack/MinIO), `AWS_S3_SIGNED_URL_TTL_SEC` (default 300).
+
+**Migration script:** `npm run migrate:gridfs-to-s3 -w api -- [--dry-run] [--keep]`. Each GridFS file becomes an S3 object at `<folder>/<original-gridfs-objectid>` plus a FileMeta row with the same ObjectId — every existing `/v1/files/<id>` URL keeps resolving without any DB rewrites. Idempotent: re-runs skip files that already have a FileMeta record. Migration logic is extracted into `runGridfsToS3Migration()` in api/src/services/migrateGridfsToS3.ts so tests can call it directly.
+
+**End-to-end tests:** Two live S3 round-trip tests gated by `AWS_S3_INTEGRATION=1` so CI is unaffected:
+- `tests/integration/s3RoundTrip.test.ts` — upload → FileMeta written → signedUrl returns a real presigned URL → GetObject streams the bytes back → delete removes both.
+- `tests/integration/migrateGridfsToS3.test.ts` — seeds `il_files.files` + `il_files.chunks` directly (the GridFSBucket write stream hangs under mongodb-memory-server on Node 24), runs the migration against real S3, asserts S3 has the object + FileMeta row + GridFS is empty.
+
+**How to apply:**
+- Local dev: leave `STORAGE_PROVIDER=stub` in `.env`, no AWS keys needed.
+- Render staging/prod: set `STORAGE_PROVIDER=s3` + the four AWS env vars. Run the migration script once during cutover.
+- Cloudinary keys are still accepted (`STORAGE_PROVIDER=cloudinary`) but are no longer the recommended path.
+- The IAM keys pasted in chat on 2026-05-26 should be rotated after the migration completes; they were used to create the bucket and seed/test it.

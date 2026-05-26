@@ -58,7 +58,7 @@ This repo is **pre-implementation**. As of the last update there is no applicati
 - **Backend:** Node.js 20 LTS, Express 4, Mongoose 8, MongoDB 7 (Atlas).
 - **Frontend:** React 18 + Vite 5 + Tailwind CSS 3 + React Router 6. PWA via `vite-plugin-pwa`.
 - **Auth:** Custom — JWT access + refresh tokens, Argon2id password hashing, magic-link invite flow, rate-limited login. See TRD §7.
-- **File storage:** Cloudinary (course videos, PDFs, receipts). Provider is pluggable behind `StorageService` interface.
+- **File storage:** AWS S3 (course videos, PDFs, receipts) — bucket `india-learns-lms-prod` in `ap-south-1` (Mumbai) for DPDP alignment. Per-file metadata lives in the `filemetas` Mongo collection keyed by ObjectId. Provider is pluggable behind `StorageService` interface — Cloudinary and MongoDB GridFS are kept as alternates (`STORAGE_PROVIDER=cloudinary|mongo|stub`). Migration script: `npm run migrate:gridfs-to-s3 -w api`.
 - **Email:** Resend (primary) with SendGrid fallback, behind `EmailService` interface.
 - **WhatsApp:** Meta WhatsApp Business API (cloud), behind `WhatsAppService` interface. Templates pre-approved by LUC ops.
 - **Certificates:** Certifier.io REST API, behind `CertificateService` interface.
