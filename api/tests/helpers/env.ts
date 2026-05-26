@@ -12,6 +12,10 @@ const DEFAULTS: Record<string, string> = {
   COOKIE_DOMAIN: 'localhost',
   COOKIE_SECURE: 'false',
   INTEGRATIONS_MODE: 'stub',
+  // Storage is decoupled from INTEGRATIONS_MODE — pin it explicitly so the
+  // test suite always sees the in-memory ConsoleStorageAdapter regardless
+  // of the production default.
+  STORAGE_PROVIDER: 'stub',
   EMAIL_PROVIDER: 'stub',
   WHATSAPP_ENABLED: 'false',
   ARGON2_TIME_COST: '2',
