@@ -379,6 +379,9 @@ export interface StudentModuleDto {
   /** Student-facing long-form syllabus (UAT round 5 / Logan). Empty
    *  string when faculty hasn't filled it in yet. */
   syllabus: string;
+  /** Optional uploaded syllabus document — students download via the
+   *  /v1/files/:fileId proxy. */
+  syllabusFile: ModuleSyllabusFileDto | null;
   state: StudentSessionState;
   sessions: StudentSessionDto[];
   progress: {

@@ -187,6 +187,18 @@ export async function getStudentCourseView(
       subtitle: m.code ?? '',
       aim: m.aim ?? '',
       syllabus: m.syllabus ?? '',
+      syllabusFile: m.syllabusFile
+        ? {
+            fileId: m.syllabusFile.fileId.toString(),
+            filename: m.syllabusFile.filename,
+            contentType: m.syllabusFile.contentType,
+            size: m.syllabusFile.size,
+            uploadedAt:
+              m.syllabusFile.uploadedAt instanceof Date
+                ? m.syllabusFile.uploadedAt.toISOString()
+                : new Date(m.syllabusFile.uploadedAt).toISOString(),
+          }
+        : null,
       state: deriveState({ total, completed, late, dueSoon }),
       sessions: moduleSessions,
       progress: { total, completed },
