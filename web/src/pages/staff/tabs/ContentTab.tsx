@@ -24,6 +24,7 @@ import { TextArea } from '../../../components/ui/Input.js';
 import { ErrorAlert, EmptyState, Skeleton } from '../../../components/ui/States.js';
 import {
   coursesApi,
+  filesApi,
   modulesApi,
   sessionsApi,
   type SessionDto,
@@ -282,8 +283,12 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
   const [syllabusSaved, setSyllabusSaved] = useState(false);
 
   const updateMut = useMutation({
-    mutationFn: (patch: { aim?: string; facultyNotes?: string; syllabus?: string }) =>
-      modulesApi.update(m.id, patch),
+    mutationFn: (patch: {
+      aim?: string;
+      facultyNotes?: string;
+      syllabus?: string;
+      syllabusFile?: { fileId: string } | null;
+    }) => modulesApi.update(m.id, patch),
     onSuccess: (_doc, vars) => {
       if (vars.aim !== undefined) {
         setAimSaved(true);
@@ -305,6 +310,47 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
   const notesDirty = notesDraft !== (m.facultyNotes ?? '');
   const syllabusDirty = syllabusDraft !== (m.syllabus ?? '');
   const oversightTitle = 'Read-only in oversight mode';
+
+  // Syllabus file upload — separate state from the textarea so we can
+  // surface a granular error/loading row without clobbering the rest of
+  // the panel.
+  const [syllabusFileError, setSyllabusFileError] = useState<string | null>(null);
+  const uploadSyllabusFile = useMutation({
+    mutationFn: async (file: File) => {
+      const { key } = await filesApi.upload(file, 'course-pdfs');
+      await modulesApi.update(m.id, { syllabusFile: { fileId: key } });
+    },
+    onSuccess: () => {
+      setSyllabusFileError(null);
+      qc.invalidateQueries({ queryKey: ['course', m.courseId, 'shell'] });
+    },
+    onError: (e) =>
+      setSyllabusFileError(e instanceof ApiHttpError ? e.message : 'Upload failed.'),
+  });
+  const removeSyllabusFile = useMutation({
+    mutationFn: () => modulesApi.update(m.id, { syllabusFile: null }),
+    onSuccess: () => {
+      setSyllabusFileError(null);
+      qc.invalidateQueries({ queryKey: ['course', m.courseId, 'shell'] });
+    },
+    onError: (e) =>
+      setSyllabusFileError(e instanceof ApiHttpError ? e.message : 'Remove failed.'),
+  });
+
+  async function handleSyllabusFile(file: File): Promise<void> {
+    setSyllabusFileError(null);
+    if (file.size > 5 * 1024 * 1024) {
+      setSyllabusFileError('File must be 5 MB or smaller.');
+      return;
+    }
+    await uploadSyllabusFile.mutateAsync(file);
+  }
+
+  function formatBytes(n: number): string {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   const aimError = updateMut.error instanceof ApiHttpError ? updateMut.error.message : null;
 
@@ -364,6 +410,84 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
             Save syllabus
           </Button>
           {syllabusSaved && <span className="text-xs text-success">Saved.</span>}
+        </div>
+        {/* Optional uploaded syllabus document — students see a download
+            link alongside the long-form text. */}
+        <div className="mt-3 rounded-xl border border-dashed border-black/10 bg-white/60 p-3">
+          {m.syllabusFile ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={m.syllabusFile.fileId
+                  ? `/v1/files/${m.syllabusFile.fileId}`
+                  : '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-medium text-brand-navy hover:underline truncate"
+              >
+                📄 {m.syllabusFile.filename}
+              </a>
+              <span className="text-xs text-muted">
+                {formatBytes(m.syllabusFile.size)}
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <label className="text-xs text-muted hover:text-brand-navy cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="hidden"
+                    disabled={isOversight || uploadSyllabusFile.isPending}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        handleSyllabusFile(f).catch(() => {
+                          /* surfaced via uploadSyllabusFile.onError */
+                        });
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                  {uploadSyllabusFile.isPending ? 'Uploading…' : 'Replace'}
+                </label>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-danger hover:bg-red-50"
+                  loading={removeSyllabusFile.isPending}
+                  disabled={isOversight}
+                  onClick={() => removeSyllabusFile.mutate()}
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <label className="flex items-center gap-3 cursor-pointer text-sm">
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className="hidden"
+                disabled={isOversight || uploadSyllabusFile.isPending}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    handleSyllabusFile(f).catch(() => {
+                      /* surfaced via uploadSyllabusFile.onError */
+                    });
+                  }
+                  e.target.value = '';
+                }}
+              />
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-muted hover:bg-black/5">
+                {uploadSyllabusFile.isPending ? '⏳ Uploading…' : '📎 Upload syllabus document'}
+              </span>
+              <span className="text-xs text-muted">
+                PDF or Word (.doc / .docx), 5 MB max. Students see a download link.
+              </span>
+            </label>
+          )}
+          {syllabusFileError && (
+            <p className="mt-2 text-xs text-danger">{syllabusFileError}</p>
+          )}
         </div>
       </div>
       {m.learningOutcomes.length > 0 && (

@@ -4,18 +4,22 @@ import type {
   ModuleContentDto,
   ModuleContentInput,
   ModuleDto,
+  ModuleSyllabusFileInput,
   Role,
   UpdateModuleInput,
 } from 'india-learns-shared-types';
 import { HttpError } from '../middleware/error.js';
 import {
   Course,
+  FileMeta,
   ModuleModel,
   type HydratedModule,
   type ModuleContentBlockDoc,
 } from '../models/index.js';
 import { recordAudit } from './auditService.js';
 import { facultyAssignedToCourse } from './courseService.js';
+import { getIntegrations } from '../integrations/index.js';
+import { logger } from '../config/logger.js';
 import type { ActorContext } from './userService.js';
 
 // PR #16 / M10r — admin and faculty (when assigned to the course) can both
@@ -24,10 +28,10 @@ import type { ActorContext } from './userService.js';
 // teach. Other faculty (not on the course) can't touch it; non-staff roles
 // never reach this code.
 const ADMIN_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
-  'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus',
+  'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus', 'syllabusFile',
 ]);
 const FACULTY_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
-  'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus',
+  'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus', 'syllabusFile',
 ]);
 
 function requireId(id: string): Types.ObjectId {
@@ -150,6 +154,23 @@ function toDto(doc: HydratedModule): ModuleDto {
     selfStudyHours: typeof json.selfStudyHours === 'number' ? json.selfStudyHours : null,
     facultyNotes: (json.facultyNotes as string | undefined) ?? '',
     syllabus: (json.syllabus as string | undefined) ?? '',
+    syllabusFile: (() => {
+      const sf = json.syllabusFile as Record<string, unknown> | null | undefined;
+      if (!sf || !sf.fileId) return null;
+      const { uploadedAt } = sf;
+      return {
+        fileId: String(sf.fileId),
+        filename: (sf.filename as string) ?? '',
+        contentType: (sf.contentType as string) ?? 'application/octet-stream',
+        size: typeof sf.size === 'number' ? sf.size : 0,
+        uploadedAt:
+          uploadedAt instanceof Date
+            ? uploadedAt.toISOString()
+            : typeof uploadedAt === 'string'
+              ? uploadedAt
+              : new Date(0).toISOString(),
+      };
+    })(),
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -211,6 +232,74 @@ export async function createModule(
   return doc;
 }
 
+/**
+ * Apply a syllabusFile patch:
+ *   - null         → clear the attachment (and best-effort delete the
+ *                    old S3 object + FileMeta row so storage doesn't
+ *                    pile up with orphaned files).
+ *   - {fileId}     → validate the FileMeta exists, snapshot its
+ *                    filename/contentType/size onto the module, and
+ *                    delete the previous attachment if any.
+ *
+ * The S3 cleanup is best-effort: a delete failure logs a warning but
+ * doesn't block the module update. The orphan can be reaped by an
+ * out-of-band sweep later.
+ */
+async function applySyllabusFilePatch(
+  doc: HydratedModule,
+  patch: ModuleSyllabusFileInput | null,
+  actorUserId: Types.ObjectId,
+): Promise<void> {
+  const previousFileId = doc.syllabusFile?.fileId ?? null;
+
+  if (patch === null) {
+    doc.set('syllabusFile', null);
+    if (previousFileId) {
+      await tryDeleteFileMeta(previousFileId.toHexString());
+    }
+    return;
+  }
+
+  if (!patch.fileId || !Types.ObjectId.isValid(patch.fileId)) {
+    throw new HttpError(422, 'VALIDATION_FAILED', 'syllabusFile.fileId is not a valid id.');
+  }
+  // Same id as currently attached — nothing to do (idempotent no-op).
+  if (previousFileId && previousFileId.toHexString() === patch.fileId) {
+    return;
+  }
+  const meta = await FileMeta.findById(patch.fileId);
+  if (!meta || meta.deletedAt) {
+    throw new HttpError(
+      404,
+      'NOT_FOUND',
+      'Uploaded file not found — upload the syllabus file first, then attach it.',
+    );
+  }
+  doc.set('syllabusFile', {
+    fileId: meta._id,
+    filename: meta.filename,
+    contentType: meta.contentType,
+    size: meta.size,
+    uploadedAt: new Date(),
+    uploadedByUserId: actorUserId,
+  });
+  if (previousFileId && !previousFileId.equals(meta._id)) {
+    await tryDeleteFileMeta(previousFileId.toHexString());
+  }
+}
+
+async function tryDeleteFileMeta(fileIdHex: string): Promise<void> {
+  try {
+    const { storage } = getIntegrations();
+    await storage.delete(fileIdHex);
+  } catch (err) {
+    logger.warn(
+      { fileId: fileIdHex, err: (err as Error).message },
+      'module.syllabus_file.cleanup_failed',
+    );
+  }
+}
+
 export async function updateModule(
   id: string,
   patch: UpdateModuleInput,
@@ -265,6 +354,9 @@ export async function updateModule(
   }
   if (patch.facultyNotes !== undefined) doc.facultyNotes = patch.facultyNotes;
   if (patch.syllabus !== undefined) doc.syllabus = patch.syllabus;
+  if (patch.syllabusFile !== undefined) {
+    await applySyllabusFilePatch(doc, patch.syllabusFile, actor.userId);
+  }
   await doc.save();
   await recordAudit({
     actorUserId: actor.actorUserId,

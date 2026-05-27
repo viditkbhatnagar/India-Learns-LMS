@@ -501,6 +501,8 @@ export const modulesApi = {
       prerequisites?: string[];
       facultyNotes?: string;
       syllabus?: string;
+      /** Attach/replace: `{ fileId }`. Remove: `null`. */
+      syllabusFile?: { fileId: string } | null;
     },
   ) {
     const res = await api.patch<{ data: { module: ModuleDto } }>(

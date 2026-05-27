@@ -53,9 +53,26 @@ export interface ModuleDoc {
    * caps elsewhere — plenty of room for a multi-paragraph syllabus.
    */
   syllabus: string;
+  /**
+   * Optional uploaded syllabus document (PDF/DOCX/etc.). Bytes live in
+   * S3 via the FileMeta indirection — fileId IS the FileMeta._id so the
+   * student-facing download URL is the existing `/v1/files/:fileId`
+   * proxy route. Filename/contentType/size are denormalised so the
+   * student view renders the link without an extra lookup.
+   */
+  syllabusFile: ModuleSyllabusFileDoc | null;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface ModuleSyllabusFileDoc {
+  fileId: Types.ObjectId;
+  filename: string;
+  contentType: string;
+  size: number;
+  uploadedAt: Date;
+  uploadedByUserId: Types.ObjectId | null;
 }
 
 const ModuleContentSchema = new Schema<ModuleContentBlockDoc>(
@@ -74,6 +91,18 @@ const ModuleContentSchema = new Schema<ModuleContentBlockDoc>(
     quizId: { type: Schema.Types.ObjectId, ref: 'Quiz', default: null },
   },
   { _id: true, versionKey: false },
+);
+
+const SyllabusFileSchema = new Schema<ModuleSyllabusFileDoc>(
+  {
+    fileId: { type: Schema.Types.ObjectId, ref: 'FileMeta', required: true },
+    filename: { type: String, required: true, maxlength: 255 },
+    contentType: { type: String, required: true, maxlength: 200 },
+    size: { type: Number, required: true, min: 0 },
+    uploadedAt: { type: Date, default: () => new Date() },
+    uploadedByUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  },
+  { _id: false, versionKey: false },
 );
 
 const MLOSchema = new Schema<ModuleLearningOutcomeDoc>(
@@ -111,6 +140,7 @@ const ModuleSchema = new Schema<ModuleDoc>(
     selfStudyHours: { type: Number, default: null },
     facultyNotes: { type: String, default: '', maxlength: 8000 },
     syllabus: { type: String, default: '', maxlength: 16_000 },
+    syllabusFile: { type: SyllabusFileSchema, default: null },
     deletedAt: { type: Date, default: null },
   },
   {

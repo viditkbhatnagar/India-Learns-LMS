@@ -377,14 +377,29 @@ function ModuleSection({
           {m.aim && (
             <p className="text-sm text-ink/80 mt-1.5 max-w-[68ch] leading-relaxed">{m.aim}</p>
           )}
-          {m.syllabus && (
+          {(m.syllabus || m.syllabusFile) && (
             <details className="mt-2 max-w-[72ch]">
               <summary className="text-xs uppercase tracking-wider text-brand-orange font-bold cursor-pointer hover:text-brand-navy">
                 Syllabus
               </summary>
-              <p className="text-sm text-ink/85 mt-2 whitespace-pre-wrap leading-relaxed">
-                {m.syllabus}
-              </p>
+              {m.syllabusFile && (
+                <a
+                  href={`/v1/files/${m.syllabusFile.fileId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-muted hover:bg-black/5 text-sm text-brand-navy hover:underline"
+                >
+                  📄 {m.syllabusFile.filename}
+                  <span className="text-xs text-muted">
+                    ({(m.syllabusFile.size / 1024).toFixed(0)} KB)
+                  </span>
+                </a>
+              )}
+              {m.syllabus && (
+                <p className="text-sm text-ink/85 mt-2 whitespace-pre-wrap leading-relaxed">
+                  {m.syllabus}
+                </p>
+              )}
             </details>
           )}
         </div>
