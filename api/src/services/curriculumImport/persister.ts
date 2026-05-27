@@ -54,11 +54,20 @@ export async function persistImport(
 ): Promise<PersistResult> {
   const now = new Date();
 
-  // 1. Find existing course by sourceWorkflowId.
+  // 1. Find existing course by sourceWorkflowId — including soft-deleted
+  // ones. If the operator soft-deleted the old course to "put the
+  // updated version", the next import should revive that course in
+  // place (preserving _id + slug + sourceWorkflowId so enrolments,
+  // audit logs, and stored URLs keep working) rather than fail on the
+  // programId+slug unique index.
   const existing = await Course.findOne({
     sourceWorkflowId: data.course.sourceWorkflowId,
-    deletedAt: null,
   });
+
+  // Soft-deleted records signal "I want a fresh import" more strongly
+  // than the replace=true flag does, so trigger the replace path
+  // automatically.
+  const revivingDeleted = Boolean(existing?.deletedAt);
 
   // Partial-state detection: a course with lastSyncedAt=null left behind
   // by a prior import that threw mid-flight. Re-run as if replace=true so
@@ -66,7 +75,7 @@ export async function persistImport(
   // want their import to land. Surface the auto-recovery in warnings so
   // the audit trail is honest.
   const autoRepair = Boolean(existing && existing.lastSyncedAt === null);
-  const effectiveReplace = opts.replace || autoRepair;
+  const effectiveReplace = opts.replace || autoRepair || revivingDeleted;
 
   if (existing && !effectiveReplace) {
     return {
@@ -92,6 +101,19 @@ export async function persistImport(
         'curriculum.import.auto_repair',
       );
     }
+    if (revivingDeleted) {
+      recoveryWarnings.push(
+        `Reviving previously deleted course (deletedAt=${existing.deletedAt?.toISOString() ?? 'unknown'}) for this workflow. Existing enrolments and audit history remain linked to the same course _id.`,
+      );
+      logger.warn(
+        {
+          courseId: String(existing._id),
+          workflowId: data.course.sourceWorkflowId,
+          previouslyDeletedAt: existing.deletedAt?.toISOString(),
+        },
+        'curriculum.import.revive_deleted',
+      );
+    }
     // Wipe imported children. Manually-created (no source*Id) children are
     // preserved so faculty edits aren't lost.
     await Material.deleteMany({
@@ -114,6 +136,14 @@ export async function persistImport(
     existing.summary = data.course.summary;
     existing.programLearningOutcomes = data.course.programLearningOutcomes;
     existing.sourceWorkflowVersion = data.course.sourceWorkflowVersion;
+    if (revivingDeleted) {
+      // Revive: clear the tombstone and force back to sandbox so the
+      // operator can review the freshly re-imported content before
+      // republishing. deleteCourse() also flips state to 'sandbox', so
+      // this is just symmetry.
+      existing.deletedAt = null;
+      existing.state = 'sandbox';
+    }
     // Mark partial until children are re-persisted.
     existing.lastSyncedAt = null;
     await existing.save();
