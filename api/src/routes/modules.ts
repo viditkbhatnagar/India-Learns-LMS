@@ -39,6 +39,14 @@ const UpdateBody = z.object({
   prerequisites: z.array(z.string().max(500)).max(50).optional(),
   facultyNotes: z.string().max(8000).optional(),
   syllabus: z.string().max(16_000).optional(),
+  // Pass `{ fileId }` to attach/replace, `null` to remove. Server
+  // resolves FileMeta + snapshots filename/contentType/size.
+  syllabusFile: z
+    .object({
+      fileId: z.string().min(1).max(64),
+    })
+    .nullable()
+    .optional(),
 });
 
 function requestContext(req: Request) {
