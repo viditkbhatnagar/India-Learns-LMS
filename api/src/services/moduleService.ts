@@ -150,6 +150,23 @@ function toDto(doc: HydratedModule): ModuleDto {
     selfStudyHours: typeof json.selfStudyHours === 'number' ? json.selfStudyHours : null,
     facultyNotes: (json.facultyNotes as string | undefined) ?? '',
     syllabus: (json.syllabus as string | undefined) ?? '',
+    syllabusFile: (() => {
+      const sf = json.syllabusFile as Record<string, unknown> | null | undefined;
+      if (!sf || !sf.fileId) return null;
+      const uploadedAt = sf.uploadedAt;
+      return {
+        fileId: String(sf.fileId),
+        filename: (sf.filename as string) ?? '',
+        contentType: (sf.contentType as string) ?? 'application/octet-stream',
+        size: typeof sf.size === 'number' ? sf.size : 0,
+        uploadedAt:
+          uploadedAt instanceof Date
+            ? uploadedAt.toISOString()
+            : typeof uploadedAt === 'string'
+              ? uploadedAt
+              : new Date(0).toISOString(),
+      };
+    })(),
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
