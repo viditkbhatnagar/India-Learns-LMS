@@ -157,7 +157,7 @@ function toDto(doc: HydratedModule): ModuleDto {
     syllabusFile: (() => {
       const sf = json.syllabusFile as Record<string, unknown> | null | undefined;
       if (!sf || !sf.fileId) return null;
-      const uploadedAt = sf.uploadedAt;
+      const { uploadedAt } = sf;
       return {
         fileId: String(sf.fileId),
         filename: (sf.filename as string) ?? '',

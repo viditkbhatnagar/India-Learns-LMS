@@ -438,7 +438,11 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
                     disabled={isOversight || uploadSyllabusFile.isPending}
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) void handleSyllabusFile(f);
+                      if (f) {
+                        handleSyllabusFile(f).catch(() => {
+                          /* surfaced via uploadSyllabusFile.onError */
+                        });
+                      }
                       e.target.value = '';
                     }}
                   />
@@ -465,7 +469,11 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
                 disabled={isOversight || uploadSyllabusFile.isPending}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) void handleSyllabusFile(f);
+                  if (f) {
+                    handleSyllabusFile(f).catch(() => {
+                      /* surfaced via uploadSyllabusFile.onError */
+                    });
+                  }
                   e.target.value = '';
                 }}
               />
