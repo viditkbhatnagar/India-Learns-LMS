@@ -180,6 +180,14 @@ export interface ModuleDto {
    * Empty string when unset.
    */
   syllabus: string;
+  /**
+   * Optional uploaded syllabus document (PDF/DOCX/etc.). Bytes live in
+   * S3 via the FileMeta indirection; `fileId` is the FileMeta._id and
+   * also the `:id` for `${API_ORIGIN}/v1/files/:id`. Filename, size, and
+   * contentType are denormalised so the student view can render the
+   * download link without an extra lookup.
+   */
+  syllabusFile: ModuleSyllabusFileDto | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -202,6 +210,21 @@ export interface ModuleContentInput {
   quizId?: string | null;
 }
 
+export interface ModuleSyllabusFileDto {
+  fileId: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  uploadedAt: string;
+}
+
+/** PATCH-side input — pass the FileMeta id returned from the upload
+ * endpoint, or `null` to remove. Server fills in filename/contentType/size
+ * from FileMeta. */
+export interface ModuleSyllabusFileInput {
+  fileId: string;
+}
+
 export interface UpdateModuleInput {
   title?: string;
   order?: number;
@@ -214,6 +237,8 @@ export interface UpdateModuleInput {
   prerequisites?: string[];
   facultyNotes?: string;
   syllabus?: string;
+  /** Attach (object), replace (object with different fileId), or remove (null). */
+  syllabusFile?: ModuleSyllabusFileInput | null;
 }
 
 export interface BatchDto {
