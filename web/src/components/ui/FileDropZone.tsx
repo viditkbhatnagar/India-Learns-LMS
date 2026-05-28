@@ -85,6 +85,39 @@ export function FileDropZone({
     setDragging(false);
   }
 
+  // Browse fallback. On Chromium we use the File System Access API so we
+  // can hint the dialog to start in Downloads with a dedicated `id` — this
+  // sidesteps the case where the plain <input> dialog defaults to OneDrive
+  // and hangs (OneDrive Files On-Demand). Everywhere else we fall back to
+  // the native <input>.
+  async function openPicker(): Promise<void> {
+    if (disabled || busy) return;
+    const w = window as unknown as {
+      showOpenFilePicker?: (opts: {
+        id?: string;
+        startIn?: string;
+        multiple?: boolean;
+      }) => Promise<Array<{ getFile: () => Promise<File> }>>;
+    };
+    if (typeof w.showOpenFilePicker === 'function') {
+      try {
+        const handles = await w.showOpenFilePicker({
+          id: 'india-learns-upload',
+          startIn: 'downloads',
+          multiple: false,
+        });
+        const file = await handles[0]?.getFile();
+        if (file) accept1(file);
+        return;
+      } catch (err) {
+        // User cancelled — do nothing. Any other failure → fall through
+        // to the classic <input> picker.
+        if ((err as DOMException | undefined)?.name === 'AbortError') return;
+      }
+    }
+    inputRef.current?.click();
+  }
+
   return (
     <div>
       <div
@@ -97,12 +130,12 @@ export function FileDropZone({
         onDragEnter={onDragOver}
         onDragLeave={onDragLeave}
         onClick={() => {
-          if (!disabled && !busy) inputRef.current?.click();
+          openPicker().catch(() => undefined);
         }}
         onKeyDown={(e) => {
           if ((e.key === 'Enter' || e.key === ' ') && !disabled && !busy) {
             e.preventDefault();
-            inputRef.current?.click();
+            openPicker().catch(() => undefined);
           }
         }}
         className={[
