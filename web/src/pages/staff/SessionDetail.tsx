@@ -8,6 +8,7 @@ import { Input, TextArea } from '../../components/ui/Input.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import {
   assignmentsApi,
+  filesApi,
   materialsApi,
   sessionsApi,
   type AddableMaterialType,
@@ -523,6 +524,8 @@ function AddMaterialForm({
   const [url, setUrl] = useState('');
   const [body, setBody] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedName, setUploadedName] = useState<string | null>(null);
 
   const mut = useMutation({
     mutationFn: () =>
@@ -537,11 +540,36 @@ function AddMaterialForm({
       setTitle('');
       setUrl('');
       setBody('');
+      setUploadedName(null);
       setOpen(false);
       qc.invalidateQueries({ queryKey: ['session', sessionId] });
     },
     onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Add failed.'),
   });
+
+  // Direct file upload (PowerPoint / PDF / etc.) → S3 via the shared
+  // /v1/files/upload endpoint. Fills the URL field with the returned
+  // proxy link so students can download the file. Faculty no longer
+  // need to host on Drive and paste a link.
+  const MAX_MATERIAL_BYTES = 25 * 1024 * 1024;
+  async function handleMaterialFile(file: File): Promise<void> {
+    setErr(null);
+    if (file.size > MAX_MATERIAL_BYTES) {
+      setErr('File must be 25 MB or smaller.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const { url: uploadedUrl } = await filesApi.upload(file, 'course-pdfs');
+      setUrl(uploadedUrl);
+      setUploadedName(file.name);
+      if (!title.trim()) setTitle(file.name.replace(/\.[^.]+$/, ''));
+    } catch (e) {
+      setErr(e instanceof ApiHttpError ? e.message : 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   if (!open) {
     return (
@@ -604,14 +632,49 @@ function AddMaterialForm({
           maxLength={16_000}
         />
       ) : (
-        <Input
-          label="URL"
-          type="url"
-          placeholder="https://…"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          maxLength={2048}
-        />
+        <div className="space-y-2">
+          <Input
+            label="URL"
+            type="url"
+            placeholder="https://…"
+            value={url}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              setUploadedName(null);
+            }}
+            maxLength={2048}
+          />
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-xs text-muted">or</span>
+            <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-muted hover:bg-black/5 cursor-pointer">
+              <input
+                type="file"
+                accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.mp4,.png,.jpg,.jpeg"
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    handleMaterialFile(f).catch(() => {
+                      /* surfaced via setErr */
+                    });
+                  }
+                  e.target.value = '';
+                }}
+              />
+              {uploading ? '⏳ Uploading…' : '📎 Upload a file'}
+            </label>
+            {uploadedName && !uploading && (
+              <span className="text-xs text-success truncate">
+                Uploaded {uploadedName} ✓
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted">
+            Upload a PowerPoint, PDF, or other file (25 MB max) — students get a download link.
+            Or paste a link to a file you host elsewhere.
+          </p>
+        </div>
       )}
       {err && <p className="text-xs text-danger">{err}</p>}
       <div className="flex items-center gap-2">
