@@ -5,6 +5,7 @@ import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input, TextArea } from '../../components/ui/Input.js';
+import { FileDropZone } from '../../components/ui/FileDropZone.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import {
   assignmentsApi,
@@ -633,6 +634,27 @@ function AddMaterialForm({
         />
       ) : (
         <div className="space-y-2">
+          <FileDropZone
+            onFile={(f) => {
+              handleMaterialFile(f).catch(() => {
+                /* surfaced via setErr */
+              });
+            }}
+            accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.mp4,.png,.jpg,.jpeg"
+            maxBytes={25 * 1024 * 1024}
+            busy={uploading}
+            busyLabel="Uploading…"
+            label="Drag a PowerPoint / PDF here"
+            hint="Any file up to 25 MB — students get a download link."
+          />
+          {uploadedName && !uploading && (
+            <p className="text-xs text-success truncate">
+              Uploaded {uploadedName} ✓
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted">or paste a link to a file hosted elsewhere:</span>
+          </div>
           <Input
             label="URL"
             type="url"
@@ -644,36 +666,6 @@ function AddMaterialForm({
             }}
             maxLength={2048}
           />
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-xs text-muted">or</span>
-            <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-muted hover:bg-black/5 cursor-pointer">
-              <input
-                type="file"
-                accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.mp4,.png,.jpg,.jpeg"
-                className="hidden"
-                disabled={uploading}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) {
-                    handleMaterialFile(f).catch(() => {
-                      /* surfaced via setErr */
-                    });
-                  }
-                  e.target.value = '';
-                }}
-              />
-              {uploading ? '⏳ Uploading…' : '📎 Upload a file'}
-            </label>
-            {uploadedName && !uploading && (
-              <span className="text-xs text-success truncate">
-                Uploaded {uploadedName} ✓
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-muted">
-            Upload a PowerPoint, PDF, or other file (25 MB max) — students get a download link.
-            Or paste a link to a file you host elsewhere.
-          </p>
         </div>
       )}
       {err && <p className="text-xs text-danger">{err}</p>}
