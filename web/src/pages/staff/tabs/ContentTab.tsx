@@ -21,6 +21,7 @@ import { Card } from '../../../components/ui/Card.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { TextArea } from '../../../components/ui/Input.js';
+import { FileDropZone } from '../../../components/ui/FileDropZone.js';
 import { ErrorAlert, EmptyState, Skeleton } from '../../../components/ui/States.js';
 import {
   coursesApi,
@@ -412,10 +413,11 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
           {syllabusSaved && <span className="text-xs text-success">Saved.</span>}
         </div>
         {/* Optional uploaded syllabus document — students see a download
-            link alongside the long-form text. */}
-        <div className="mt-3 rounded-xl border border-dashed border-black/10 bg-white/60 p-3">
+            link alongside the long-form text. Drag-and-drop avoids the
+            native OS file dialog (which hangs on OneDrive setups). */}
+        <div className="mt-3">
           {m.syllabusFile ? (
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-black/10 bg-white/60 p-3">
               <a
                 href={m.syllabusFile.fileId
                   ? `/v1/files/${m.syllabusFile.fileId}`
@@ -430,24 +432,6 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
                 {formatBytes(m.syllabusFile.size)}
               </span>
               <div className="ml-auto flex items-center gap-2">
-                <label className="text-xs text-muted hover:text-brand-navy cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    className="hidden"
-                    disabled={isOversight || uploadSyllabusFile.isPending}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) {
-                        handleSyllabusFile(f).catch(() => {
-                          /* surfaced via uploadSyllabusFile.onError */
-                        });
-                      }
-                      e.target.value = '';
-                    }}
-                  />
-                  {uploadSyllabusFile.isPending ? 'Uploading…' : 'Replace'}
-                </label>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -461,29 +445,35 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
               </div>
             </div>
           ) : (
-            <label className="flex items-center gap-3 cursor-pointer text-sm">
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                className="hidden"
-                disabled={isOversight || uploadSyllabusFile.isPending}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) {
-                    handleSyllabusFile(f).catch(() => {
-                      /* surfaced via uploadSyllabusFile.onError */
-                    });
-                  }
-                  e.target.value = '';
+            <FileDropZone
+              onFile={(f) => {
+                handleSyllabusFile(f).catch(() => {
+                  /* surfaced via uploadSyllabusFile.onError */
+                });
+              }}
+              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              maxBytes={5 * 1024 * 1024}
+              disabled={isOversight}
+              busy={uploadSyllabusFile.isPending}
+              busyLabel="Uploading syllabus…"
+              label="Drag a syllabus document here"
+              hint="PDF or Word (.doc / .docx), 5 MB max. Students see a download link."
+            />
+          )}
+          {m.syllabusFile && !isOversight && (
+            <div className="mt-2">
+              <FileDropZone
+                onFile={(f) => {
+                  handleSyllabusFile(f).catch(() => undefined);
                 }}
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                maxBytes={5 * 1024 * 1024}
+                busy={uploadSyllabusFile.isPending}
+                busyLabel="Replacing…"
+                label="Drag a new file here to replace"
+                hint="Replaces the current document."
               />
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-muted hover:bg-black/5">
-                {uploadSyllabusFile.isPending ? '⏳ Uploading…' : '📎 Upload syllabus document'}
-              </span>
-              <span className="text-xs text-muted">
-                PDF or Word (.doc / .docx), 5 MB max. Students see a download link.
-              </span>
-            </label>
+            </div>
           )}
           {syllabusFileError && (
             <p className="mt-2 text-xs text-danger">{syllabusFileError}</p>
