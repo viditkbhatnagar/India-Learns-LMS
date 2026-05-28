@@ -460,7 +460,26 @@ function SlideToolbar({
     URL.revokeObjectURL(url);
   }
 
+  // Replace deck takes a JSON export of the slide structure — NOT a
+  // PowerPoint/PDF. Guard before reading: a .pptx is tens of MB of
+  // binary, and `file.text()` + `JSON.parse()` on the main thread froze
+  // the tab (and the OS file dialog) when faculty picked one. Validate
+  // type + size first; never read a non-JSON or oversized file.
+  const MAX_JSON_BYTES = 5 * 1024 * 1024;
   async function handleReplaceFile(file: File): Promise<void> {
+    setErr(null);
+    const isJson =
+      file.type === 'application/json' || /\.json$/i.test(file.name);
+    if (!isJson) {
+      setErr(
+        'Replace deck expects a JSON export of the slides. To share a PowerPoint or PDF with students, use “+ Add material” on the session and upload the file there.',
+      );
+      return;
+    }
+    if (file.size > MAX_JSON_BYTES) {
+      setErr('That JSON file is larger than 5 MB — slide exports are normally a few KB. Double-check the file.');
+      return;
+    }
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as unknown;
@@ -491,10 +510,14 @@ function SlideToolbar({
         variant="ghost"
         loading={replaceMut.isPending}
         disabled={isOversight}
-        title={isOversight ? oversightTitle : undefined}
+        title={
+          isOversight
+            ? oversightTitle
+            : 'Replace the rendered slides from a JSON export. To share a PowerPoint/PDF, use “+ Add material” on the session.'
+        }
         onClick={() => fileInputRef.current?.click()}
       >
-        Replace deck
+        Replace deck (JSON)
       </Button>
       {savedAt && !err && !replaceMut.isPending && (
         <span className="text-xs text-success">Replaced.</span>
