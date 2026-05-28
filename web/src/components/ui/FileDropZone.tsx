@@ -39,14 +39,26 @@ export function FileDropZone({
 }: FileDropZoneProps): JSX.Element {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [sizeError, setSizeError] = useState<string | null>(null);
+  const [dropError, setDropError] = useState<string | null>(null);
+
+  const CLOUD_FILE_HINT =
+    "Couldn't read that file. If it lives in OneDrive/cloud, open File Explorer, " +
+    'right-click it → “Always keep on this device”, then try again — or paste a ' +
+    'shareable link in the URL field instead.';
 
   function accept1(file: File | undefined | null): void {
-    if (!file) return;
-    setSizeError(null);
+    setDropError(null);
+    // A cloud/online-only file (OneDrive Files On-Demand) can come through
+    // with no bytes — size 0 and unreadable. Treat empty/zero-byte as the
+    // "no local copy" case and tell the user how to fix it, instead of
+    // silently doing nothing.
+    if (!file || file.size === 0) {
+      setDropError(CLOUD_FILE_HINT);
+      return;
+    }
     if (maxBytes && file.size > maxBytes) {
       const mb = (maxBytes / (1024 * 1024)).toFixed(0);
-      setSizeError(`That file is larger than ${mb} MB.`);
+      setDropError(`That file is larger than ${mb} MB.`);
       return;
     }
     onFile(file);
@@ -56,7 +68,6 @@ export function FileDropZone({
     e.preventDefault();
     setDragging(false);
     if (disabled || busy) return;
-    // Prefer the items API (more robust across browsers) then fall back.
     const file =
       e.dataTransfer.files && e.dataTransfer.files.length > 0
         ? e.dataTransfer.files[0]
@@ -77,6 +88,7 @@ export function FileDropZone({
   return (
     <div>
       <div
+        data-testid="file-drop-zone"
         role="button"
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled}
@@ -131,7 +143,7 @@ export function FileDropZone({
           }}
         />
       </div>
-      {sizeError && <p className="mt-1.5 text-xs text-danger">{sizeError}</p>}
+      {dropError && <p className="mt-1.5 text-xs text-danger">{dropError}</p>}
     </div>
   );
 }
