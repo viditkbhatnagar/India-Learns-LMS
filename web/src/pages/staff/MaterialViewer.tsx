@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
+import { FileDropZone } from '../../components/ui/FileDropZone.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import { ApiHttpError } from '../../lib/api.js';
@@ -427,15 +428,16 @@ function SlideToolbar({
   oversightTitle: string;
 }): JSX.Element {
   const qc = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [replaceOpen, setReplaceOpen] = useState(false);
 
   const replaceMut = useMutation({
     mutationFn: (next: unknown) => materialsApi.replaceSlides(material.id, next),
     onSuccess: () => {
       setErr(null);
       setSavedAt(new Date().toISOString());
+      setReplaceOpen(false);
       qc.invalidateQueries({ queryKey: ['material', material.id] });
       qc.invalidateQueries({ queryKey: ['session', material.sessionId] });
     },
@@ -490,37 +492,42 @@ function SlideToolbar({
   }
 
   return (
-    <div className="inline-flex items-center gap-2">
-      <Button size="sm" variant="ghost" onClick={handleDownload}>
-        Download deck
-      </Button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/json,.json"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleReplaceFile(f).catch(() => undefined);
-          e.target.value = '';
-        }}
-      />
-      <Button
-        size="sm"
-        variant="ghost"
-        loading={replaceMut.isPending}
-        disabled={isOversight}
-        title={
-          isOversight
-            ? oversightTitle
-            : 'Replace the rendered slides from a JSON export. To share a PowerPoint/PDF, use “+ Add material” on the session.'
-        }
-        onClick={() => fileInputRef.current?.click()}
-      >
-        Replace deck (JSON)
-      </Button>
-      {savedAt && !err && !replaceMut.isPending && (
-        <span className="text-xs text-success">Replaced.</span>
+    <div className="flex flex-col items-end gap-2">
+      <div className="inline-flex items-center gap-2">
+        <Button size="sm" variant="ghost" onClick={handleDownload}>
+          Download deck
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={isOversight}
+          title={
+            isOversight
+              ? oversightTitle
+              : 'Replace the rendered slides from a JSON export. To share a PowerPoint/PDF, use “+ Add material” on the session.'
+          }
+          onClick={() => setReplaceOpen((v) => !v)}
+        >
+          Replace deck (JSON)
+        </Button>
+        {savedAt && !err && !replaceMut.isPending && (
+          <span className="text-xs text-success">Replaced.</span>
+        )}
+      </div>
+      {replaceOpen && !isOversight && (
+        <div className="w-72">
+          <FileDropZone
+            onFile={(f) => {
+              handleReplaceFile(f).catch(() => undefined);
+            }}
+            accept="application/json,.json"
+            maxBytes={5 * 1024 * 1024}
+            busy={replaceMut.isPending}
+            busyLabel="Replacing…"
+            label="Drag a slides JSON export here"
+            hint="JSON only (a few KB). PowerPoint goes via “+ Add material”."
+          />
+        </div>
       )}
       {err && <span className="text-xs text-danger">{err}</span>}
     </div>
