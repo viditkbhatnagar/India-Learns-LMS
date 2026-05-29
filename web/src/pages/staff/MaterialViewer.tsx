@@ -389,8 +389,11 @@ function GenericMaterialView({
           )}
         </div>
         {material.url ? (
-          <FileLink url={material.url} className="mt-4 inline-block">
-            <Button>Open ↗</Button>
+          <FileLink
+            url={material.url}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent-gradient text-white px-4 py-2 text-sm font-semibold shadow-elev-2 hover:shadow-glow-orange hover:-translate-y-0.5 transition-all"
+          >
+            Open ↗
           </FileLink>
         ) : (
           <p className="text-sm text-muted italic mt-4">
