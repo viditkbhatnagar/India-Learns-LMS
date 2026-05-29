@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader } from '../../../components/ui/Card.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
+import { FileLink } from '../../../components/FileLink.js';
 import { Input, TextArea } from '../../../components/ui/Input.js';
 import {
   RequestErrorState,
@@ -176,23 +177,28 @@ function MaterialItem({ material }: { material: StudentSessionDetail['materials'
       </article>
     );
   }
-  // Non-slides: just expose the URL.
-  return (
-    <a
-      href={material.url ?? '#'}
-      target="_blank"
-      rel="noreferrer"
-      className={[
-        'flex items-center gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 transition-colors',
-        material.url ? 'hover:bg-surface-muted/40' : 'pointer-events-none opacity-70',
-      ].join(' ')}
-    >
+  // Non-slides: expose the URL. Internal /v1/files links are fetched
+  // with auth (FileLink); external URLs open directly. No URL → inert row.
+  const rowClass = [
+    'flex w-full items-center gap-3 rounded-2xl border border-black/5 bg-white px-4 py-3 transition-colors text-left',
+    material.url ? 'hover:bg-surface-muted/40' : 'pointer-events-none opacity-70',
+  ].join(' ');
+  const rowInner = (
+    <>
       <Badge tone="info" size="sm">{material.type}</Badge>
       <span className="font-medium text-brand-navy flex-1 truncate">{material.title}</span>
       {material.url && (
         <span className="text-xs font-medium text-brand-orange whitespace-nowrap">Open ↗</span>
       )}
-    </a>
+    </>
+  );
+  if (!material.url) {
+    return <div className={rowClass}>{rowInner}</div>;
+  }
+  return (
+    <FileLink url={material.url} className={rowClass}>
+      {rowInner}
+    </FileLink>
   );
 }
 

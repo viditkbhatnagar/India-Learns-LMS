@@ -10,6 +10,7 @@ import { authApi, filesApi, notificationsApi, programsApi, usersApi } from '../l
 import { useAuthStore } from '../store/auth.js';
 import { Card, CardHeader } from '../components/ui/Card.js';
 import { Button } from '../components/ui/Button.js';
+import { FileLink } from '../components/FileLink.js';
 import { Input, TextArea } from '../components/ui/Input.js';
 import { Badge } from '../components/ui/Badge.js';
 import { Skeleton, ErrorAlert } from '../components/ui/States.js';
@@ -634,14 +635,9 @@ function ResumeCard({
             hint="Leave blank to clear."
           />
           {url && (
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm text-brand-orange hover:underline"
-            >
+            <FileLink url={url} className="text-sm text-brand-orange hover:underline">
               Open current resume →
-            </a>
+            </FileLink>
           )}
           {msg && (
             <div

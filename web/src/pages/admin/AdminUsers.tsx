@@ -14,6 +14,7 @@ import {
 } from 'india-learns-shared-types';
 import { usersApi, programsApi, batchesApi, filesApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
+import { FileLink } from '../../components/FileLink.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
 import { Badge } from '../../components/ui/Badge.js';
@@ -1169,14 +1170,9 @@ function ResumeUrlEditor({ user, onSaved }: EditorProps) {
             hint="Leave blank to clear."
           />
           {url && (
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm text-brand-orange hover:underline"
-            >
+            <FileLink url={url} className="text-sm text-brand-orange hover:underline">
               Open current resume →
-            </a>
+            </FileLink>
           )}
           <StatusBanner msg={msg} />
           <Button type="submit" loading={save.isPending}>
@@ -1420,14 +1416,9 @@ function StudentDocumentsEditor({ studentId }: { studentId: string }) {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={d.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-brand-orange hover:underline"
-                >
+                <FileLink url={d.url} className="text-sm text-brand-orange hover:underline">
                   Open
-                </a>
+                </FileLink>
                 <Button
                   variant="danger"
                   size="sm"

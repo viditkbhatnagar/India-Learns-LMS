@@ -23,6 +23,7 @@ import { Button } from '../../../components/ui/Button.js';
 import { TextArea } from '../../../components/ui/Input.js';
 import { FileDropZone } from '../../../components/ui/FileDropZone.js';
 import { GlossaryEditor, ReadingListEditor } from '../../../components/GlossaryReadingEditors.js';
+import { FileLink } from '../../../components/FileLink.js';
 import { ErrorAlert, EmptyState, Skeleton } from '../../../components/ui/States.js';
 import {
   coursesApi,
@@ -439,16 +440,12 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
         <div className="mt-3">
           {m.syllabusFile ? (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-black/10 bg-white/60 p-3">
-              <a
-                href={m.syllabusFile.fileId
-                  ? `/v1/files/${m.syllabusFile.fileId}`
-                  : '#'}
-                target="_blank"
-                rel="noreferrer"
+              <FileLink
+                url={`/v1/files/${m.syllabusFile.fileId}`}
                 className="text-sm font-medium text-brand-navy hover:underline truncate"
               >
                 📄 {m.syllabusFile.filename}
-              </a>
+              </FileLink>
               <span className="text-xs text-muted">
                 {formatBytes(m.syllabusFile.size)}
               </span>

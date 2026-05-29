@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
 import { FileDropZone } from '../../components/ui/FileDropZone.js';
+import { FileLink } from '../../components/FileLink.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import { ApiHttpError } from '../../lib/api.js';
@@ -388,14 +389,9 @@ function GenericMaterialView({
           )}
         </div>
         {material.url ? (
-          <a
-            href={material.url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-4 inline-block"
-          >
+          <FileLink url={material.url} className="mt-4 inline-block">
             <Button>Open ↗</Button>
-          </a>
+          </FileLink>
         ) : (
           <p className="text-sm text-muted italic mt-4">
             No external URL on this material — Phase A imported the contents

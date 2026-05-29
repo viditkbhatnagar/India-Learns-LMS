@@ -10,6 +10,7 @@ import type {
   StudentSessionState,
 } from 'india-learns-shared-types';
 import { Card } from '../../../components/ui/Card.js';
+import { FileLink } from '../../../components/FileLink.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { Input, TextArea } from '../../../components/ui/Input.js';
@@ -441,17 +442,15 @@ function ModuleSection({
                 Syllabus
               </summary>
               {m.syllabusFile && (
-                <a
-                  href={`/v1/files/${m.syllabusFile.fileId}`}
-                  target="_blank"
-                  rel="noreferrer"
+                <FileLink
+                  url={`/v1/files/${m.syllabusFile.fileId}`}
                   className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-muted hover:bg-black/5 text-sm text-brand-navy hover:underline"
                 >
                   📄 {m.syllabusFile.filename}
                   <span className="text-xs text-muted">
                     ({(m.syllabusFile.size / 1024).toFixed(0)} KB)
                   </span>
-                </a>
+                </FileLink>
               )}
               {m.syllabus && (
                 <p className="text-sm text-ink/85 mt-2 whitespace-pre-wrap leading-relaxed">
