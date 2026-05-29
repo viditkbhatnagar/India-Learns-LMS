@@ -37,6 +37,28 @@ const UpdateBody = z.object({
   sequential: z.boolean().optional(),
   certificateTemplateId: z.string().nullable().optional(),
   facultyIds: z.array(z.string()).max(50).optional(),
+  // Faculty-editable course content (Logan request). Server trims +
+  // drops empties + caps length; loose validation here.
+  glossary: z
+    .array(
+      z.object({
+        term: z.string().max(200),
+        definition: z.string().max(4000),
+      }),
+    )
+    .max(500)
+    .optional(),
+  readingList: z
+    .array(
+      z.object({
+        title: z.string().max(400),
+        author: z.string().max(200).default(''),
+        url: z.string().max(2048).default(''),
+        note: z.string().max(1000).default(''),
+      }),
+    )
+    .max(500)
+    .optional(),
 });
 
 const ListQuery = z.object({
