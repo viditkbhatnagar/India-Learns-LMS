@@ -29,10 +29,37 @@ import type { ActorContext } from './userService.js';
 // never reach this code.
 const ADMIN_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
   'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus', 'syllabusFile',
+  'glossary', 'readingList',
 ]);
 const FACULTY_PATCH_FIELDS = new Set<keyof UpdateModuleInput>([
   'title', 'order', 'content', 'aim', 'prerequisites', 'facultyNotes', 'syllabus', 'syllabusFile',
+  'glossary', 'readingList',
 ]);
+
+function normalizeGlossary(
+  input: UpdateModuleInput['glossary'],
+): Array<{ term: string; definition: string }> {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((g) => ({ term: (g?.term ?? '').trim(), definition: (g?.definition ?? '').trim() }))
+    .filter((g) => g.term.length > 0 && g.definition.length > 0)
+    .slice(0, 500);
+}
+
+function normalizeReadingList(
+  input: UpdateModuleInput['readingList'],
+): Array<{ title: string; author: string; url: string; note: string }> {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((r) => ({
+      title: (r?.title ?? '').trim(),
+      author: (r?.author ?? '').trim(),
+      url: (r?.url ?? '').trim(),
+      note: (r?.note ?? '').trim(),
+    }))
+    .filter((r) => r.title.length > 0)
+    .slice(0, 500);
+}
 
 function requireId(id: string): Types.ObjectId {
   if (!Types.ObjectId.isValid(id)) {
@@ -171,6 +198,20 @@ function toDto(doc: HydratedModule): ModuleDto {
               : new Date(0).toISOString(),
       };
     })(),
+    glossary: Array.isArray(json.glossary)
+      ? (json.glossary as Array<Record<string, unknown>>).map((g) => ({
+        term: (g.term as string) ?? '',
+        definition: (g.definition as string) ?? '',
+      }))
+      : [],
+    readingList: Array.isArray(json.readingList)
+      ? (json.readingList as Array<Record<string, unknown>>).map((r) => ({
+        title: (r.title as string) ?? '',
+        author: (r.author as string) ?? '',
+        url: (r.url as string) ?? '',
+        note: (r.note as string) ?? '',
+      }))
+      : [],
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -356,6 +397,12 @@ export async function updateModule(
   if (patch.syllabus !== undefined) doc.syllabus = patch.syllabus;
   if (patch.syllabusFile !== undefined) {
     await applySyllabusFilePatch(doc, patch.syllabusFile, actor.userId);
+  }
+  if (patch.glossary !== undefined) {
+    doc.set('glossary', normalizeGlossary(patch.glossary));
+  }
+  if (patch.readingList !== undefined) {
+    doc.set('readingList', normalizeReadingList(patch.readingList));
   }
   await doc.save();
   await recordAudit({

@@ -47,6 +47,23 @@ const UpdateBody = z.object({
     })
     .nullable()
     .optional(),
+  // Module-level glossary + reading list (Logan request). Server trims +
+  // drops empties + caps length.
+  glossary: z
+    .array(z.object({ term: z.string().max(200), definition: z.string().max(4000) }))
+    .max(500)
+    .optional(),
+  readingList: z
+    .array(
+      z.object({
+        title: z.string().max(400),
+        author: z.string().max(200).default(''),
+        url: z.string().max(2048).default(''),
+        note: z.string().max(1000).default(''),
+      }),
+    )
+    .max(500)
+    .optional(),
 });
 
 function requestContext(req: Request) {
