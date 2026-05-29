@@ -18,6 +18,18 @@ const SUMMATIVE_DEFAULT_MAX_SCORE = 100;
 const VARIANT_DEFAULT_MAX_SCORE = 100;
 const FALLBACK_MAX_SCORE = 100;
 
+export interface TransformedGlossaryEntry {
+  term: string;
+  definition: string;
+}
+
+export interface TransformedReadingItem {
+  title: string;
+  author: string;
+  url: string;
+  note: string;
+}
+
 export interface TransformedCourse {
   name: string;
   slug: string;
@@ -32,6 +44,10 @@ export interface TransformedCourse {
     bloomLevel: string;
     linkedKSCs: string[];
   }>;
+  // Auto-imported from the generator (Logan request): course-wide
+  // aggregate of all module terminology + readings.
+  glossary: TransformedGlossaryEntry[];
+  readingList: TransformedReadingItem[];
 }
 
 export interface TransformedModule {
@@ -55,6 +71,10 @@ export interface TransformedModule {
     linkedPLOs: string[];
     linkedKSCs: string[];
   }>;
+  // Auto-imported from the generator (Logan request): this module's
+  // terminology (step8.moduleCoverage) + readings (step6.moduleReadings).
+  glossary: TransformedGlossaryEntry[];
+  readingList: TransformedReadingItem[];
 }
 
 export interface TransformedSession {
@@ -200,6 +220,9 @@ function transformCourse(w: Workflow, warnings: string[]): TransformedCourse {
       bloomLevel: o.bloomLevel ?? '',
       linkedKSCs: o.linkedKSCs ?? [],
     })),
+    // Populated in transformWorkflow (course-wide aggregate).
+    glossary: [],
+    readingList: [],
   };
 }
 
@@ -228,7 +251,152 @@ function transformModule(m: GeneratorModule): TransformedModule {
       // PLOs — we normalize both to `linkedKSCs` in the LMS.
       linkedKSCs: mlo.competencyLinks ?? [],
     })),
+    // Populated in transformWorkflow (needs the whole workflow for
+    // step6.moduleReadings + step8.moduleCoverage access).
+    glossary: [],
+    readingList: [],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Glossary + reading-list extraction from the generator (Logan request:
+// "Can we have the terms and reading lists automatically transferred over
+// from the generator?").
+//
+// Sources in the generator workflow:
+//   - Readings:  step6.moduleReadings[moduleId][]  (per module)
+//                step6.readings[]                   (full course list)
+//   - Glossary:  step8.moduleCoverage[moduleId][].assessmentHooks.terminology[]
+//                ({ term, definition }, deduped per module by term)
+// Both steps are `z.unknown()` in the schema, so we read them defensively.
+// ---------------------------------------------------------------------------
+
+const GLOSSARY_TERM_MAX = 200;
+const GLOSSARY_DEF_MAX = 4000;
+const READING_TITLE_MAX = 400;
+const READING_AUTHOR_MAX = 200;
+const READING_URL_MAX = 2048;
+const READING_NOTE_MAX = 1000;
+const LIST_CAP = 500;
+
+interface GenReading {
+  title?: unknown;
+  authors?: unknown;
+  citation?: unknown;
+  url?: unknown;
+  specificChapters?: unknown;
+  pageRange?: unknown;
+  category?: unknown;
+}
+
+interface GenTerm {
+  term?: unknown;
+  definition?: unknown;
+}
+
+function asString(v: unknown): string {
+  return typeof v === 'string' ? v.trim() : '';
+}
+
+function firstUrlFrom(...candidates: unknown[]): string {
+  for (const c of candidates) {
+    const s = asString(c);
+    if (!s) continue;
+    const m = s.match(/https?:\/\/[^\s)]+/);
+    if (m) return m[0].replace(/[).,;]+$/, '').slice(0, READING_URL_MAX);
+    if (/^www\./i.test(s)) return s.slice(0, READING_URL_MAX);
+  }
+  return '';
+}
+
+function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function readingToItem(r: GenReading): TransformedReadingItem | null {
+  const title = asString(r.title).slice(0, READING_TITLE_MAX);
+  if (!title) return null;
+  const authors = Array.isArray(r.authors)
+    ? (r.authors as unknown[]).map(asString).filter(Boolean)
+    : [];
+  const author = authors.join(', ').slice(0, READING_AUTHOR_MAX);
+  const url = firstUrlFrom(r.url, r.citation);
+  const noteParts: string[] = [];
+  const category = asString(r.category);
+  if (category) noteParts.push(capitalize(category));
+  const chapters = asString(r.specificChapters) || asString(r.pageRange);
+  if (chapters) noteParts.push(chapters);
+  return {
+    title,
+    author,
+    url,
+    note: noteParts.join(' — ').slice(0, READING_NOTE_MAX),
+  };
+}
+
+function termToEntry(t: GenTerm): TransformedGlossaryEntry | null {
+  const term = asString(t.term).slice(0, GLOSSARY_TERM_MAX);
+  const definition = asString(t.definition).slice(0, GLOSSARY_DEF_MAX);
+  if (!term || !definition) return null;
+  return { term, definition };
+}
+
+/** Module-scoped readings from step6.moduleReadings[moduleId]. */
+function extractModuleReadings(w: Workflow, moduleId: string): TransformedReadingItem[] {
+  const step6 = (w as { step6?: unknown }).step6 as
+    | { moduleReadings?: Record<string, unknown> }
+    | undefined;
+  const list = step6?.moduleReadings?.[moduleId];
+  if (!Array.isArray(list)) return [];
+  return dedupeReadings(
+    list.map((r) => readingToItem(r as GenReading)).filter((x): x is TransformedReadingItem => x !== null),
+  );
+}
+
+/** Module-scoped glossary from step8.moduleCoverage[moduleId][].assessmentHooks.terminology. */
+function extractModuleGlossary(w: Workflow, moduleId: string): TransformedGlossaryEntry[] {
+  const step8 = (w as { step8?: unknown }).step8 as
+    | { moduleCoverage?: Record<string, unknown> }
+    | undefined;
+  const cases = step8?.moduleCoverage?.[moduleId];
+  if (!Array.isArray(cases)) return [];
+  const entries: TransformedGlossaryEntry[] = [];
+  for (const c of cases) {
+    const terms = (c as { assessmentHooks?: { terminology?: unknown } })?.assessmentHooks
+      ?.terminology;
+    if (!Array.isArray(terms)) continue;
+    for (const t of terms) {
+      const e = termToEntry(t as GenTerm);
+      if (e) entries.push(e);
+    }
+  }
+  return dedupeGlossary(entries);
+}
+
+function dedupeGlossary(entries: TransformedGlossaryEntry[]): TransformedGlossaryEntry[] {
+  const seen = new Set<string>();
+  const out: TransformedGlossaryEntry[] = [];
+  for (const e of entries) {
+    const key = e.term.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(e);
+    if (out.length >= LIST_CAP) break;
+  }
+  return out;
+}
+
+function dedupeReadings(items: TransformedReadingItem[]): TransformedReadingItem[] {
+  const seen = new Set<string>();
+  const out: TransformedReadingItem[] = [];
+  for (const r of items) {
+    const key = r.title.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+    if (out.length >= LIST_CAP) break;
+  }
+  return out;
 }
 
 function transformSession(
@@ -500,6 +668,27 @@ export function transformWorkflow(w: Workflow): TransformedImport {
   for (const m of generatorModules) moduleByKey.set(m.id, m);
 
   const modules: TransformedModule[] = generatorModules.map(transformModule);
+
+  // Auto-import glossary + reading list from the generator (Logan request).
+  // Per-module: terminology from step8.moduleCoverage + readings from
+  // step6.moduleReadings, keyed by sourceModuleId. Course-level: the union
+  // across all modules, deduped — so the course tabs show everything and
+  // each module shows just its own.
+  const courseGlossary: TransformedGlossaryEntry[] = [];
+  const courseReadings: TransformedReadingItem[] = [];
+  for (const mod of modules) {
+    mod.glossary = extractModuleGlossary(w, mod.sourceModuleId);
+    mod.readingList = extractModuleReadings(w, mod.sourceModuleId);
+    courseGlossary.push(...mod.glossary);
+    courseReadings.push(...mod.readingList);
+  }
+  course.glossary = dedupeGlossary(courseGlossary);
+  course.readingList = dedupeReadings(courseReadings);
+  if (course.glossary.length > 0 || course.readingList.length > 0) {
+    warnings.push(
+      `Imported ${course.glossary.length} glossary term(s) and ${course.readingList.length} reading(s) from the generator.`,
+    );
+  }
 
   // Lesson → Session.
   // The CHRP workflow surfaced two real-world gotchas the original
