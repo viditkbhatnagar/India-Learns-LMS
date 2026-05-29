@@ -7,7 +7,7 @@ import { FileDropZone } from '../../components/ui/FileDropZone.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import { ApiHttpError } from '../../lib/api.js';
-import { materialsApi, type MaterialDetailDto } from '../../lib/endpoints.js';
+import { filesApi, materialsApi, type MaterialDetailDto } from '../../lib/endpoints.js';
 import { asGrid, asLines } from '../../lib/slideShape.js';
 import { useAuthStore } from '../../store/auth.js';
 import { useOptionalCourseOversight } from '../../contexts/CourseOversightContext.js';
@@ -431,6 +431,9 @@ function SlideToolbar({
   const [err, setErr] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [replaceOpen, setReplaceOpen] = useState(false);
+  const [fileOpen, setFileOpen] = useState(false);
+  const [fileErr, setFileErr] = useState<string | null>(null);
+  const [attachedName, setAttachedName] = useState<string | null>(null);
 
   const replaceMut = useMutation({
     mutationFn: (next: unknown) => materialsApi.replaceSlides(material.id, next),
@@ -442,6 +445,34 @@ function SlideToolbar({
       qc.invalidateQueries({ queryKey: ['session', material.sessionId] });
     },
     onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Replace failed.'),
+  });
+
+  // Upload a PowerPoint / PDF and attach it to THIS session as a
+  // downloadable material — the path faculty actually want from the
+  // slides page (Logan kept reaching for "Replace deck" with a .pptx,
+  // which is JSON-only). Bytes → S3 via filesApi.upload, then a new
+  // session material points at the proxy URL so students can download.
+  const MAX_FILE_BYTES = 25 * 1024 * 1024;
+  const attachFileMut = useMutation({
+    mutationFn: async (file: File) => {
+      if (!material.sessionId) {
+        throw new Error('This deck is not attached to a session, so a file can’t be added here.');
+      }
+      const { url } = await filesApi.upload(file, 'course-pdfs');
+      await materialsApi.createOnSession(material.sessionId, {
+        type: 'file',
+        title: file.name.replace(/\.[^.]+$/, '') || 'Uploaded file',
+        url,
+      });
+      return file.name;
+    },
+    onSuccess: (name) => {
+      setFileErr(null);
+      setAttachedName(name);
+      setFileOpen(false);
+      qc.invalidateQueries({ queryKey: ['session', material.sessionId] });
+    },
+    onError: (e) => setFileErr(e instanceof ApiHttpError ? e.message : 'Upload failed.'),
   });
 
   function handleDownload(): void {
@@ -491,12 +522,34 @@ function SlideToolbar({
     }
   }
 
+  const canAttachFile = Boolean(material.sessionId);
+
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="inline-flex items-center gap-2">
         <Button size="sm" variant="ghost" onClick={handleDownload}>
           Download deck
         </Button>
+        {/* Primary path for "I have a PowerPoint/PDF" — attaches it to the
+            session as a downloadable material, no leaving the page. */}
+        {canAttachFile && (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={isOversight}
+            title={
+              isOversight
+                ? oversightTitle
+                : 'Upload a PowerPoint or PDF — students can download it from this session.'
+            }
+            onClick={() => {
+              setFileOpen((v) => !v);
+              setReplaceOpen(false);
+            }}
+          >
+            Upload PowerPoint / PDF
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"
@@ -504,16 +557,39 @@ function SlideToolbar({
           title={
             isOversight
               ? oversightTitle
-              : 'Replace the rendered slides from a JSON export. To share a PowerPoint/PDF, use “+ Add material” on the session.'
+              : 'Advanced: replace the rendered slides from a JSON export (download → tweak → re-upload).'
           }
-          onClick={() => setReplaceOpen((v) => !v)}
+          onClick={() => {
+            setReplaceOpen((v) => !v);
+            setFileOpen(false);
+          }}
         >
           Replace deck (JSON)
         </Button>
         {savedAt && !err && !replaceMut.isPending && (
           <span className="text-xs text-success">Replaced.</span>
         )}
+        {attachedName && !attachFileMut.isPending && !fileErr && (
+          <span className="text-xs text-success">Added — students can download it.</span>
+        )}
       </div>
+      {fileOpen && !isOversight && canAttachFile && (
+        <div className="w-80">
+          <FileDropZone
+            onFile={(f) => {
+              setFileErr(null);
+              attachFileMut.mutate(f);
+            }}
+            accept=".pdf,.ppt,.pptx,.doc,.docx,.key,application/pdf"
+            maxBytes={MAX_FILE_BYTES}
+            busy={attachFileMut.isPending}
+            busyLabel="Uploading…"
+            label="Drag a PowerPoint / PDF here"
+            hint="Up to 25 MB. Students get a download link on this session."
+          />
+          {fileErr && <p className="mt-1.5 text-xs text-danger">{fileErr}</p>}
+        </div>
+      )}
       {replaceOpen && !isOversight && (
         <div className="w-72">
           <FileDropZone
@@ -525,7 +601,7 @@ function SlideToolbar({
             busy={replaceMut.isPending}
             busyLabel="Replacing…"
             label="Drag a slides JSON export here"
-            hint="JSON only (a few KB). PowerPoint goes via “+ Add material”."
+            hint="Advanced — JSON export only (a few KB)."
           />
         </div>
       )}
