@@ -256,6 +256,17 @@ export async function getStudentCourseView(
     counts,
     needsAttention,
     modules: moduleDtos,
+    glossary: Array.isArray(courseDoc.glossary)
+      ? courseDoc.glossary.map((g) => ({ term: g.term, definition: g.definition }))
+      : [],
+    readingList: Array.isArray(courseDoc.readingList)
+      ? courseDoc.readingList.map((r) => ({
+          title: r.title,
+          author: r.author ?? '',
+          url: r.url ?? '',
+          note: r.note ?? '',
+        }))
+      : [],
   };
 }
 
