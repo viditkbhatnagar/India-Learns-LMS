@@ -16,12 +16,13 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { ModuleDto } from 'india-learns-shared-types';
+import type { ModuleDto, GlossaryEntryDto, ReadingItemDto } from 'india-learns-shared-types';
 import { Card } from '../../../components/ui/Card.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { TextArea } from '../../../components/ui/Input.js';
 import { FileDropZone } from '../../../components/ui/FileDropZone.js';
+import { GlossaryEditor, ReadingListEditor } from '../../../components/GlossaryReadingEditors.js';
 import { ErrorAlert, EmptyState, Skeleton } from '../../../components/ui/States.js';
 import {
   coursesApi,
@@ -279,9 +280,19 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
   useEffect(() => {
     setSyllabusDraft(m.syllabus ?? '');
   }, [m.syllabus]);
+  const [glossaryDraft, setGlossaryDraft] = useState<GlossaryEntryDto[]>(m.glossary ?? []);
+  const [readingDraft, setReadingDraft] = useState<ReadingItemDto[]>(m.readingList ?? []);
+  useEffect(() => {
+    setGlossaryDraft(m.glossary ?? []);
+  }, [m.glossary]);
+  useEffect(() => {
+    setReadingDraft(m.readingList ?? []);
+  }, [m.readingList]);
   const [aimSaved, setAimSaved] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
   const [syllabusSaved, setSyllabusSaved] = useState(false);
+  const [glossarySaved, setGlossarySaved] = useState(false);
+  const [readingSaved, setReadingSaved] = useState(false);
 
   const updateMut = useMutation({
     mutationFn: (patch: {
@@ -289,6 +300,8 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
       facultyNotes?: string;
       syllabus?: string;
       syllabusFile?: { fileId: string } | null;
+      glossary?: GlossaryEntryDto[];
+      readingList?: ReadingItemDto[];
     }) => modulesApi.update(m.id, patch),
     onSuccess: (_doc, vars) => {
       if (vars.aim !== undefined) {
@@ -302,6 +315,14 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
       if (vars.syllabus !== undefined) {
         setSyllabusSaved(true);
         window.setTimeout(() => setSyllabusSaved(false), 2000);
+      }
+      if (vars.glossary !== undefined) {
+        setGlossarySaved(true);
+        window.setTimeout(() => setGlossarySaved(false), 2000);
+      }
+      if (vars.readingList !== undefined) {
+        setReadingSaved(true);
+        window.setTimeout(() => setReadingSaved(false), 2000);
       }
       qc.invalidateQueries({ queryKey: ['course', m.courseId, 'shell'] });
     },
@@ -479,6 +500,52 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
             <p className="mt-2 text-xs text-danger">{syllabusFileError}</p>
           )}
         </div>
+      </div>
+      <div>
+        <p className="text-xs uppercase tracking-wider text-muted font-bold mb-1.5">
+          Glossary <span className="font-normal normal-case text-muted">— module terms, visible to students</span>
+        </p>
+        <GlossaryEditor
+          value={glossaryDraft}
+          onChange={setGlossaryDraft}
+          disabled={isOversight}
+        />
+        {!isOversight && (
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={updateMut.isPending && updateMut.variables?.glossary !== undefined}
+              onClick={() => updateMut.mutate({ glossary: glossaryDraft })}
+            >
+              Save glossary
+            </Button>
+            {glossarySaved && <span className="text-xs text-success">Saved.</span>}
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="text-xs uppercase tracking-wider text-muted font-bold mb-1.5">
+          Reading list <span className="font-normal normal-case text-muted">— module readings, visible to students</span>
+        </p>
+        <ReadingListEditor
+          value={readingDraft}
+          onChange={setReadingDraft}
+          disabled={isOversight}
+        />
+        {!isOversight && (
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={updateMut.isPending && updateMut.variables?.readingList !== undefined}
+              onClick={() => updateMut.mutate({ readingList: readingDraft })}
+            >
+              Save reading list
+            </Button>
+            {readingSaved && <span className="text-xs text-success">Saved.</span>}
+          </div>
+        )}
       </div>
       {m.learningOutcomes.length > 0 && (
         <div>
