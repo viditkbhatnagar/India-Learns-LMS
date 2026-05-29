@@ -32,6 +32,8 @@ import type {
   WithdrawApplicationInput,
   CollectionsReportDto,
   CourseDto,
+  GlossaryEntryDto,
+  ReadingItemDto,
   CreateTicketInput,
   EnrollmentDto,
   ExamAttemptDto,
@@ -567,7 +569,16 @@ export const coursesApi = {
    * summary / sequential / certificateTemplateId too — extend the
    * patch shape here as those screens land.
    */
-  async update(id: string, patch: { facultyIds?: string[]; summary?: string; sequential?: boolean }) {
+  async update(
+    id: string,
+    patch: {
+      facultyIds?: string[];
+      summary?: string;
+      sequential?: boolean;
+      glossary?: GlossaryEntryDto[];
+      readingList?: ReadingItemDto[];
+    },
+  ) {
     const res = await api.patch<{ data: { course: CourseDto } }>(`/courses/${id}`, patch);
     return res.data.data.course;
   },
