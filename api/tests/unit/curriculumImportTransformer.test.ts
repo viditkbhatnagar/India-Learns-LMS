@@ -126,6 +126,44 @@ describe('curriculum import transformer', () => {
   it('does not throw on the real workflow shape', () => {
     expect(out.warnings).toBeInstanceOf(Array);
   });
+
+  // Logan: "Can we have the terms and reading lists automatically
+  // transferred over from the generator?"
+  it('auto-imports a course-level glossary from generator terminology', () => {
+    expect(out.course.glossary.length).toBeGreaterThan(0);
+    const e = out.course.glossary[0]!;
+    expect(e.term.length).toBeGreaterThan(0);
+    expect(e.definition.length).toBeGreaterThan(0);
+    const terms = out.course.glossary.map((g) => g.term.toLowerCase());
+    expect(new Set(terms).size).toBe(terms.length); // deduped
+  });
+
+  it('auto-imports a course-level reading list from generator readings', () => {
+    expect(out.course.readingList.length).toBeGreaterThan(0);
+    expect(out.course.readingList[0]!.title.length).toBeGreaterThan(0);
+  });
+
+  it('attaches per-module glossary + reading list within field caps', () => {
+    expect(out.modules.filter((m) => m.glossary.length > 0).length).toBeGreaterThan(0);
+    expect(out.modules.filter((m) => m.readingList.length > 0).length).toBeGreaterThan(0);
+    for (const m of out.modules) {
+      for (const g of m.glossary) {
+        expect(g.term.length).toBeLessThanOrEqual(200);
+        expect(g.definition.length).toBeLessThanOrEqual(4000);
+      }
+      for (const r of m.readingList) {
+        expect(r.title.length).toBeLessThanOrEqual(400);
+        expect(r.url.length).toBeLessThanOrEqual(2048);
+      }
+    }
+  });
+
+  it('extracts a URL from reading citations when present', () => {
+    const withUrl = out.modules
+      .flatMap((m) => m.readingList)
+      .filter((r) => r.url.startsWith('http'));
+    expect(withUrl.length).toBeGreaterThan(0);
+  });
 });
 
 // CHRP regression — found in UAT after Phase A shipped.

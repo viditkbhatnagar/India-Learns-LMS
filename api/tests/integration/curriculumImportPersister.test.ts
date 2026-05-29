@@ -24,6 +24,8 @@ function fixture(overrides?: {
       sourceWorkflowId: overrides?.workflowId ?? 'wf-airline-001',
       sourceWorkflowVersion: 'v1',
       programLearningOutcomes: [],
+      glossary: [{ term: 'Apron', definition: 'Aircraft parking area.' }],
+      readingList: [{ title: 'Airport Ops 101', author: 'J. Doe', url: '', note: 'Core' }],
     },
     modules: [
       {
@@ -39,6 +41,8 @@ function fixture(overrides?: {
         contactHours: 8,
         selfStudyHours: 2,
         learningOutcomes: [],
+        glossary: [{ term: 'PNR', definition: 'Passenger Name Record.' }],
+        readingList: [{ title: 'Module Reading', author: '', url: 'https://x.test/m', note: '' }],
       },
     ],
     sessions: [],
@@ -67,6 +71,13 @@ describe('curriculum import — revive after soft-delete', () => {
     const beforeRevive = await Course.findById(courseId);
     expect(beforeRevive?.deletedAt).toBeNull();
     expect(beforeRevive?.name).toBe('Diploma in Airline and Airport Management');
+    // Glossary + reading list auto-imported onto the course (Logan request).
+    expect(beforeRevive?.glossary?.[0]?.term).toBe('Apron');
+    expect(beforeRevive?.readingList?.[0]?.title).toBe('Airport Ops 101');
+    // And onto the module.
+    const importedModule = await ModuleModel.findOne({ courseId, sourceModuleId: 'mod-1' });
+    expect(importedModule?.glossary?.[0]?.term).toBe('PNR');
+    expect(importedModule?.readingList?.[0]?.url).toBe('https://x.test/m');
 
     // 2. Operator soft-deletes the course (simulating what they did in the UI).
     await Course.updateOne(

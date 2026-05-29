@@ -135,6 +135,11 @@ export async function persistImport(
     existing.name = data.course.name;
     existing.summary = data.course.summary;
     existing.programLearningOutcomes = data.course.programLearningOutcomes;
+    // Auto-imported glossary + reading list (Logan request). On re-import
+    // the generator is the source of truth, so overwrite — consistent with
+    // how name/summary/outcomes are refreshed on replace.
+    existing.set('glossary', data.course.glossary);
+    existing.set('readingList', data.course.readingList);
     existing.sourceWorkflowVersion = data.course.sourceWorkflowVersion;
     if (revivingDeleted) {
       // Revive: clear the tombstone and force back to sandbox so the
@@ -163,6 +168,8 @@ export async function persistImport(
       sourceWorkflowVersion: data.course.sourceWorkflowVersion,
       lastSyncedAt: null, // set at the end
       programLearningOutcomes: data.course.programLearningOutcomes,
+      glossary: data.course.glossary,
+      readingList: data.course.readingList,
     });
     createdCourse = true;
   }
@@ -191,6 +198,9 @@ export async function persistImport(
         totalHours: m.totalHours,
         contactHours: m.contactHours,
         selfStudyHours: m.selfStudyHours,
+        // Auto-imported from the generator (Logan request).
+        glossary: m.glossary,
+        readingList: m.readingList,
       })),
       { ordered: true },
     );
