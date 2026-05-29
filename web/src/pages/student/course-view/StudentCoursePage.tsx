@@ -104,7 +104,65 @@ export function StudentCoursePage(): JSX.Element {
           ))}
         </div>
       )}
+      <ReadingListSection items={data.readingList} />
+      <GlossarySection entries={data.glossary} />
     </div>
+  );
+}
+
+// ---------- Reading list (read-only, student) ----------
+function ReadingListSection({
+  items,
+}: {
+  items: StudentCourseViewDto['readingList'];
+}): JSX.Element | null {
+  if (!items || items.length === 0) return null;
+  return (
+    <Card>
+      <h2 className="text-display-sm text-brand-navy tracking-tight">Reading list</h2>
+      <ul className="mt-3 space-y-3">
+        {items.map((r, i) => (
+          <li key={i} className="border-b border-black/5 pb-3 last:border-0 last:pb-0">
+            <p className="text-sm font-medium text-brand-navy">
+              {r.url ? (
+                <a href={r.url} target="_blank" rel="noreferrer" className="hover:underline">
+                  {r.title}
+                </a>
+              ) : (
+                r.title
+              )}
+              {r.author && <span className="text-muted font-normal"> — {r.author}</span>}
+            </p>
+            {r.note && <p className="text-xs text-muted mt-0.5">{r.note}</p>}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+// ---------- Glossary (read-only, student) ----------
+function GlossarySection({
+  entries,
+}: {
+  entries: StudentCourseViewDto['glossary'];
+}): JSX.Element | null {
+  if (!entries || entries.length === 0) return null;
+  const sorted = [...entries].sort((a, b) => a.term.localeCompare(b.term));
+  return (
+    <Card>
+      <h2 className="text-display-sm text-brand-navy tracking-tight">Glossary</h2>
+      <dl className="mt-3 space-y-3">
+        {sorted.map((g, i) => (
+          <div key={i} className="border-b border-black/5 pb-3 last:border-0 last:pb-0">
+            <dt className="text-sm font-semibold text-brand-navy">{g.term}</dt>
+            <dd className="text-sm text-ink/85 leading-relaxed mt-0.5 max-w-[72ch]">
+              {g.definition}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
   );
 }
 

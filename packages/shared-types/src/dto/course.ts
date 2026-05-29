@@ -83,6 +83,22 @@ export interface ProgramLearningOutcomeDto {
   linkedKSCs: string[];
 }
 
+/** One glossary term + definition, shown to students on the course
+ *  Glossary tab. Faculty-managed, course-level. */
+export interface GlossaryEntryDto {
+  term: string;
+  definition: string;
+}
+
+/** One entry in the course Reading list. `url` makes the title a link;
+ *  author / note are optional. Faculty-managed, course-level. */
+export interface ReadingItemDto {
+  title: string;
+  author: string;
+  url: string;
+  note: string;
+}
+
 export interface CourseDto {
   id: string;
   programId: string;
@@ -100,6 +116,10 @@ export interface CourseDto {
    * curriculum import; faculty can edit via PATCH /v1/courses/:id.
    */
   programLearningOutcomes: ProgramLearningOutcomeDto[];
+  /** Faculty-managed glossary (Logan request) — student-visible. */
+  glossary: GlossaryEntryDto[];
+  /** Faculty-managed reading list (Logan request) — student-visible. */
+  readingList: ReadingItemDto[];
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -122,6 +142,9 @@ export interface UpdateCourseInput {
   sequential?: boolean;
   certificateTemplateId?: string | null;
   facultyIds?: string[];
+  /** Faculty-editable course content (Logan request). Replace-whole-list. */
+  glossary?: GlossaryEntryDto[];
+  readingList?: ReadingItemDto[];
 }
 
 export interface ModuleContentDto {
@@ -429,6 +452,10 @@ export interface StudentCourseViewDto {
    */
   needsAttention: StudentAssignmentDto[];
   modules: StudentModuleDto[];
+  /** Faculty-managed course glossary (Logan request) — read-only here. */
+  glossary: GlossaryEntryDto[];
+  /** Faculty-managed course reading list (Logan request) — read-only here. */
+  readingList: ReadingItemDto[];
 }
 
 export interface CreateEnrollmentInput {

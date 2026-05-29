@@ -10,6 +10,18 @@ export interface ProgramLearningOutcomeDoc {
   linkedKSCs: string[];
 }
 
+export interface GlossaryEntryDoc {
+  term: string;
+  definition: string;
+}
+
+export interface ReadingItemDoc {
+  title: string;
+  author: string;
+  url: string;
+  note: string;
+}
+
 export interface CourseDoc {
   _id: Types.ObjectId;
   programId: Types.ObjectId;
@@ -29,6 +41,9 @@ export interface CourseDoc {
   sourceWorkflowVersion: string | null; // workflow.updatedAt at import time
   lastSyncedAt: Date | null;
   programLearningOutcomes: ProgramLearningOutcomeDoc[];
+  // Faculty-managed, course-level, student-visible (Logan request).
+  glossary: GlossaryEntryDoc[];
+  readingList: ReadingItemDoc[];
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -42,6 +57,24 @@ const PLOSchema = new Schema<ProgramLearningOutcomeDoc>(
     statement: { type: String, required: true },
     bloomLevel: { type: String, default: '' },
     linkedKSCs: { type: [String], default: [] },
+  },
+  { _id: false, versionKey: false },
+);
+
+const GlossarySchema = new Schema<GlossaryEntryDoc>(
+  {
+    term: { type: String, required: true, maxlength: 200 },
+    definition: { type: String, required: true, maxlength: 4000 },
+  },
+  { _id: false, versionKey: false },
+);
+
+const ReadingItemSchema = new Schema<ReadingItemDoc>(
+  {
+    title: { type: String, required: true, maxlength: 400 },
+    author: { type: String, default: '', maxlength: 200 },
+    url: { type: String, default: '', maxlength: 2048 },
+    note: { type: String, default: '', maxlength: 1000 },
   },
   { _id: false, versionKey: false },
 );
@@ -81,6 +114,8 @@ const CourseSchema = new Schema<CourseDoc>(
     sourceWorkflowVersion: { type: String, default: null },
     lastSyncedAt: { type: Date, default: null },
     programLearningOutcomes: { type: [PLOSchema], default: [] },
+    glossary: { type: [GlossarySchema], default: [] },
+    readingList: { type: [ReadingItemSchema], default: [] },
     deletedAt: { type: Date, default: null },
   },
   {

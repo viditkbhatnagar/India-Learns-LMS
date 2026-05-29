@@ -61,6 +61,20 @@ function toDto(doc: HydratedCourse): CourseDto {
         linkedKSCs: Array.isArray(p.linkedKSCs) ? (p.linkedKSCs as string[]) : [],
       }))
       : [],
+    glossary: Array.isArray(json.glossary)
+      ? (json.glossary as Array<Record<string, unknown>>).map((g) => ({
+        term: (g.term as string) ?? '',
+        definition: (g.definition as string) ?? '',
+      }))
+      : [],
+    readingList: Array.isArray(json.readingList)
+      ? (json.readingList as Array<Record<string, unknown>>).map((r) => ({
+        title: (r.title as string) ?? '',
+        author: (r.author as string) ?? '',
+        url: (r.url as string) ?? '',
+        note: (r.note as string) ?? '',
+      }))
+      : [],
     createdAt: iso(json.createdAt) ?? new Date(0).toISOString(),
     updatedAt: iso(json.updatedAt) ?? new Date(0).toISOString(),
     deletedAt: iso(json.deletedAt),
@@ -174,9 +188,42 @@ export async function createCourse(
 }
 
 // M10r — Course-level content vs. structural split.
-//   Content fields (faculty can edit on assigned courses): `summary`.
+//   Content fields (faculty can edit on assigned courses): summary,
+//   glossary, readingList.
 //   Structural fields (admin / superadmin only): everything else.
-const FACULTY_COURSE_PATCH_FIELDS = new Set<keyof UpdateCourseInput>(['summary']);
+const FACULTY_COURSE_PATCH_FIELDS = new Set<keyof UpdateCourseInput>([
+  'summary',
+  'glossary',
+  'readingList',
+]);
+
+function normalizeGlossary(
+  input: UpdateCourseInput['glossary'],
+): Array<{ term: string; definition: string }> {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((g) => ({
+      term: (g?.term ?? '').trim(),
+      definition: (g?.definition ?? '').trim(),
+    }))
+    .filter((g) => g.term.length > 0 && g.definition.length > 0)
+    .slice(0, 500);
+}
+
+function normalizeReadingList(
+  input: UpdateCourseInput['readingList'],
+): Array<{ title: string; author: string; url: string; note: string }> {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((r) => ({
+      title: (r?.title ?? '').trim(),
+      author: (r?.author ?? '').trim(),
+      url: (r?.url ?? '').trim(),
+      note: (r?.note ?? '').trim(),
+    }))
+    .filter((r) => r.title.length > 0)
+    .slice(0, 500);
+}
 
 export async function updateCourse(
   id: string,
@@ -230,6 +277,12 @@ export async function updateCourse(
   }
   if (patch.facultyIds !== undefined) {
     doc.facultyIds = await assertFacultyIdsResolve(patch.facultyIds);
+  }
+  if (patch.glossary !== undefined) {
+    doc.set('glossary', normalizeGlossary(patch.glossary));
+  }
+  if (patch.readingList !== undefined) {
+    doc.set('readingList', normalizeReadingList(patch.readingList));
   }
   await doc.save();
   await recordAudit({

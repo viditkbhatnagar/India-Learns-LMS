@@ -16,6 +16,7 @@ import { CourseOversightProvider } from '../../contexts/CourseOversightContext.j
 import { CourseOverviewTab } from './tabs/OverviewTab.js';
 import { CourseGradebookTab } from './tabs/GradebookTab.js';
 import { CourseStudentsStub, CourseAnnouncementsStub, CourseSettingsStub } from './tabs/Stubs.js';
+import { CourseGlossaryTab, CourseReadingListTab } from './tabs/GlossaryReadingTab.js';
 
 const CourseContentTab = lazy(() =>
   import('./tabs/ContentTab.js').then((m) => ({ default: m.CourseContentTab })),
@@ -37,6 +38,8 @@ function TabFallback(): JSX.Element {
 const TABS: Array<{ slug: string; label: string }> = [
   { slug: 'overview', label: 'Overview' },
   { slug: 'content', label: 'Content' },
+  { slug: 'glossary', label: 'Glossary' },
+  { slug: 'reading-list', label: 'Reading list' },
   { slug: 'gradebook', label: 'Gradebook' },
   { slug: 'students', label: 'Students' },
   { slug: 'announcements', label: 'Announcements' },
@@ -272,6 +275,8 @@ export function CourseShell(): JSX.Element {
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<CourseOverviewTab courseId={id} />} />
             <Route path="content" element={<CourseContentTab courseId={id} />} />
+            <Route path="glossary" element={<CourseGlossaryTab courseId={id} />} />
+            <Route path="reading-list" element={<CourseReadingListTab courseId={id} />} />
             <Route path="gradebook" element={<CourseGradebookTab courseId={id} />} />
             <Route path="students" element={<CourseStudentsStub />} />
             <Route path="announcements" element={<CourseAnnouncementsStub courseId={id} />} />
