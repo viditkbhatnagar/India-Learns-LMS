@@ -199,6 +199,17 @@ export async function getStudentCourseView(
                 : new Date(m.syllabusFile.uploadedAt).toISOString(),
           }
         : null,
+      glossary: Array.isArray(m.glossary)
+        ? m.glossary.map((g) => ({ term: g.term, definition: g.definition }))
+        : [],
+      readingList: Array.isArray(m.readingList)
+        ? m.readingList.map((r) => ({
+            title: r.title,
+            author: r.author ?? '',
+            url: r.url ?? '',
+            note: r.note ?? '',
+          }))
+        : [],
       state: deriveState({ total, completed, late, dueSoon }),
       sessions: moduleSessions,
       progress: { total, completed },

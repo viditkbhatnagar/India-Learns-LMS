@@ -211,6 +211,10 @@ export interface ModuleDto {
    * download link without an extra lookup.
    */
   syllabusFile: ModuleSyllabusFileDto | null;
+  /** Module-level glossary (Logan request) — student-visible. */
+  glossary: GlossaryEntryDto[];
+  /** Module-level reading list (Logan request) — student-visible. */
+  readingList: ReadingItemDto[];
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -262,6 +266,9 @@ export interface UpdateModuleInput {
   syllabus?: string;
   /** Attach (object), replace (object with different fileId), or remove (null). */
   syllabusFile?: ModuleSyllabusFileInput | null;
+  /** Module-level glossary + reading list (Logan request). Replace-whole-list. */
+  glossary?: GlossaryEntryDto[];
+  readingList?: ReadingItemDto[];
 }
 
 export interface BatchDto {
@@ -405,6 +412,9 @@ export interface StudentModuleDto {
   /** Optional uploaded syllabus document — students download via the
    *  /v1/files/:fileId proxy. */
   syllabusFile: ModuleSyllabusFileDto | null;
+  /** Module-level glossary + reading list (Logan request) — read-only. */
+  glossary: GlossaryEntryDto[];
+  readingList: ReadingItemDto[];
   state: StudentSessionState;
   sessions: StudentSessionDto[];
   progress: {

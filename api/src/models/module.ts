@@ -61,6 +61,10 @@ export interface ModuleDoc {
    * student view renders the link without an extra lookup.
    */
   syllabusFile: ModuleSyllabusFileDoc | null;
+  // Module-level, faculty-managed, student-visible (Logan request —
+  // "make it both course and module wise").
+  glossary: ModuleGlossaryEntryDoc[];
+  readingList: ModuleReadingItemDoc[];
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -73,6 +77,18 @@ export interface ModuleSyllabusFileDoc {
   size: number;
   uploadedAt: Date;
   uploadedByUserId: Types.ObjectId | null;
+}
+
+export interface ModuleGlossaryEntryDoc {
+  term: string;
+  definition: string;
+}
+
+export interface ModuleReadingItemDoc {
+  title: string;
+  author: string;
+  url: string;
+  note: string;
 }
 
 const ModuleContentSchema = new Schema<ModuleContentBlockDoc>(
@@ -101,6 +117,24 @@ const SyllabusFileSchema = new Schema<ModuleSyllabusFileDoc>(
     size: { type: Number, required: true, min: 0 },
     uploadedAt: { type: Date, default: () => new Date() },
     uploadedByUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  },
+  { _id: false, versionKey: false },
+);
+
+const ModuleGlossarySchema = new Schema<ModuleGlossaryEntryDoc>(
+  {
+    term: { type: String, required: true, maxlength: 200 },
+    definition: { type: String, required: true, maxlength: 4000 },
+  },
+  { _id: false, versionKey: false },
+);
+
+const ModuleReadingItemSchema = new Schema<ModuleReadingItemDoc>(
+  {
+    title: { type: String, required: true, maxlength: 400 },
+    author: { type: String, default: '', maxlength: 200 },
+    url: { type: String, default: '', maxlength: 2048 },
+    note: { type: String, default: '', maxlength: 1000 },
   },
   { _id: false, versionKey: false },
 );
@@ -141,6 +175,8 @@ const ModuleSchema = new Schema<ModuleDoc>(
     facultyNotes: { type: String, default: '', maxlength: 8000 },
     syllabus: { type: String, default: '', maxlength: 16_000 },
     syllabusFile: { type: SyllabusFileSchema, default: null },
+    glossary: { type: [ModuleGlossarySchema], default: [] },
+    readingList: { type: [ModuleReadingItemSchema], default: [] },
     deletedAt: { type: Date, default: null },
   },
   {

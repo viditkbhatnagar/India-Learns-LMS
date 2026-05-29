@@ -477,6 +477,49 @@ function ModuleSection({
           ))}
         </div>
       )}
+      {m.readingList.length > 0 && (
+        <details className="mt-4">
+          <summary className="text-xs uppercase tracking-wider text-brand-orange font-bold cursor-pointer hover:text-brand-navy">
+            Reading list ({m.readingList.length})
+          </summary>
+          <ul className="mt-2 space-y-2">
+            {m.readingList.map((r, i) => (
+              <li key={i} className="text-sm">
+                <span className="font-medium text-brand-navy">
+                  {r.url ? (
+                    <a href={r.url} target="_blank" rel="noreferrer" className="hover:underline">
+                      {r.title}
+                    </a>
+                  ) : (
+                    r.title
+                  )}
+                  {r.author && <span className="text-muted font-normal"> — {r.author}</span>}
+                </span>
+                {r.note && <span className="text-xs text-muted"> · {r.note}</span>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {m.glossary.length > 0 && (
+        <details className="mt-3">
+          <summary className="text-xs uppercase tracking-wider text-brand-orange font-bold cursor-pointer hover:text-brand-navy">
+            Glossary ({m.glossary.length})
+          </summary>
+          <dl className="mt-2 space-y-2">
+            {[...m.glossary]
+              .sort((a, b) => a.term.localeCompare(b.term))
+              .map((g, i) => (
+                <div key={i}>
+                  <dt className="text-sm font-semibold text-brand-navy">{g.term}</dt>
+                  <dd className="text-sm text-ink/85 leading-relaxed max-w-[72ch]">
+                    {g.definition}
+                  </dd>
+                </div>
+              ))}
+          </dl>
+        </details>
+      )}
     </section>
   );
 }
