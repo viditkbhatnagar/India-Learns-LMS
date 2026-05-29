@@ -10,6 +10,7 @@ import type {
 } from 'india-learns-shared-types';
 import { Button } from '../../components/ui/Button.js';
 import { Input, TextArea } from '../../components/ui/Input.js';
+import { FileLink } from '../../components/FileLink.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { PageHeader } from '../../components/ui/PageHeader.js';
 import { admissionsApi } from '../../lib/endpoints.js';
@@ -253,14 +254,9 @@ function DocumentsList({ items }: { items: ApplicationDocumentDto[] }) {
               {d.uploadedByRole === 'referee' && <Badge tone="info" size="sm">Referee</Badge>}
             </p>
           </div>
-          <a
-            href={d.url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-brand-navy underline"
-          >
+          <FileLink url={d.url} className="text-brand-navy underline">
             View
-          </a>
+          </FileLink>
         </li>
       ))}
     </ul>
