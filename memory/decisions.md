@@ -778,3 +778,18 @@ Append-only log. Every entry: ID, date, decision, why, source.
 - Render staging/prod: set `STORAGE_PROVIDER=s3` + the four AWS env vars. Run the migration script once during cutover.
 - Cloudinary keys are still accepted (`STORAGE_PROVIDER=cloudinary`) but are no longer the recommended path.
 - The IAM keys pasted in chat on 2026-05-26 should be rotated after the migration completes; they were used to create the bucket and seed/test it.
+
+## D-107 — Slide-deck "Replace deck (JSON)" hardened: per-slide validation + viewer crash guard
+**Date:** 2026-05-31
+**Why:** Faculty (Logan) hit two production bugs on the slides viewer. (1) **Corruption** — uploading a wrong-shaped JSON deck (e.g. a PowerPoint converted to JSON) via "Replace deck (JSON)" was persisted verbatim: `replaceSlideBody` only checked the payload was a non-empty array, never the per-slide shape, and `Material.body` is a `Mixed` field with no schema. The slide count jumped (3 → 13) and the deck was corrupted. (2) **Crash** — the viewer then died with "Cannot read properties of undefined (reading 'title')" because `SlideRender` read `slide.content.title` when `content` was undefined, so the deck could no longer be opened at all.
+
+**Fix:**
+- Backend (`api/src/services/materialService.ts`): new `assertRenderableSlides()` rejects (422) any deck where a slide isn't a plain object carrying a `content` object — names the offending slide and points faculty at "Download deck" / "Upload PowerPoint / PDF". Runs **before** `material.save()`, so a bad payload never mutates the stored deck. Added `markModified('body')` so a valid replacement always persists on the Mixed field.
+- Frontend (`web/src/lib/slideShape.ts`): extracted two pure, tested helpers — `normalizeSlides()` (drops null/non-object holes, unwraps `{ slides: [] }`) and `slideContent()` (returns `{}` for missing/array/null content, never throws). `MaterialViewer` uses both, guards `slide?.title`, resets the slide index on `material.updatedAt`, dumps the raw slide for unknown shapes (corrupt deck is openable, not a white screen), and DRYs the download path.
+- Client `MAX_JSON_BYTES` aligned to the server's 1 MB `express.json` limit (was 5 MB — a 1–5 MB file would 413 with a generic error).
+
+**Recovery:** Logan's already-corrupted "Who Works at the Airport?" deck now opens via the JSON-dump fallback (no crash) and can be re-imported from the generator or re-uploaded as valid JSON.
+
+**Tests:** `api/tests/integration/materials.slides.test.ts` — 8 cases incl. the corruption regression (proves a rejected payload leaves the stored deck intact). Pure-function cases added to `web/e2e/slideviewer-fixtures.spec.ts`.
+
+**Note:** Validation requires each slide's `content` to be an object — the only shape the renderer + generator use. A legacy bare-array `content`, if any exists, would be rejected on re-upload (acceptable tightening, scoped to the replace path).

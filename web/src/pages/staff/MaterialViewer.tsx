@@ -9,7 +9,7 @@ import { Badge } from '../../components/ui/Badge.js';
 import { ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import { ApiHttpError } from '../../lib/api.js';
 import { filesApi, materialsApi, type MaterialDetailDto } from '../../lib/endpoints.js';
-import { asGrid, asLines } from '../../lib/slideShape.js';
+import { asGrid, asLines, normalizeSlides, slideContent } from '../../lib/slideShape.js';
 import { useAuthStore } from '../../store/auth.js';
 import { useOptionalCourseOversight } from '../../contexts/CourseOversightContext.js';
 
@@ -114,13 +114,9 @@ function SlideViewer({
   // wrapper like `{ slides: [...] }` (older Maths Certification fixtures).
   // Normalise either shape to Slide[]. Anything else degrades gracefully
   // to the "no slides" empty card below.
-  const slides = useMemo<Slide[]>(() => {
-    if (Array.isArray(body)) return body as Slide[];
-    if (body && typeof body === 'object' && Array.isArray((body as { slides?: unknown }).slides)) {
-      return (body as { slides: Slide[] }).slides;
-    }
-    return [];
-  }, [body]);
+  // normalizeSlides drops null/non-object holes so we never hand an
+  // `undefined` slide to the renderer (defends against a corrupt deck).
+  const slides = useMemo<Slide[]>(() => normalizeSlides(body) as unknown as Slide[], [body]);
 
   const [index, setIndex] = useState(0);
   // Faculty default speaker-notes ON; students never reach this route.
@@ -129,6 +125,14 @@ function SlideViewer({
   const total = slides.length;
   const safeIndex = Math.max(0, Math.min(index, total - 1));
   const slide = slides[safeIndex];
+
+  // After a deck is replaced (or the material changes) snap back to the
+  // first slide so faculty land on the updated deck rather than a clamped
+  // or stale index. Keyed on updatedAt (bumped on every save) so it fires
+  // even when the replacement happens to have the same slide count.
+  useEffect(() => {
+    setIndex(0);
+  }, [material.id, material.updatedAt]);
 
   const goPrev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), []);
   const goNext = useCallback(
@@ -256,8 +260,10 @@ function SlideViewer({
 }
 
 function SlideRender({ slide }: { slide: Slide }): JSX.Element {
-  const c = slide.content as SlideContent;
-  const heading = (slide.title ?? (c as { title?: string }).title ?? '').trim();
+  // Resolve content defensively — a corrupt or foreign deck may have
+  // slides with no `content` object; never throw while rendering.
+  const c = slideContent(slide) as SlideContent;
+  const heading = (slide?.title ?? (c as { title?: string }).title ?? '').trim();
   const t = (c as { type?: string }).type;
 
   if (t === 'title') {
@@ -347,12 +353,16 @@ function SlideRender({ slide }: { slide: Slide }): JSX.Element {
     );
   }
 
-  // Unknown shape — dump JSON so the operator at least sees the data.
+  // Unknown / corrupt shape — dump JSON so the operator at least sees the
+  // data and can re-export a clean deck. Prefer the inner content, but
+  // fall back to the whole slide when content is empty (e.g. a foreign
+  // file whose objects carry no `content`), so nothing renders blank.
+  const dump = Object.keys(c).length > 0 ? c : slide;
   return (
     <>
       {heading && <h1 className="text-display-sm text-brand-navy tracking-tight">{heading}</h1>}
       <pre className="text-xs leading-relaxed bg-surface-muted p-3 rounded-lg whitespace-pre-wrap overflow-auto">
-        {JSON.stringify(c, null, 2)}
+        {JSON.stringify(dump, null, 2)}
       </pre>
     </>
   );
@@ -475,12 +485,7 @@ function SlideToolbar({
   });
 
   function handleDownload(): void {
-    const slides = Array.isArray(material.body)
-      ? material.body
-      : (material.body && typeof material.body === 'object'
-          && Array.isArray((material.body as { slides?: unknown }).slides))
-        ? (material.body as { slides: unknown[] }).slides
-        : [];
+    const slides = normalizeSlides(material.body);
     const blob = new Blob([JSON.stringify(slides, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -497,7 +502,7 @@ function SlideToolbar({
   // binary, and `file.text()` + `JSON.parse()` on the main thread froze
   // the tab (and the OS file dialog) when faculty picked one. Validate
   // type + size first; never read a non-JSON or oversized file.
-  const MAX_JSON_BYTES = 5 * 1024 * 1024;
+  const MAX_JSON_BYTES = 1 * 1024 * 1024; // matches the server's express.json 1 MB limit
   async function handleReplaceFile(file: File): Promise<void> {
     setErr(null);
     const isJson =
@@ -509,7 +514,7 @@ function SlideToolbar({
       return;
     }
     if (file.size > MAX_JSON_BYTES) {
-      setErr('That JSON file is larger than 5 MB — slide exports are normally a few KB. Double-check the file.');
+      setErr('That JSON file is larger than 1 MB — slide exports are normally a few KB. Double-check the file.');
       return;
     }
     try {
@@ -596,7 +601,7 @@ function SlideToolbar({
               handleReplaceFile(f).catch(() => undefined);
             }}
             accept="application/json,.json"
-            maxBytes={5 * 1024 * 1024}
+            maxBytes={MAX_JSON_BYTES}
             busy={replaceMut.isPending}
             busyLabel="Replacing…"
             label="Drag a slides JSON export here"

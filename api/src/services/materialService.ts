@@ -174,6 +174,40 @@ export async function createMaterialOnSession(
 }
 
 /**
+ * A renderable slide is a plain object carrying a `content` object — the
+ * shape the curriculum generator emits and the MaterialViewer renders
+ * (it keys off `slide.content.type`). We validate this BEFORE persisting
+ * so a non-slides file can't corrupt the deck: e.g. a PowerPoint
+ * converted to JSON, an arbitrary array, or an array of strings. Without
+ * this guard the bad shape was stored verbatim and the viewer crashed
+ * with "Cannot read properties of undefined (reading 'title')" — and the
+ * deck could no longer be opened at all. Errors name the offending slide
+ * and point faculty at the correct affordance.
+ */
+function assertRenderableSlides(slides: readonly unknown[]): void {
+  const guidance =
+    'This file does not look like a slides export — use "Download deck" to get the correct JSON format. To share a PowerPoint or PDF with students, use "Upload PowerPoint / PDF" instead.';
+  slides.forEach((slide, i) => {
+    const n = i + 1;
+    if (!slide || typeof slide !== 'object' || Array.isArray(slide)) {
+      throw new HttpError(
+        422,
+        'VALIDATION_FAILED',
+        `Slide ${n} is not a valid slide object. ${guidance}`,
+      );
+    }
+    const { content } = slide as { content?: unknown };
+    if (!content || typeof content !== 'object' || Array.isArray(content)) {
+      throw new HttpError(
+        422,
+        'VALIDATION_FAILED',
+        `Slide ${n} has no valid "content" object (expected a plain object). ${guidance}`,
+      );
+    }
+  });
+}
+
+/**
  * Replace the slide payload of a `type=slides` material. Faculty paste
  * a JSON array (or `{ slides: [...] }` object) of slide objects in the
  * generator's shape; the route persists it as `Material.body` and bumps
@@ -217,9 +251,12 @@ export async function replaceSlideBody(
   if (slides.length === 0) {
     throw new HttpError(422, 'VALIDATION_FAILED', 'A slide deck must contain at least one slide.');
   }
+  assertRenderableSlides(slides);
 
   const before = material.toObject();
   material.set('body', slides);
+  // `body` is a Mixed field — flag it dirty so the new array always persists.
+  material.markModified('body');
   material.slideCount = slides.length;
   material.uploadedBy = actor.userId;
   material.uploadedAt = new Date();

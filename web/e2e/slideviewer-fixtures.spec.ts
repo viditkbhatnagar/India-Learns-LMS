@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { asGrid, asLines } from '../src/lib/slideShape.js';
+import { asGrid, asLines, normalizeSlides, slideContent } from '../src/lib/slideShape.js';
 
 /**
  * PR #15 regression — SlideViewer "s.map is not a function".
@@ -119,5 +119,75 @@ test.describe('SlideViewer fixture normalisation (PR #15 regression)', () => {
     const stringContent: unknown = 'one\ntwo\nthree';
     expect(() => asLines(stringContent)).not.toThrow();
     expect(asLines(stringContent)).toHaveLength(3);
+  });
+});
+
+/**
+ * Replace-deck crash regression — "Cannot read properties of undefined
+ * (reading 'title')".
+ *
+ * A corrupt/foreign deck (e.g. a PowerPoint converted to JSON) used to be
+ * stored verbatim and crash the viewer. `normalizeSlides` strips holes so
+ * we never index an undefined slide, and `slideContent` resolves a slide's
+ * content without throwing when it is missing. These are the runtime
+ * backstops that pair with the backend `assertRenderableSlides` guard.
+ */
+test.describe('SlideViewer corrupt-deck resilience', () => {
+  test('normalizeSlides: passes a clean array of slide objects through', () => {
+    const deck = [MATHS_TITLE_SLIDE, MATHS_BULLETS_SLIDE];
+    expect(normalizeSlides(deck)).toHaveLength(2);
+  });
+
+  test('normalizeSlides: unwraps the { slides: [...] } wrapper', () => {
+    expect(normalizeSlides({ slides: [CHRP_BULLETS_SLIDE] })).toHaveLength(1);
+  });
+
+  test('normalizeSlides: drops null / primitive / nested-array holes', () => {
+    const dirty: unknown = [
+      MATHS_TITLE_SLIDE,
+      null,
+      undefined,
+      'oops',
+      42,
+      ['nested'],
+      CHRP_BULLETS_SLIDE,
+    ];
+    const out = normalizeSlides(dirty);
+    expect(out).toHaveLength(2);
+    expect(out.every((s) => s && typeof s === 'object')).toBe(true);
+  });
+
+  test('normalizeSlides: non-array / non-wrapper input degrades to []', () => {
+    expect(normalizeSlides(null)).toEqual([]);
+    expect(normalizeSlides(undefined)).toEqual([]);
+    expect(normalizeSlides('not a deck')).toEqual([]);
+    expect(normalizeSlides({ foo: 'bar' })).toEqual([]);
+    expect(normalizeSlides(123)).toEqual([]);
+  });
+
+  test('slideContent: returns the inner content object for a real slide', () => {
+    expect(slideContent(MATHS_TITLE_SLIDE)).toMatchObject({ type: 'title' });
+  });
+
+  test('slideContent: returns {} (never throws) for corrupt / missing content', () => {
+    expect(() => slideContent(undefined)).not.toThrow();
+    expect(slideContent(undefined)).toEqual({});
+    expect(slideContent(null)).toEqual({});
+    // The exact corruption shape: a foreign object with no `content`.
+    expect(slideContent({ id: 1, type: 'pptx-shape', data: {} })).toEqual({});
+    // content present but the wrong type (array / string) → still safe.
+    expect(slideContent({ content: ['a', 'b'] })).toEqual({});
+    expect(slideContent({ content: 'plain string' })).toEqual({});
+  });
+
+  test('regression: reading .title off a corrupt deck does not throw', () => {
+    const corrupt: unknown = [{ slideNumber: 1, slideType: 'x', title: 'No content' }];
+    const slides = normalizeSlides(corrupt);
+    expect(slides).toHaveLength(1);
+    // Pre-fix this path threw "Cannot read properties of undefined (reading 'title')".
+    expect(() => {
+      const c = slideContent(slides[0]);
+      return ((slides[0]?.title ?? (c as { title?: string }).title) ?? '').trim();
+    }).not.toThrow();
   });
 });
