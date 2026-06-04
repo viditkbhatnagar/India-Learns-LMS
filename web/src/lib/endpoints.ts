@@ -1267,6 +1267,20 @@ export const materialsApi = {
     );
     return res.data.data.material;
   },
+  /**
+   * Import a PowerPoint (.pptx) as the rendered deck. The server parses the
+   * file into slides and replaces the body. Multipart upload (field `file`).
+   */
+  async importPptx(id: string, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await api.post<{ data: { material: MaterialDetailDto } }>(
+      `/materials/${id}/slides/import-pptx`,
+      form,
+      { headers: { 'content-type': 'multipart/form-data' } },
+    );
+    return res.data.data.material;
+  },
 };
 
 export const sessionsApi = {

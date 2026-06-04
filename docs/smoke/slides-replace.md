@@ -36,6 +36,21 @@ could no longer be opened at all.
    `.pptx`/`.pdf` → *"Added — students can download it."* A downloadable material is
    attached to the session (separate from the rendered deck).
 
+## Import a PowerPoint as rendered slides (D-108)
+
+6. Click **Replace deck** (renamed from "Replace deck (JSON)"). The drop zone now
+   accepts a PowerPoint *or* a JSON export.
+7. Drop a **.pptx** file. EXPECT "Replaced." and the deck re-renders with the
+   PowerPoint's slides (title slide + bulleted content slides), in order.
+   - This is parsed server-side — no hand-conversion to JSON needed.
+8. Drop an old **.ppt** (legacy binary) → blocked client-side with a "save as
+   .pptx" message.
+9. A non-PowerPoint file renamed to `.pptx`, or a corrupt deck → **422** with a
+   clear message; the existing deck is left intact.
+
+> "Upload PowerPoint / PDF" still exists and is unchanged — it attaches the file
+> as a **download** for students. "Replace deck" renders the slides inline.
+
 ## Automated cover
 - `api/tests/integration/materials.slides.test.ts` — 8 cases incl. the corruption
   regression (a rejected payload leaves the stored deck intact).

@@ -1,16 +1,25 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import { HttpError } from '../middleware/error.js';
+import { buildPptxImportLimiter } from '../middleware/rateLimit.js';
 import {
   createMaterialOnSession,
   deleteMaterial,
   getMaterialForStaff,
+  importPptxSlides,
   replaceSlideBody,
   toMaterialDetailDto,
 } from '../services/materialService.js';
 
 const STAFF_ROLES = ['faculty', 'admin', 'superadmin'] as const;
+
+// PowerPoint import is multipart (.pptx is a binary file, not a JSON body).
+// 25 MB memory cap — decks are usually a few MB and the bytes are parsed for
+// text, not persisted.
+const pptxUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 const CreateMaterialBody = z.object({
   type: z.enum(['reading', 'pdf', 'video', 'link', 'practice', 'reflection', 'file', 'case']),
@@ -101,6 +110,32 @@ export function materialsRouter(): Router {
       next(err);
     }
   });
+
+  // Import a PowerPoint (.pptx) as the rendered deck — parsed server-side
+  // into slides, then persisted exactly like a JSON replace. multipart;
+  // field name `file`. Inherits requireAuth + staff-role from the router;
+  // rate-limited per user since server-side parsing is CPU/memory-bound.
+  router.post(
+    '/:id/slides/import-pptx',
+    buildPptxImportLimiter(),
+    pptxUpload.single('file'),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        if (!req.file?.buffer?.length) {
+          throw new HttpError(422, 'VALIDATION_FAILED', 'No PowerPoint file was uploaded.');
+        }
+        const material = await importPptxSlides(
+          req.auth!,
+          req.params.id ?? '',
+          req.file.buffer,
+          requestContext(req),
+        );
+        res.status(200).json({ data: { material: toMaterialDetailDto(material) } });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
 
   router.get('/:id/download', async (req: Request, res: Response, next: NextFunction) => {
     try {

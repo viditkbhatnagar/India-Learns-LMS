@@ -793,3 +793,21 @@ Append-only log. Every entry: ID, date, decision, why, source.
 **Tests:** `api/tests/integration/materials.slides.test.ts` — 8 cases incl. the corruption regression (proves a rejected payload leaves the stored deck intact). Pure-function cases added to `web/e2e/slideviewer-fixtures.spec.ts`.
 
 **Note:** Validation requires each slide's `content` to be an object — the only shape the renderer + generator use. A legacy bare-array `content`, if any exists, would be rejected on re-upload (acceptable tightening, scoped to the replace path).
+
+## D-108 — "Replace deck" accepts a PowerPoint (.pptx); server-side import to rendered slides
+**Date:** 2026-06-04
+**Why:** After D-107 stopped the corruption/crash, faculty (Logan) still couldn't get a PowerPoint into the *rendered* deck: "Replace deck (JSON)" needs the generator's JSON shape, and a generic PPT→JSON converter emits a `{slides:[{slide_number, text_blocks}]}` shape the importer (correctly) rejects. The durable fix is to accept the PowerPoint itself and parse it server-side.
+
+**What shipped:**
+- `api/src/services/pptxImport.ts` — zero-dependency PPTX parser. A .pptx is a ZIP of XML; read with Node's built-in `zlib` (hand-rolled central-directory reader; inflate only `ppt/presentation.xml` + its rels + `ppt/slides/slideN.xml`), extract text per slide (title placeholder → heading, else first line = heading), map to the generator slide shape `{slideNumber, slideType, title, content:{type,title,content[]}, speakerNotes}`. Slide order from `presentation.xml` `sldIdLst` → rels, numeric fallback. No new dependency (dependency policy).
+- `POST /v1/materials/:id/slides/import-pptx` (multer memory, 25 MB) → `importPptxSlides` → parses, then persists through `replaceSlideBody` (identical authz + `assertRenderableSlides` + audit as a JSON replace).
+- Frontend: "Replace deck (JSON)" renamed to **"Replace deck"**; the drop zone now accepts `.pptx` as well as `.json` and routes a PowerPoint to the import endpoint. "Upload PowerPoint / PDF" (attach a downloadable copy) is unchanged — distinct intent.
+
+**Security hardening (untrusted binary parsing — from the security review):**
+- Aggregate decompression cap (32 MB) across the archive + per-part inflate cap (4 MB) → prevents zip-bomb OOM (the 25 MB upload cap only bounds *compressed* input). Per-slide XML regex input capped at 256 KB (CPU/ReDoS-class guard). Local-header offset bounds-checked. Any parse failure → 422.
+- Per-user rate limit (20/min, `buildPptxImportLimiter`, gated by `RATE_LIMITS_DISABLED`).
+- Regexes verified non-backtracking; regex (not a real XML parser) → no XXE / billion-laughs exposure.
+
+**Scope (v1):** text only — titles + bullet lines, slide order preserved. Images/tables/charts/animations and speaker notes are not imported. `.ppt` (legacy binary) is rejected with a "save as .pptx" message.
+
+**Tests:** `api/tests/unit/pptxImport.test.ts` (entity decode, XML extraction, placeholder + first-line-heading, ordering, per-slide cap, non-ZIP) + import-pptx cases in `api/tests/integration/materials.slides.test.ts` (happy / non-pptx-422 / empty-422 / 409). Synthetic .pptx fixtures built in `api/tests/helpers/zip.ts` (no committed binary).

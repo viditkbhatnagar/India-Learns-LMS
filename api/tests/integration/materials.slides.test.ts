@@ -6,6 +6,7 @@ import { useIntegrationSpies } from '../helpers/integrations.js';
 import { http } from '../helpers/http.js';
 import { bearer, tokenFor } from '../helpers/auth.js';
 import { makeCourse, makeFaculty, makeProgram } from '../helpers/factories.js';
+import { makePptx } from '../helpers/zip.js';
 import { Material, type HydratedMaterial } from '../../src/models/index.js';
 
 /**
@@ -152,6 +153,50 @@ describe('PUT /v1/materials/:id/slides — replace deck', () => {
 
     expect(res.status).toBe(422);
     expect(res.body.error.message).toMatch(/slide 2/i);
+  });
+
+  it('imports a PowerPoint (.pptx) as the rendered deck', async () => {
+    const { at, material } = await setup();
+    const pptx = makePptx([
+      { title: 'Who Works at the Airport?', lines: ['MOD101 · Lesson 1'] },
+      { title: 'Learning Objectives', lines: ['Identify stakeholders', 'Explain hand-offs'] },
+    ]);
+
+    const res = await http()
+      .post(`/v1/materials/${material._id.toString()}/slides/import-pptx`)
+      .set(bearer(at))
+      .attach('file', pptx, 'deck.pptx');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.material.slideCount).toBe(2);
+    const body = res.body.data.material.body as Array<{ title: string; content: unknown }>;
+    expect(body).toHaveLength(2);
+    expect(body[0].title).toBe('Who Works at the Airport?');
+    expect(typeof body[0].content).toBe('object');
+    expect(Array.isArray(body[0].content)).toBe(false);
+  });
+
+  it('rejects a non-PowerPoint upload (422) and leaves the deck intact', async () => {
+    const { at, material } = await setup();
+    const res = await http()
+      .post(`/v1/materials/${material._id.toString()}/slides/import-pptx`)
+      .set(bearer(at))
+      .attach('file', Buffer.from('this is not a pptx'), 'deck.pptx');
+
+    expect(res.status).toBe(422);
+    const reloaded = await Material.findById(material._id).lean();
+    expect(reloaded?.slideCount).toBe(1); // original deck untouched
+  });
+
+  it('rejects a PowerPoint that has no slides with text (422)', async () => {
+    const { at, material } = await setup();
+    const empty = makePptx([{ title: '', lines: [] }]);
+    const res = await http()
+      .post(`/v1/materials/${material._id.toString()}/slides/import-pptx`)
+      .set(bearer(at))
+      .attach('file', empty, 'empty.pptx');
+
+    expect(res.status).toBe(422);
   });
 
   it('returns 409 for a non-slides material', async () => {
