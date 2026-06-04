@@ -77,5 +77,29 @@ export function buildPublicVisitorLimiter(): RequestHandler {
   }) as unknown as RequestHandler;
 }
 
+// Slide import (.pptx) limiter — authenticated staff endpoint. Parsing a
+// PowerPoint is CPU/memory-bound (server-side unzip + XML scan), so cap each
+// user to blunt abuse from a compromised account. Keyed by user id, with an
+// IP fallback. Same RATE_LIMITS_DISABLED switch as the other limiters.
+export function buildPptxImportLimiter(): RequestHandler {
+  const env = loadEnv();
+  if (env.RATE_LIMITS_DISABLED) return passthrough();
+  return rateLimit({
+    windowMs: 60_000,
+    max: 20,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => req.auth?.userId?.toString() ?? req.ip ?? 'unknown',
+    handler: (_req, res) => {
+      res.status(429).json({
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many slide imports — try again shortly.',
+        },
+      });
+    },
+  }) as unknown as RequestHandler;
+}
+
 // Re-export for tests or consumers who want the specific type:
 export type { RateLimitRequestHandler };

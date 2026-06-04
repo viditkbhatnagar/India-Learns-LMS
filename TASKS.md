@@ -190,6 +190,7 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] 2026-05-14 — `/apply/signup` rendered generic "Request failed validation." banner (Logan); now surfaces field-level errors from `err.details.fieldErrors`. (D-089, [docs/smoke/apply-signup-errors.md](docs/smoke/apply-signup-errors.md))
 - [ ] Apply the same `err.details.fieldErrors` → inline-error pattern to other public forms (login, password reset, magic-link claim) — single-banner regression hiding everywhere there's a Zod schema on a public POST.
 - [x] 2026-05-31 — Slide "Replace deck (JSON)" corrupted the deck (a PowerPoint-as-JSON / wrong-shaped array was persisted verbatim, count jumped 3→13) then crashed the viewer with "Cannot read properties of undefined (reading 'title')" (Logan). Backend validates per-slide shape before saving; viewer renders corrupt/foreign decks gracefully instead of white-screening; client size cap aligned to the 1 MB server limit. (D-107, [docs/smoke/slides-replace.md](docs/smoke/slides-replace.md))
+- [x] 2026-06-04 — **PPTX → rendered slides**: "Replace deck" now accepts a PowerPoint (.pptx) and parses it server-side into slides (zero-dep zlib ZIP reader), so faculty no longer hand-convert PPT→JSON. Hardened against zip-bomb/CPU abuse + per-user rate limit. (D-108, [docs/smoke/slides-replace.md](docs/smoke/slides-replace.md)) — closes the "Evaluate PPTX-to-in-app-slides" follow-up.
 
 ### Operator-actionable post-merge (not blocking M9 close)
 - [ ] Provision MongoDB Atlas M0 (ap-south-1) → set MONGODB_URI in Render

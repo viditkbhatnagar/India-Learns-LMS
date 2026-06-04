@@ -10,6 +10,7 @@ import {
 import type { AuthContext } from '../middleware/auth.js';
 import { assertFacultyCanWriteCourse, assertFacultyOwnsCourse } from './authzService.js';
 import { recordAudit } from './auditService.js';
+import { parsePptxToSlides, type ParsedSlide } from './pptxImport.js';
 
 // Faculty-add material types — slides are uploaded via the slide-upload
 // path (separate, body-heavy flow); the rest are URL-based.
@@ -278,6 +279,35 @@ export async function replaceSlideBody(
     ua: ctx.ua,
   });
   return material;
+}
+
+/**
+ * Import a PowerPoint (.pptx) as the rendered slide deck. The file is parsed
+ * server-side into the generator slide shape and persisted through the SAME
+ * path as a JSON replace, so validation, audit, and `slideCount` handling are
+ * identical. Faculty reach this from the "Replace deck" affordance, which now
+ * accepts a .pptx as well as a JSON export — the path Logan kept reaching for.
+ */
+export async function importPptxSlides(
+  actor: AuthContext,
+  materialId: string,
+  buf: Buffer,
+  ctx: ActorCtx = {},
+): Promise<HydratedMaterial> {
+  let slides: ParsedSlide[];
+  try {
+    slides = parsePptxToSlides(buf);
+  } catch {
+    throw new HttpError(
+      422,
+      'PPTX_PARSE_FAILED',
+      'Could not read that PowerPoint. Make sure it is a .pptx file (not the older .ppt) saved from PowerPoint, Keynote, or Google Slides.',
+    );
+  }
+  if (slides.length === 0) {
+    throw new HttpError(422, 'PPTX_EMPTY', 'That PowerPoint has no slides with text to import.');
+  }
+  return replaceSlideBody(actor, materialId, slides, ctx);
 }
 
 export async function deleteMaterial(

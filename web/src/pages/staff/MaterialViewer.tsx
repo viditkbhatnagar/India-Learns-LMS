@@ -456,6 +456,21 @@ function SlideToolbar({
     onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Replace failed.'),
   });
 
+  // Import a PowerPoint (.pptx) directly as the rendered deck — the server
+  // parses it into slides. This is the path faculty kept reaching for when
+  // they had a PowerPoint and tried "Replace deck".
+  const importPptxMut = useMutation({
+    mutationFn: (file: File) => materialsApi.importPptx(material.id, file),
+    onSuccess: () => {
+      setErr(null);
+      setSavedAt(new Date().toISOString());
+      setReplaceOpen(false);
+      qc.invalidateQueries({ queryKey: ['material', material.id] });
+      qc.invalidateQueries({ queryKey: ['session', material.sessionId] });
+    },
+    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Could not import that PowerPoint.'),
+  });
+
   // Upload a PowerPoint / PDF and attach it to THIS session as a
   // downloadable material — the path faculty actually want from the
   // slides page (Logan kept reaching for "Replace deck" with a .pptx,
@@ -503,13 +518,30 @@ function SlideToolbar({
   // the tab (and the OS file dialog) when faculty picked one. Validate
   // type + size first; never read a non-JSON or oversized file.
   const MAX_JSON_BYTES = 1 * 1024 * 1024; // matches the server's express.json 1 MB limit
+  const MAX_PPTX_BYTES = 25 * 1024 * 1024; // matches the server's pptx upload cap
   async function handleReplaceFile(file: File): Promise<void> {
     setErr(null);
-    const isJson =
-      file.type === 'application/json' || /\.json$/i.test(file.name);
+    const isPptx =
+      /\.pptx$/i.test(file.name)
+      || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    const isLegacyPpt = /\.ppt$/i.test(file.name) && !isPptx;
+    const isJson = file.type === 'application/json' || /\.json$/i.test(file.name);
+
+    if (isLegacyPpt) {
+      setErr('Old “.ppt” files aren’t supported — open it in PowerPoint and “Save As” a .pptx, then try again.');
+      return;
+    }
+    if (isPptx) {
+      if (file.size > MAX_PPTX_BYTES) {
+        setErr('That PowerPoint is larger than 25 MB. Trim it down or split the deck.');
+        return;
+      }
+      importPptxMut.mutate(file);
+      return;
+    }
     if (!isJson) {
       setErr(
-        'Replace deck expects a JSON export of the slides. To share a PowerPoint or PDF with students, use “+ Add material” on the session and upload the file there.',
+        'Replace deck takes a PowerPoint (.pptx) or a slides JSON export. To attach a file for students to download, use “Upload PowerPoint / PDF”.',
       );
       return;
     }
@@ -561,16 +593,16 @@ function SlideToolbar({
           title={
             isOversight
               ? oversightTitle
-              : 'Advanced: replace the rendered slides from a JSON export (download → tweak → re-upload).'
+              : 'Replace the rendered slides from a PowerPoint (.pptx) or a slides JSON export.'
           }
           onClick={() => {
             setReplaceOpen((v) => !v);
             setFileOpen(false);
           }}
         >
-          Replace deck (JSON)
+          Replace deck
         </Button>
-        {savedAt && !err && !replaceMut.isPending && (
+        {savedAt && !err && !replaceMut.isPending && !importPptxMut.isPending && (
           <span className="text-xs text-success">Replaced.</span>
         )}
         {attachedName && !attachFileMut.isPending && !fileErr && (
@@ -595,17 +627,17 @@ function SlideToolbar({
         </div>
       )}
       {replaceOpen && !isOversight && (
-        <div className="w-72">
+        <div className="w-80">
           <FileDropZone
             onFile={(f) => {
               handleReplaceFile(f).catch(() => undefined);
             }}
-            accept="application/json,.json"
-            maxBytes={MAX_JSON_BYTES}
-            busy={replaceMut.isPending}
-            busyLabel="Replacing…"
-            label="Drag a slides JSON export here"
-            hint="Advanced — JSON export only (a few KB)."
+            accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/json,.json"
+            maxBytes={MAX_PPTX_BYTES}
+            busy={replaceMut.isPending || importPptxMut.isPending}
+            busyLabel={importPptxMut.isPending ? 'Importing…' : 'Replacing…'}
+            label="Drop a PowerPoint (.pptx) or slides JSON here"
+            hint="Replaces the rendered slides. A .pptx is converted automatically; JSON is the Download-deck export."
           />
         </div>
       )}
