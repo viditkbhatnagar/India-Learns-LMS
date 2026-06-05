@@ -817,3 +817,12 @@ Append-only log. Every entry: ID, date, decision, why, source.
 **Why:** Logan asked for the ability to remove a material — the Materials list on the session page only offered "+ Add material". The backend already supported deletion (`DELETE /v1/materials/:id`, soft-delete via `deletedAt` + audit, `assertFacultyCanWriteCourse`); only the UI affordance was missing.
 **What shipped:** `DeleteMaterialButton` in `web/src/pages/staff/SessionDetail.tsx` — a two-click-confirm "Delete" control rendered as a **sibling** of the row `Link` (never nested inside it, avoiding the FileLink-style nested-interactive bug from D-106). Calls the existing `materialsApi.delete(id)` and invalidates the `['session', id]` + `['course', id, 'sessions']` queries to refresh the list. Disabled/read-only in oversight mode. No backend change.
 **Tests:** DELETE integration cases added to `api/tests/integration/materials.slides.test.ts` — soft-delete + no-longer-fetchable (200→404), 404 for a missing id, 403 for an off-roster faculty member.
+
+## D-110 — User/faculty invite: tolerant phone validation + field-level errors
+**Date:** 2026-06-05
+**Why:** Logan couldn't add a faculty member — the invite form failed with a generic "Request failed validation." Two problems: (1) the phone `+91 80899 30510` (with spaces) was rejected by the strict E.164 regex `/^\+\d{6,15}$/`, and (2) the UI never said *which* field was wrong.
+**What shipped:**
+- Backend (`api/src/routes/users.ts`): a reusable `phoneE164Schema` strips common separators (spaces / dashes / parens) and *then* validates strict E.164, persisting the normalised value. Applied to `CreateBody`, `UpdateBody`, and the emergency/parent `ContactRefBody` — so every phone field on invite + edit is tolerant of natural formatting.
+- Frontend (`web/src/pages/admin/AdminUsers.tsx` invite form): surfaces `err.details.fieldErrors` as per-field messages on the Name/Email/Phone inputs (mirroring the apply-form D-089 pattern) with a concise "correct the highlighted field(s)" banner instead of the opaque "Request failed validation."
+**Tests:** `api/tests/integration/users.crud.test.ts` — a spaced phone normalises to `+918089930510` (201); a malformed phone → 422 with `error.details.fieldErrors.phoneE164`.
+**Gotcha:** the three phone schemas had different indentation, so the first `replace_all` silently missed `CreateBody.phoneE164` (2-space vs 4-space). The integration test caught it — a good argument for testing the exact reported input.

@@ -240,4 +240,35 @@ describe('users CRUD', () => {
       .send({ batchId: '64b000000000000000000001' });
     expect(patchBatch.status).toBe(403);
   });
+
+  it('normalises a phone typed with spaces to strict E.164 on invite', async () => {
+    const token = await loginAsAdmin();
+    const res = await http()
+      .post('/v1/users')
+      .set('authorization', `Bearer ${token}`)
+      .send({
+        role: 'faculty',
+        name: 'Demariz',
+        email: 'demariz.spaces@example.com',
+        phoneE164: '+91 80899 30510', // spaces — exactly what Logan typed
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.user.phoneE164).toBe('+918089930510');
+  });
+
+  it('rejects a malformed phone with a field-level error', async () => {
+    const token = await loginAsAdmin();
+    const res = await http()
+      .post('/v1/users')
+      .set('authorization', `Bearer ${token}`)
+      .send({
+        role: 'faculty',
+        name: 'Bad Phone',
+        email: 'bad.phone@example.com',
+        phoneE164: 'not-a-number',
+      });
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    expect(res.body.error.details.fieldErrors.phoneE164?.length).toBeGreaterThan(0);
+  });
 });

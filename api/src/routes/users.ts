@@ -39,11 +39,22 @@ const PersonalAddressBody = z.object({
   country: z.string().min(1).max(80),
 });
 
+// Phones must end up as strict E.164 (`+` + 6–15 digits), but people
+// naturally type spaces / dashes / parens (e.g. "+91 80899 30510"). Strip
+// those first, then validate — a well-formed number shouldn't be rejected
+// for its formatting alone. The normalised value is what we persist.
+const phoneE164Schema = z
+  .string()
+  .transform((s) => s.replace(/[\s()-]/g, ''))
+  .refine((s) => /^\+\d{6,15}$/.test(s), {
+    message: 'Enter a valid phone in E.164 format, e.g. +919812345678.',
+  });
+
 const ContactRefBody = z
   .object({
     name: z.string().min(1).max(120),
     relationship: z.string().max(60).default(''),
-    phoneE164: z.string().regex(/^\+\d{6,15}$/),
+    phoneE164: phoneE164Schema,
     email: z.string().email().max(254).nullable().optional(),
   })
   // Normalise `email` to the DTO shape (`string | null`, never `undefined`)
@@ -54,7 +65,7 @@ const CreateBody = z.object({
   role: RoleEnum,
   name: z.string().min(1).max(120),
   email: z.string().email().max(254),
-  phoneE164: z.string().regex(/^\+\d{6,15}$/),
+  phoneE164: phoneE164Schema,
   programId: z.string().optional(),
   batchId: z.string().optional(),
   enrolmentValidFrom: z.string().datetime().optional(),
@@ -90,7 +101,7 @@ const CreateBody = z.object({
 
 const UpdateBody = z.object({
   name: z.string().min(1).max(120).optional(),
-  phoneE164: z.string().regex(/^\+\d{6,15}$/).optional(),
+  phoneE164: phoneE164Schema.optional(),
   address: z.string().max(500).nullable().optional(),
   programId: z.string().nullable().optional(),
   batchId: z.string().nullable().optional(),
