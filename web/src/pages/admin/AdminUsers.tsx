@@ -235,6 +235,12 @@ export function AdminInviteUser() {
   const [showEmergency, setShowEmergency] = useState(false);
   const [showParent, setShowParent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    phoneE164?: string;
+    programId?: string;
+  }>({});
   const mut = useMutation({
     mutationFn: () =>
       usersApi.create({
@@ -280,12 +286,33 @@ export function AdminInviteUser() {
       // ID / Transfer cert / Photo can be uploaded in the same flow.
       navigate(`/admin/users/${user.id}?invited=1`);
     },
-    onError: (err) => setError(err instanceof ApiHttpError ? err.message : 'Failed.'),
+    onError: (err) => {
+      if (!(err instanceof ApiHttpError)) {
+        setError('Failed.');
+        return;
+      }
+      const details = err.details as { fieldErrors?: Record<string, string[] | undefined> } | undefined;
+      const fe = details?.fieldErrors;
+      if (fe && Object.keys(fe).length > 0) {
+        setFieldErrors({
+          name: fe.name?.[0] ? 'Enter the full name.' : undefined,
+          email: fe.email?.[0] ? 'Enter a valid email address.' : undefined,
+          // Backend now accepts spaces/dashes, so a phone error means the
+          // number itself is malformed — point at the expected shape.
+          phoneE164: fe.phoneE164?.[0] ? 'Enter a valid phone, e.g. +919812345678.' : undefined,
+          programId: fe.programId?.[0] ? 'Pick a program.' : undefined,
+        });
+        setError('Please correct the highlighted field(s) and try again.');
+      } else {
+        setError(err.message);
+      }
+    },
   });
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     mut.mutate();
   }
 
@@ -322,6 +349,7 @@ export function AdminInviteUser() {
             placeholder="Jane Doe"
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            error={fieldErrors.name}
             required
           />
           <Input
@@ -330,6 +358,7 @@ export function AdminInviteUser() {
             placeholder="jane@example.com"
             value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            error={fieldErrors.email}
             required
           />
           <Input
@@ -338,6 +367,7 @@ export function AdminInviteUser() {
             value={form.phoneE164}
             onChange={(e) => setForm((f) => ({ ...f, phoneE164: e.target.value }))}
             hint="E.164 format (e.g. +919812345678)"
+            error={fieldErrors.phoneE164}
           />
           {(form.role === 'student' || form.role === 'faculty') && (
             <>
