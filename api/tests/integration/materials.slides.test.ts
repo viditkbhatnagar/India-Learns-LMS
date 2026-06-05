@@ -212,3 +212,50 @@ describe('PUT /v1/materials/:id/slides — replace deck', () => {
     expect(res.status).toBe(409);
   });
 });
+
+describe('DELETE /v1/materials/:id — remove a material', () => {
+  useMongo();
+  useIntegrationSpies();
+
+  async function setup() {
+    const { user: fac } = await makeFaculty();
+    const at = await tokenFor(fac);
+    const program = await makeProgram();
+    const course = await makeCourse({ programId: program._id, facultyIds: [fac._id] });
+    const material = await makeSlidesMaterial(course._id);
+    return { fac, at, course, material };
+  }
+
+  it('soft-deletes a material and it is no longer fetchable', async () => {
+    const { at, material } = await setup();
+    const id = material._id.toString();
+
+    const res = await http().delete(`/v1/materials/${id}`).set(bearer(at));
+    expect(res.status).toBe(200);
+
+    const reloaded = await Material.findById(id);
+    expect(reloaded?.deletedAt).toBeInstanceOf(Date); // soft-deleted, not hard-removed
+
+    const getRes = await http().get(`/v1/materials/${id}`).set(bearer(at));
+    expect(getRes.status).toBe(404); // gone from the staff fetch
+  });
+
+  it('returns 404 for a non-existent material', async () => {
+    const { at } = await setup();
+    const res = await http()
+      .delete(`/v1/materials/${new Types.ObjectId().toString()}`)
+      .set(bearer(at));
+    expect(res.status).toBe(404);
+  });
+
+  it('blocks a faculty member who is not on the course roster (403)', async () => {
+    const { material } = await setup();
+    const { user: outsider } = await makeFaculty();
+    const outsiderAt = await tokenFor(outsider);
+
+    const res = await http()
+      .delete(`/v1/materials/${material._id.toString()}`)
+      .set(bearer(outsiderAt));
+    expect(res.status).toBe(403);
+  });
+});

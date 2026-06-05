@@ -811,3 +811,9 @@ Append-only log. Every entry: ID, date, decision, why, source.
 **Scope (v1):** text only — titles + bullet lines, slide order preserved. Images/tables/charts/animations and speaker notes are not imported. `.ppt` (legacy binary) is rejected with a "save as .pptx" message.
 
 **Tests:** `api/tests/unit/pptxImport.test.ts` (entity decode, XML extraction, placeholder + first-line-heading, ordering, per-slide cap, non-ZIP) + import-pptx cases in `api/tests/integration/materials.slides.test.ts` (happy / non-pptx-422 / empty-422 / 409). Synthetic .pptx fixtures built in `api/tests/helpers/zip.ts` (no committed binary).
+
+## D-109 — Faculty can delete materials from a session
+**Date:** 2026-06-05
+**Why:** Logan asked for the ability to remove a material — the Materials list on the session page only offered "+ Add material". The backend already supported deletion (`DELETE /v1/materials/:id`, soft-delete via `deletedAt` + audit, `assertFacultyCanWriteCourse`); only the UI affordance was missing.
+**What shipped:** `DeleteMaterialButton` in `web/src/pages/staff/SessionDetail.tsx` — a two-click-confirm "Delete" control rendered as a **sibling** of the row `Link` (never nested inside it, avoiding the FileLink-style nested-interactive bug from D-106). Calls the existing `materialsApi.delete(id)` and invalidates the `['session', id]` + `['course', id, 'sessions']` queries to refresh the list. Disabled/read-only in oversight mode. No backend change.
+**Tests:** DELETE integration cases added to `api/tests/integration/materials.slides.test.ts` — soft-delete + no-longer-fetchable (200→404), 404 for a missing id, 403 for an off-roster faculty member.

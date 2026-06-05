@@ -278,22 +278,30 @@ export function SessionDetailPage(): JSX.Element | null {
             ) : (
               <ul className="divide-y divide-black/5">
                 {materials.map((m) => (
-                  <li key={m.id}>
+                  <li key={m.id} className="flex items-center gap-1">
                     <Link
                       to={`/courses/${courseId}/sessions/${sessionId}/materials/${m.id}`}
-                      className="py-2 flex items-center gap-3 text-sm hover:bg-surface-muted/60 -mx-2 px-2 rounded-lg transition-colors"
+                      className="py-2 flex items-center gap-3 text-sm flex-1 min-w-0 hover:bg-surface-muted/60 -mx-2 px-2 rounded-lg transition-colors"
                     >
-                      <span className="text-xs uppercase tracking-wider font-bold text-muted w-16">
+                      <span className="text-xs uppercase tracking-wider font-bold text-muted w-16 shrink-0">
                         {m.type}
                       </span>
                       <span className="font-medium text-brand-navy flex-1 truncate hover:text-brand-orange">
                         {m.title}
                       </span>
-                      {m.slideCount && <span className="text-xs text-muted">{m.slideCount} slides</span>}
+                      {m.slideCount && <span className="text-xs text-muted shrink-0">{m.slideCount} slides</span>}
                       {m.type === 'slides' && (
-                        <span className="text-xs text-brand-orange font-medium">Open viewer →</span>
+                        <span className="text-xs text-brand-orange font-medium shrink-0">Open viewer →</span>
                       )}
                     </Link>
+                    <DeleteMaterialButton
+                      materialId={m.id}
+                      materialTitle={m.title}
+                      sessionId={sessionId}
+                      courseId={courseId}
+                      isOversight={isOversight}
+                      oversightTitle={oversightTitle}
+                    />
                   </li>
                 ))}
               </ul>
@@ -503,6 +511,91 @@ function SessionDescriptionEditor({
   );
 }
 
+
+/**
+ * Delete a material from a session. Backend soft-deletes (DELETE
+ * /v1/materials/:id, audited, faculty-can-write enforced). Two-click
+ * confirm guards against accidental removal; gated to read-only in
+ * oversight mode. Sibling of the row Link — never nested inside it.
+ */
+function DeleteMaterialButton({
+  materialId,
+  materialTitle,
+  sessionId,
+  courseId,
+  isOversight,
+  oversightTitle,
+}: {
+  materialId: string;
+  materialTitle: string;
+  sessionId: string;
+  courseId: string;
+  isOversight: boolean;
+  oversightTitle: string;
+}): JSX.Element {
+  const qc = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const del = useMutation({
+    mutationFn: () => materialsApi.delete(materialId),
+    onSuccess: () => {
+      setConfirming(false);
+      setErr(null);
+      qc.invalidateQueries({ queryKey: ['session', sessionId] });
+      qc.invalidateQueries({ queryKey: ['course', courseId, 'sessions'] });
+    },
+    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Could not delete material.'),
+  });
+
+  if (isOversight) {
+    return (
+      <button
+        type="button"
+        disabled
+        title={oversightTitle}
+        className="shrink-0 px-2 py-1 text-xs text-muted/40 cursor-not-allowed"
+        aria-label="Delete material (read-only in oversight mode)"
+      >
+        Delete
+      </button>
+    );
+  }
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="shrink-0 px-2 py-1 text-xs font-medium text-muted hover:text-danger transition-colors"
+        aria-label={`Delete material: ${materialTitle}`}
+      >
+        Delete
+      </button>
+    );
+  }
+
+  return (
+    <span className="shrink-0 inline-flex items-center gap-2 text-xs">
+      <button
+        type="button"
+        onClick={() => del.mutate()}
+        disabled={del.isPending}
+        className="font-semibold text-danger hover:underline disabled:opacity-60"
+      >
+        {del.isPending ? 'Deleting…' : 'Confirm delete'}
+      </button>
+      <button
+        type="button"
+        onClick={() => { setConfirming(false); setErr(null); }}
+        className="text-muted hover:text-brand-navy"
+      >
+        Cancel
+      </button>
+      {err && <span className="text-danger" role="alert">{err}</span>}
+    </span>
+  );
+}
 
 /**
  * PR #16 Phase 2 — inline "add material" form. URL-based for now;
