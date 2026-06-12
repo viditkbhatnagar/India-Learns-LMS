@@ -826,3 +826,22 @@ Append-only log. Every entry: ID, date, decision, why, source.
 - Frontend (`web/src/pages/admin/AdminUsers.tsx` invite form): surfaces `err.details.fieldErrors` as per-field messages on the Name/Email/Phone inputs (mirroring the apply-form D-089 pattern) with a concise "correct the highlighted field(s)" banner instead of the opaque "Request failed validation."
 **Tests:** `api/tests/integration/users.crud.test.ts` — a spaced phone normalises to `+918089930510` (201); a malformed phone → 422 with `error.details.fieldErrors.phoneE164`.
 **Gotcha:** the three phone schemas had different indentation, so the first `replace_all` silently missed `CreateBody.phoneE164` (2-space vs 4-space). The integration test caught it — a good argument for testing the exact reported input.
+
+## D-111 — Curriculum import: decode HTML-over-escaped titles + clearer oversight copy
+**Date:** 2026-06-09
+**Why:** A superadmin imported a course whose title rendered as "Diploma in Aviation &amp;amp;amp; Hospitality Management" (slug "…ampampamp…") and reported "no PPT" + "nothing editable" (Athira/screenshot). A parallel diagnosis workflow separated three issues:
+- **Title over-escaping = real bug.** The curriculum GENERATOR HTML-escapes `programTitle` on every save, compounding (& → &amp; → &amp;amp; …). The LMS imported it verbatim; `slugify` then stripped the entities leaving "ampampamp".
+- **"No PPT" = NOT an import bug.** Slides import correctly as **session-scoped** materials, but the Content overview never surfaces them (you open a session to view). Discoverability gap, not data loss. (Caveat: only if the generator actually produced decks for that course.)
+- **"Nothing editable" = by design.** Oversight read-only for admins not on the roster — but imported courses get `facultyIds: []` and a superadmin can't self-add (only `faculty`-role users are assignable), so the banner's "add yourself to the roster" was literally impossible.
+
+**Shipped (LMS):**
+- `decodeEntitiesDeep()` in `api/src/services/curriculumImport/transformer.ts` — fixed-point HTML-entity decoder applied to the imported course **name + summary**, so the stored title and derived slug are clean regardless of how many times the source re-escaped (idempotent for clean strings). `persister.ts` now **recomputes the slug on re-import** (the replace path previously updated name but not slug).
+- Oversight copy corrected: `CourseShell` banner + `authzService` 403 message now say "assign a teaching faculty member (Overview → Teaching faculty)" instead of the impossible "add yourself to the roster."
+
+**Repairing existing data:** re-import the affected course with `replace=true` after deploy — the decode + slug recompute clean the stored name + slug in place.
+
+**Root cause (separate repo):** the generator over-escaping `programTitle` is fixed in CurriculumGenerator so the source stops compounding.
+
+**Flagged (NOT done — need a decision):** (1) **slides discoverability** — add a per-session slide-count badge to the Content session rows (requires the course-sessions list endpoint/DTO to include `slideCount`); immediate workaround: open a session to view its slides. (2) **oversight product decision** — auto-assign a faculty member on import, and/or let superadmin bypass oversight.
+
+**Tests:** `decodeEntitiesDeep` unit cases (triple-escape → single &, idempotent on clean titles, single-layer entities) in `curriculumImportTransformer.test.ts`.

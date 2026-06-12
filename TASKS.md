@@ -193,6 +193,9 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] 2026-06-04 — **PPTX → rendered slides**: "Replace deck" now accepts a PowerPoint (.pptx) and parses it server-side into slides (zero-dep zlib ZIP reader), so faculty no longer hand-convert PPT→JSON. Hardened against zip-bomb/CPU abuse + per-user rate limit. (D-108, [docs/smoke/slides-replace.md](docs/smoke/slides-replace.md)) — closes the "Evaluate PPTX-to-in-app-slides" follow-up.
 - [x] 2026-06-05 — Faculty can now **delete materials** from a session (two-click confirm, oversight-gated, sibling of the row link). Backend delete already existed; added the UI control + DELETE integration tests. (D-109) — Logan request.
 - [x] 2026-06-05 — **Faculty invite failing** with generic "Request failed validation." (Logan). Root cause: phone with spaces (`+91 80899 30510`) rejected by strict E.164. Backend now normalises spaces/dashes/parens before validating (invite + edit + emergency/parent contacts); invite form surfaces per-field errors instead of the opaque banner. (D-110)
+- [x] 2026-06-09 — Imported course title showed "&amp;amp;amp;" + slug "ampampamp" (generator over-escapes `programTitle`); reported by Athira. LMS now HTML-decodes the imported course name+summary + recomputes slug on re-import (root cause also fixed in CurriculumGenerator). Oversight banner/403 copy corrected ("assign a faculty member" — superadmin can't self-add). (D-111)
+  - [ ] FOLLOW-UP: slides-discoverability badge on Content session rows (slides import onto sessions but aren't shown on the overview; needs course-sessions list `slideCount`).
+  - [ ] FOLLOW-UP (product decision): auto-assign a faculty member on import / let superadmin bypass oversight — imported courses are born read-only with `facultyIds: []`.
 
 ### Operator-actionable post-merge (not blocking M9 close)
 - [ ] Provision MongoDB Atlas M0 (ap-south-1) → set MONGODB_URI in Render

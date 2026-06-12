@@ -245,7 +245,9 @@ export function CourseShell(): JSX.Element {
               <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
             </svg>
             <div>
-              You're viewing this course in oversight mode. Edits are disabled.
+              You're viewing this course in oversight mode — edits are disabled. To enable
+              editing, assign a teaching faculty member on the Overview tab (admins/superadmins
+              aren't added to course rosters; a faculty member makes the edits).
             </div>
           </div>
         )}

@@ -188,18 +188,50 @@ function slugify(s: string): string {
     .slice(0, 60);
 }
 
+function safeCodePoint(n: number): string {
+  try {
+    return Number.isFinite(n) ? String.fromCodePoint(n) : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * The upstream curriculum generator HTML-escapes some titles on every save,
+ * so a single "&" can arrive multi-escaped ("&amp;amp;amp;…") and compounds on
+ * each re-import. Decode HTML entities to a FIXED POINT so the stored title —
+ * and the slug derived from it — are clean no matter how many times the source
+ * re-escaped. Idempotent for already-clean strings (a lone "&" stays "&").
+ */
+export function decodeEntitiesDeep(input: string): string {
+  let prev = '';
+  let cur = input;
+  let guard = 0;
+  while (cur !== prev && guard < 12) {
+    prev = cur;
+    cur = cur
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, h: string) => safeCodePoint(parseInt(h, 16)))
+      .replace(/&#(\d+);/g, (_, d: string) => safeCodePoint(parseInt(d, 10)));
+    guard += 1;
+  }
+  return cur;
+}
+
 function pickCourseName(w: Workflow): string {
   const fromStep1 = w.step1?.programTitle?.trim();
-  if (fromStep1) return fromStep1;
-  return w.projectName.trim();
+  if (fromStep1) return decodeEntitiesDeep(fromStep1);
+  return decodeEntitiesDeep(w.projectName.trim());
 }
 
 function pickCourseSummary(w: Workflow): string {
-  return (
-    w.step1?.executiveSummary
-    ?? w.step1?.programDescription
-    ?? ''
-  ).slice(0, 8000);
+  return decodeEntitiesDeep(
+    (w.step1?.executiveSummary ?? w.step1?.programDescription ?? '').slice(0, 8000),
+  );
 }
 
 function transformCourse(w: Workflow, warnings: string[]): TransformedCourse {

@@ -60,7 +60,7 @@ export async function assertFacultyCanWriteCourse(
     throw new HttpError(
       403,
       'OVERSIGHT_READONLY',
-      'Oversight mode is read-only. Add yourself to this course\'s faculty roster to make changes.',
+      'Oversight mode is read-only. Assign a teaching faculty member to this course (Overview → Teaching faculty) so they can make changes.',
     );
   }
   throw new HttpError(403, 'FORBIDDEN', 'Not assigned to this course.');
