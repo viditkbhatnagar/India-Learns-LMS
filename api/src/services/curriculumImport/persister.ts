@@ -133,6 +133,10 @@ export async function persistImport(
       sourceModuleId: { $type: 'string' },
     });
     existing.name = data.course.name;
+    // Recompute the slug too — on the original import it may have been derived
+    // from a mangled (HTML-over-escaped) name; re-import now carries the clean,
+    // decoded name + slug, so refresh both.
+    existing.slug = data.course.slug;
     existing.summary = data.course.summary;
     existing.programLearningOutcomes = data.course.programLearningOutcomes;
     // Auto-imported glossary + reading list (Logan request). On re-import

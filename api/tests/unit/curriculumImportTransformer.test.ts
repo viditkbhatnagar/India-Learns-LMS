@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { WorkflowEnvelopeSchema } from '../../src/services/curriculumImport/schema.js';
-import { transformWorkflow } from '../../src/services/curriculumImport/transformer.js';
+import { transformWorkflow, decodeEntitiesDeep } from '../../src/services/curriculumImport/transformer.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturePath = resolve(here, '../../../curriculum-import/sample-workflow-full.json');
@@ -258,5 +258,28 @@ describe('curriculum import transformer — CHRP regression', () => {
     for (const a of out.assignments) {
       expect(sessionKeys.has(a.sessionKey)).toBe(true);
     }
+  });
+});
+
+describe('decodeEntitiesDeep — repairs HTML-entity over-escaping from the generator', () => {
+  it('collapses a triple-escaped ampersand back to a single &', () => {
+    expect(
+      decodeEntitiesDeep('Diploma in Aviation &amp;amp;amp; Hospitality Management'),
+    ).toBe('Diploma in Aviation & Hospitality Management');
+  });
+
+  it('is idempotent — already-clean titles are unchanged', () => {
+    expect(decodeEntitiesDeep('Service Ecosystems & the Customer Journey')).toBe(
+      'Service Ecosystems & the Customer Journey',
+    );
+    expect(decodeEntitiesDeep('Retail, Fashion and Hospitality')).toBe(
+      'Retail, Fashion and Hospitality',
+    );
+  });
+
+  it('decodes a single layer of common entities', () => {
+    expect(decodeEntitiesDeep('Q&amp;A')).toBe('Q&A');
+    expect(decodeEntitiesDeep('A &lt;b&gt; C')).toBe('A <b> C');
+    expect(decodeEntitiesDeep('caf&#233;')).toBe('café');
   });
 });
