@@ -48,3 +48,5 @@ Per-workspace: `npm run dev -w api`, `npm run dev -w web`.
 ## License
 
 Proprietary — © 2026 LUC / India Learns. All rights reserved.
+
+<!-- touch: redeploy trigger 2026-06-19T22:32:49Z -->
