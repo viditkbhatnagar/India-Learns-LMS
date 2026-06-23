@@ -33,7 +33,10 @@ function requireId(id: string): Types.ObjectId {
 
 function inviteLink(token: string): string {
   const env = loadEnv();
-  return `${env.WEB_ORIGIN.replace(/\/$/, '')}/onboarding/set-password?t=${encodeURIComponent(token)}`;
+  // Must point at the real, token-driven accept-invite page (reads ?t= and
+  // sets the password). /onboarding/set-password is a static demo screen
+  // that ignores the token, so invitees landed on "Invalid invite link".
+  return `${env.WEB_ORIGIN.replace(/\/$/, '')}/accept-invite?t=${encodeURIComponent(token)}`;
 }
 
 function toDto(doc: HydratedUser): UserPublicDto {
