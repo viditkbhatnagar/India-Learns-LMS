@@ -346,7 +346,11 @@ export function AppShell({ children }: PropsWithChildren) {
         {/* Content */}
         <main
           id="main-content"
-          className="px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8 max-w-[1400px] w-full mx-auto"
+          // min-w-0 lets this grid column (the `1fr` track in
+          // lg:grid-cols-[260px_1fr]) shrink below its content's intrinsic
+          // width. Without it, wide inner content forces the track past the
+          // viewport at the lg breakpoint, scrolling the whole page sideways.
+          className="min-w-0 px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8 max-w-[1400px] w-full mx-auto"
         >
           {children}
         </main>
