@@ -242,14 +242,17 @@ export function AdminEntranceAttemptPage() {
               <div className="text-right">
                 <p className="text-3xl font-bold text-brand-navy tabular-nums">
                   {attempt.totalScoreMarks !== null
-                    ? `${attempt.totalScoreMarks}/${attempt.totalMarks}`
-                    : '—'}
+                    ? attempt.totalScoreMarks
+                    : attempt.autoScoreMarks}
+                  <span className="text-lg text-muted font-normal">
+                    {' '}
+                    / {attempt.totalMarks}
+                  </span>
                 </p>
                 <p className="text-xs text-muted">
-                  Auto {attempt.autoScoreMarks}
-                  {attempt.manualScoreMarks !== null
-                    ? ` · Written ${attempt.manualScoreMarks}`
-                    : ' · Written pending'}
+                  {attempt.totalScoreMarks !== null
+                    ? `Final · Auto ${attempt.autoScoreMarks} + Written ${attempt.manualScoreMarks}`
+                    : `Auto ${attempt.autoScoreMarks} so far · written answer not yet graded`}
                 </p>
               </div>
             </div>
