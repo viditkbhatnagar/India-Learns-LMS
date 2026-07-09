@@ -246,6 +246,7 @@ function AttemptSection({
 
 export function AdminEntranceAttemptPage() {
   const { candidateId = '' } = useParams<{ candidateId: string }>();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ['entrance-admin', 'candidate', candidateId],
     queryFn: () => entranceAdminApi.getCandidate(candidateId),
@@ -266,6 +267,8 @@ export function AdminEntranceAttemptPage() {
   const attemptsUsed = attempts.filter(
     (a) => a.status === 'submitted' || a.status === 'graded',
   ).length;
+  // attempts come newest-first; pick the selected one (default: newest).
+  const selected = attempts.find((a) => a.id === selectedId) ?? attempts[0] ?? null;
 
   return (
     <div className="space-y-6">
@@ -279,11 +282,36 @@ export function AdminEntranceAttemptPage() {
       {attempts.length === 0 ? (
         <EmptyState title="Not started" message="This candidate has not begun the exam yet." />
       ) : (
-        <div className="space-y-8">
-          {attempts.map((a) => (
-            <AttemptSection key={a.id} attempt={a} candidateId={candidateId} />
-          ))}
-        </div>
+        <>
+          {/* One tab per attempt — click to view that attempt in full below. */}
+          <div className="flex flex-wrap gap-2">
+            {attempts.map((a) => {
+              const isSel = selected?.id === a.id;
+              const score = a.totalScoreMarks ?? a.autoScoreMarks;
+              const pending = a.status === 'submitted' && a.manualScoreMarks === null;
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setSelectedId(a.id)}
+                  className={`rounded-xl border px-4 py-2 text-sm text-left transition-all ${
+                    isSel
+                      ? 'border-brand-orange bg-orange-50 shadow-elev-1'
+                      : 'border-black/10 bg-white hover:border-brand-orange/40'
+                  }`}
+                >
+                  <span className="font-semibold text-brand-navy">Attempt {a.attemptNumber}</span>
+                  <span className="ml-2 tabular-nums text-ink/70">
+                    {score}/{a.totalMarks}
+                  </span>
+                  {pending && <span className="ml-2 text-xs text-brand-orange">needs grading</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {selected && <AttemptSection attempt={selected} candidateId={candidateId} />}
+        </>
       )}
     </div>
   );
