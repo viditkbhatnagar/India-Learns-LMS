@@ -250,3 +250,23 @@ export type { StaffAttendanceDoc, HydratedStaffAttendance } from './staffAttenda
 // powers the /v1/files/:id resolver).
 export { FileMeta } from './fileMeta.js';
 export type { FileMetaDoc, HydratedFileMeta } from './fileMeta.js';
+
+// Entrance Exam — isolated temporary-candidate assessment module. Separate
+// collections so entrance candidates never mix with real Users/Enrollments.
+export { EntranceExam } from './entrance/entranceExam.js';
+export type {
+  EntranceExamDoc,
+  EntranceQuestionDoc,
+  HydratedEntranceExam,
+} from './entrance/entranceExam.js';
+export { EntranceCandidate } from './entrance/entranceCandidate.js';
+export type {
+  EntranceCandidateDoc,
+  HydratedEntranceCandidate,
+} from './entrance/entranceCandidate.js';
+export { EntranceAttempt } from './entrance/entranceAttempt.js';
+export type {
+  EntranceAttemptDoc,
+  EntranceAttemptAnswerDoc,
+  HydratedEntranceAttempt,
+} from './entrance/entranceAttempt.js';

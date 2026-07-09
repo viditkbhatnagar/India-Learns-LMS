@@ -41,6 +41,10 @@ import { StudentCertificates } from './pages/student/StudentCertificates.js';
 import { QuizAttemptPage } from './pages/student/QuizAttempt.js';
 import { ExamAttemptPage } from './pages/student/ExamAttempt.js';
 
+// Entrance Exam — isolated temporary-candidate module (standalone routes).
+import { EntranceLoginPage } from './pages/entrance/EntranceLogin.js';
+import { EntranceExamPage } from './pages/entrance/EntranceExam.js';
+
 // Admin
 import { AdminDashboard } from './pages/admin/AdminDashboard.js';
 import {
@@ -67,6 +71,8 @@ import { AdminSlaBreachesPage } from './pages/admin/AdminSlaBreaches.js';
 import { AdminHolidaysPage } from './pages/admin/AdminHolidays.js';
 import { AdminVisitorLeadsPage } from './pages/admin/AdminVisitorLeads.js';
 import { AdminStaffAttendancePage } from './pages/admin/AdminStaffAttendance.js';
+import { AdminEntranceExamPage } from './pages/admin/AdminEntranceExam.js';
+import { AdminEntranceAttemptPage } from './pages/admin/AdminEntranceAttempt.js';
 
 // Finance
 import { FinanceDashboard } from './pages/finance/FinanceDashboard.js';
@@ -167,6 +173,11 @@ export function App() {
           <Route path="/offline" element={<OfflinePage />} />
           {/* M10u — Public visitor self-registration. No auth, IP rate-limited. */}
           <Route path="/visitor-register" element={<VisitorRegisterPage />} />
+
+          {/* Entrance Exam — temporary candidates. Standalone (no AppShell); the
+              candidate token lives in its own sessionStorage store. */}
+          <Route path="/entrance" element={<EntranceLoginPage />} />
+          <Route path="/entrance/exam" element={<EntranceExamPage />} />
 
           {/* Admissions — public landing + signup + referee upload (no AppShell) */}
           <Route path="/apply" element={<ApplyLandingPage />} />
@@ -413,6 +424,12 @@ export function App() {
                     <Route path="visitor-leads" element={<AdminVisitorLeadsPage />} />
                     {/* M10u — Staff attendance dashboard. */}
                     <Route path="staff-attendance" element={<AdminStaffAttendancePage />} />
+                    {/* Entrance Exam — roster, window control + Q20 grading. */}
+                    <Route path="entrance" element={<AdminEntranceExamPage />} />
+                    <Route
+                      path="entrance/candidates/:candidateId"
+                      element={<AdminEntranceAttemptPage />}
+                    />
                     <Route path="*" element={<Navigate to="dashboard" replace />} />
                   </Routes>
                 </RequireRole>

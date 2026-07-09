@@ -135,6 +135,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
     { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
+    // Entrance Exam — temporary-candidate assessment module.
+    { label: 'Entrance Exam', to: '/admin/entrance', icon: Icon.book },
     // M10s — Visitor Leads (pre-application funnel; admin captures prospects).
     { label: 'Visitor Leads', to: '/admin/visitor-leads', icon: Icon.users },
     // M10u — Staff attendance roster (faculty self-mark + admin override).
@@ -171,6 +173,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
     { label: 'Enrolments', to: '/admin/enrollments', icon: Icon.users },
+    // Entrance Exam — temporary-candidate assessment module.
+    { label: 'Entrance Exam', to: '/admin/entrance', icon: Icon.book },
     // M10s — Visitor Leads (pre-application funnel).
     { label: 'Visitor Leads', to: '/admin/visitor-leads', icon: Icon.users },
     // M10u — Staff attendance roster.

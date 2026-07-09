@@ -11,6 +11,12 @@ const EnvSchema = z.object({
   JWT_REFRESH_TTL: z.string().default('14d'),
   JOB_SECRET: z.string().default('change-me-dev-only'),
 
+  // Entrance-exam candidate token TTL. Candidates get a single long-lived
+  // access token (no refresh flow) that must comfortably outlast the 45-min
+  // attempt; the real access control is the exam window enforced server-side
+  // at login/start, so a generous TTL is safe.
+  ENTRANCE_TOKEN_TTL: z.string().default('6h'),
+
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
   API_ORIGIN: z.string().url().default('http://localhost:4000'),
   COOKIE_DOMAIN: z.string().default('localhost'),

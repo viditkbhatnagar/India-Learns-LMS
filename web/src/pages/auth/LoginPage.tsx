@@ -106,6 +106,16 @@ export function LoginPage() {
             Forgot your password?
           </Link>
         </div>
+        <div className="mt-5 pt-5 border-t border-black/10">
+          <Link to="/entrance" className="block">
+            <Button type="button" variant="secondary" className="w-full">
+              Entrance Exam
+            </Button>
+          </Link>
+          <p className="mt-2 text-xs text-center text-muted">
+            Taking the entrance test? Sign in with your phone number.
+          </p>
+        </div>
       </AuthCard>
     </AuthLayout>
   );
