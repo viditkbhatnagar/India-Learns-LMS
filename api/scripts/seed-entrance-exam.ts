@@ -28,6 +28,9 @@ import { hashPassword } from '../src/services/passwordService.js';
 const EXAM_TITLE = 'Entrance Examination – Fashion College (After Plus Two)';
 const DURATION_MINUTES = 45;
 
+const MCQ_MARKS = 5;
+const TEXT_MARKS = 5;
+
 const mcq = (
   section: string,
   text: string,
@@ -39,7 +42,7 @@ const mcq = (
   kind: 'mcq',
   options,
   correctIndex,
-  points: 1,
+  points: MCQ_MARKS,
 });
 
 const SEC_A = 'Section A – Fashion Awareness';
@@ -128,7 +131,7 @@ const QUESTIONS: EntranceQuestionDoc[] = [
     kind: 'text',
     options: [],
     correctIndex: null,
-    points: 1,
+    points: TEXT_MARKS,
   },
 ];
 
@@ -200,7 +203,7 @@ async function main(): Promise<void> {
     exam = await EntranceExam.create({
       title: EXAM_TITLE,
       instructions:
-        'Answer all questions. Each question carries 1 mark. Choose the most appropriate answer. Duration: 45 minutes. Maximum marks: 20.',
+        'Answer all questions. Each MCQ carries 5 marks and the written question carries 5 marks. Choose the most appropriate answer. Duration: 45 minutes. Maximum marks: 100.',
       durationMinutes: DURATION_MINUTES,
       totalMarks,
       questions: QUESTIONS,
