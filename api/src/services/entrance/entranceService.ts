@@ -1,7 +1,6 @@
 import type { Types } from 'mongoose';
 import type {
-  EntranceAttemptSelfDto,
-  EntranceExamPublicDto,
+  EntranceCandidateStateDto,
   EntranceLoginResponse,
   SaveEntranceAnswerInput,
 } from 'india-learns-shared-types';
@@ -94,14 +93,18 @@ export async function loginCandidate(
   }
 
   const exam = await loadExam(candidate.examId);
-  const existing = await EntranceAttempt.findOne({ candidateId: candidate._id });
+  const attempts = await EntranceAttempt.find({ candidateId: candidate._id });
+  const inProgress = attempts.find((a) => a.status === 'in_progress') ?? null;
+  const attemptsUsed = attempts.filter(
+    (a) => a.status === 'submitted' || a.status === 'graded',
+  ).length;
 
   // Allow login while the window is open, OR when the candidate has a live,
   // not-yet-expired attempt to resume — so a dropped connection mid-exam never
   // locks them out of their own in-flight paper.
   const canResume =
-    existing?.status === 'in_progress' &&
-    Date.now() < attemptDeadline(existing.startedAt, exam.durationMinutes).getTime();
+    inProgress != null &&
+    Date.now() < attemptDeadline(inProgress.startedAt, exam.durationMinutes).getTime();
   if (!canResume) {
     assertExamOpen(exam);
   }
@@ -123,66 +126,126 @@ export async function loginCandidate(
     exam: toExamPublicDto(exam),
     token,
     tokenExpiresIn: expiresIn,
-    attempt: existing ? toAttemptSelfDto(existing, exam) : null,
+    attempt: inProgress ? toAttemptSelfDto(inProgress, exam) : null,
+    attemptsUsed,
+    maxAttempts: exam.maxAttempts,
   };
 }
 
-export interface CandidateStateDto {
-  exam: EntranceExamPublicDto;
-  attempt: EntranceAttemptSelfDto | null;
-}
-
-/** Current exam + this candidate's attempt (for page load / resume). */
-export async function getCandidateState(candidateId: string): Promise<CandidateStateDto> {
+/** Current exam + this candidate's in-progress attempt + attempt allowance. */
+export async function getCandidateState(
+  candidateId: string,
+): Promise<EntranceCandidateStateDto> {
   const candidate = await loadCandidate(candidateId);
   const exam = await loadExam(candidate.examId);
-  const attempt = await EntranceAttempt.findOne({ candidateId: candidate._id });
+  const attempts = await EntranceAttempt.find({ candidateId: candidate._id });
+  const inProgress = attempts.find((a) => a.status === 'in_progress') ?? null;
+  const attemptsUsed = attempts.filter(
+    (a) => a.status === 'submitted' || a.status === 'graded',
+  ).length;
   return {
     exam: toExamPublicDto(exam),
-    attempt: attempt ? toAttemptSelfDto(attempt, exam) : null,
+    attempt: inProgress ? toAttemptSelfDto(inProgress, exam) : null,
+    attemptsUsed,
+    maxAttempts: exam.maxAttempts,
   };
+}
+
+function isDuplicateKeyError(err: unknown): boolean {
+  return Boolean(
+    err && typeof err === 'object' && 'code' in err && (err as { code: unknown }).code === 11000,
+  );
+}
+
+/** Finalize an in-progress attempt: auto-score MCQs, mark submitted. */
+async function finalizeAttempt(
+  attempt: HydratedEntranceAttempt,
+  exam: EntranceExamDoc,
+  auto: boolean,
+): Promise<{ hasTextQuestions: boolean }> {
+  const { autoScoreMarks, hasTextQuestions } = computeAutoScore(exam, attempt.answers);
+  attempt.autoScoreMarks = autoScoreMarks;
+  attempt.submittedAt = new Date();
+  attempt.autoSubmitted = auto;
+  attempt.status = 'submitted';
+  if (!hasTextQuestions) {
+    attempt.manualScoreMarks = 0;
+    attempt.totalScoreMarks = autoScoreMarks;
+  }
+  await attempt.save();
+  return { hasTextQuestions };
 }
 
 export async function startAttempt(candidateId: string, ctx: EntranceCtx) {
   const candidate = await loadCandidate(candidateId);
   const exam = await loadExam(candidate.examId);
 
-  const existing = await EntranceAttempt.findOne({ candidateId: candidate._id });
-  if (existing) {
-    if (existing.status !== 'in_progress') {
-      throw new HttpError(
-        409,
-        'ENTRANCE_ALREADY_SUBMITTED',
-        'You have already submitted this entrance exam.',
-      );
+  const attempts = await EntranceAttempt.find({ candidateId: candidate._id });
+  const inProgress = attempts.find((a) => a.status === 'in_progress');
+  if (inProgress) {
+    const expired =
+      Date.now() >= attemptDeadline(inProgress.startedAt, exam.durationMinutes).getTime();
+    if (!expired) {
+      // Idempotent resume of a live in-progress attempt.
+      return toAttemptSelfDto(inProgress, exam);
     }
-    // Idempotent resume of an in-progress attempt.
-    return toAttemptSelfDto(existing, exam);
+    // Deadline passed with no submit (e.g. the candidate closed the tab) —
+    // auto-submit it so it is scored + counted, then start a fresh attempt.
+    await finalizeAttempt(inProgress, exam, true);
+  }
+
+  const attemptsUsed =
+    attempts.filter((a) => a.status === 'submitted' || a.status === 'graded').length +
+    (inProgress ? 1 : 0);
+  if (attemptsUsed >= exam.maxAttempts) {
+    throw new HttpError(
+      409,
+      'ENTRANCE_ATTEMPTS_EXHAUSTED',
+      `You have used all ${exam.maxAttempts} attempts for this exam.`,
+    );
   }
 
   assertExamOpen(exam);
 
-  const attempt = await EntranceAttempt.create({
-    examId: exam._id,
-    candidateId: candidate._id,
-    status: 'in_progress',
-    startedAt: new Date(),
-    answers: [],
-    ip: ctx.ip,
-    userAgent: ctx.ua,
-  });
+  try {
+    const attempt = await EntranceAttempt.create({
+      examId: exam._id,
+      candidateId: candidate._id,
+      attemptNumber: attempts.length + 1,
+      status: 'in_progress',
+      startedAt: new Date(),
+      answers: [],
+      ip: ctx.ip,
+      userAgent: ctx.ua,
+    });
 
-  await recordAudit({
-    actorUserId: null,
-    action: 'entrance.attempt.started',
-    targetType: 'EntranceAttempt',
-    targetId: attempt._id,
-    details: { candidateId: String(candidate._id), examId: String(exam._id) },
-    ip: ctx.ip,
-    ua: ctx.ua,
-  });
+    await recordAudit({
+      actorUserId: null,
+      action: 'entrance.attempt.started',
+      targetType: 'EntranceAttempt',
+      targetId: attempt._id,
+      details: {
+        candidateId: String(candidate._id),
+        examId: String(exam._id),
+        attemptNumber: attempt.attemptNumber,
+      },
+      ip: ctx.ip,
+      ua: ctx.ua,
+    });
 
-  return toAttemptSelfDto(attempt, exam);
+    return toAttemptSelfDto(attempt, exam);
+  } catch (err) {
+    // Concurrent double-click: the unique {candidateId, attemptNumber} index
+    // rejected the loser — resolve to the winning in-progress attempt.
+    if (isDuplicateKeyError(err)) {
+      const winner = await EntranceAttempt.findOne({
+        candidateId: candidate._id,
+        status: 'in_progress',
+      });
+      if (winner) return toAttemptSelfDto(winner, exam);
+    }
+    throw err;
+  }
 }
 
 function mergeAnswers(
@@ -225,15 +288,15 @@ export async function saveAnswers(
 ) {
   const candidate = await loadCandidate(candidateId);
   const exam = await loadExam(candidate.examId);
-  const attempt = await EntranceAttempt.findOne({ candidateId: candidate._id });
+  const attempt = await EntranceAttempt.findOne({
+    candidateId: candidate._id,
+    status: 'in_progress',
+  });
   if (!attempt) {
-    throw new HttpError(409, 'ENTRANCE_NOT_STARTED', 'Start the exam before saving answers.');
-  }
-  if (attempt.status !== 'in_progress') {
     throw new HttpError(
       409,
-      'ENTRANCE_ALREADY_SUBMITTED',
-      'This attempt is already submitted.',
+      'ENTRANCE_NO_ACTIVE_ATTEMPT',
+      'No exam is in progress. Start an attempt first.',
     );
   }
   // Durability-first: accept autosaves for the whole in-progress lifetime. The
@@ -251,15 +314,15 @@ export async function submitAttempt(
 ) {
   const candidate = await loadCandidate(candidateId);
   const exam = await loadExam(candidate.examId);
-  const attempt = await EntranceAttempt.findOne({ candidateId: candidate._id });
+  const attempt = await EntranceAttempt.findOne({
+    candidateId: candidate._id,
+    status: 'in_progress',
+  });
   if (!attempt) {
-    throw new HttpError(409, 'ENTRANCE_NOT_STARTED', 'Start the exam before submitting.');
-  }
-  if (attempt.status !== 'in_progress') {
     throw new HttpError(
       409,
-      'ENTRANCE_ALREADY_SUBMITTED',
-      'You have already submitted this entrance exam.',
+      'ENTRANCE_NO_ACTIVE_ATTEMPT',
+      'No exam is in progress to submit.',
     );
   }
 
@@ -269,17 +332,7 @@ export async function submitAttempt(
     mergeAnswers(attempt, exam, inputs);
   }
 
-  const { autoScoreMarks, hasTextQuestions } = computeAutoScore(exam, attempt.answers);
-  attempt.autoScoreMarks = autoScoreMarks;
-  attempt.submittedAt = new Date();
-  attempt.autoSubmitted = Boolean(ctx.auto);
-  attempt.status = 'submitted';
-  if (!hasTextQuestions) {
-    // Nothing to grade manually — the total is final at submit time.
-    attempt.manualScoreMarks = 0;
-    attempt.totalScoreMarks = autoScoreMarks;
-  }
-  await attempt.save();
+  const { hasTextQuestions } = await finalizeAttempt(attempt, exam, Boolean(ctx.auto));
 
   await recordAudit({
     actorUserId: null,

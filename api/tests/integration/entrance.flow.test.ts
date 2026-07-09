@@ -6,6 +6,7 @@ import { http } from '../helpers/http.js';
 import { bearer, tokenFor } from '../helpers/auth.js';
 import { makeFaculty, makeStudent } from '../helpers/factories.js';
 import {
+  EntranceAttempt,
   EntranceCandidate,
   EntranceExam,
   type EntranceExamDoc,
@@ -109,10 +110,68 @@ describe('entrance exam — candidate flow', () => {
     // Candidate self view never exposes a score.
     expect(submit.body.data.attempt).not.toHaveProperty('totalScoreMarks');
 
-    // Second submit is rejected.
+    // No attempt in progress after submitting (default maxAttempts = 1).
     const again = await http().post('/v1/entrance/me/attempt/submit').set(auth).send({});
     expect(again.status).toBe(409);
-    expect(again.body.error.code).toBe('ENTRANCE_ALREADY_SUBMITTED');
+    expect(again.body.error.code).toBe('ENTRANCE_NO_ACTIVE_ATTEMPT');
+
+    // And a second start is refused — attempts exhausted at maxAttempts = 1.
+    const restart = await http().post('/v1/entrance/me/attempt').set(auth).send({});
+    expect(restart.status).toBe(409);
+    expect(restart.body.error.code).toBe('ENTRANCE_ATTEMPTS_EXHAUSTED');
+  });
+
+  it('allows up to maxAttempts separate attempts, then exhausts', async () => {
+    await setup({ maxAttempts: 3 });
+    const token = (await login()).body.data.token as string;
+    const auth = { authorization: `Bearer ${token}` };
+
+    async function takeOne(pick: number) {
+      const start = await http().post('/v1/entrance/me/attempt').set(auth).send({});
+      expect(start.status).toBe(201);
+      const submit = await http()
+        .post('/v1/entrance/me/attempt/submit')
+        .set(auth)
+        .send({ answers: [{ questionIndex: 0, selectedIndex: pick }] });
+      expect(submit.status).toBe(200);
+      return start.body.data.attempt.attemptNumber as number;
+    }
+
+    expect(await takeOne(0)).toBe(1); // wrong
+    expect(await takeOne(1)).toBe(2); // correct (Q1 answer is index 1)
+    expect(await takeOne(0)).toBe(3); // wrong
+
+    // 4th start is refused.
+    const fourth = await http().post('/v1/entrance/me/attempt').set(auth).send({});
+    expect(fourth.status).toBe(409);
+    expect(fourth.body.error.code).toBe('ENTRANCE_ATTEMPTS_EXHAUSTED');
+
+    // State reports the allowance.
+    const state = await http().get('/v1/entrance/me').set(auth);
+    expect(state.body.data.attemptsUsed).toBe(3);
+    expect(state.body.data.maxAttempts).toBe(3);
+  });
+
+  it('auto-submits an expired abandoned attempt when the candidate starts again', async () => {
+    await setup({ maxAttempts: 3 });
+    const token = (await login()).body.data.token as string;
+    const auth = { authorization: `Bearer ${token}` };
+
+    const start = await http().post('/v1/entrance/me/attempt').set(auth).send({});
+    const attemptId = start.body.data.attempt.id as string;
+    // Simulate an abandoned attempt whose 45-min deadline has already passed.
+    await EntranceAttempt.updateOne(
+      { _id: attemptId },
+      { startedAt: new Date(Date.now() - 60 * 60 * 1000) },
+    );
+
+    // Starting again finalizes the expired attempt and opens a fresh one.
+    const start2 = await http().post('/v1/entrance/me/attempt').set(auth).send({});
+    expect(start2.status).toBe(201);
+    expect(start2.body.data.attempt.attemptNumber).toBe(2);
+
+    const state = await http().get('/v1/entrance/me').set(auth);
+    expect(state.body.data.attemptsUsed).toBe(1); // the expired one now counts
   });
 
   it('keeps entrance and normal-user auth realms separate', async () => {
@@ -162,13 +221,16 @@ describe('entrance exam — admin/teacher side', () => {
     const row = list.body.data.candidates[0];
     expect(row.status).toBe('submitted');
     expect(row.autoScoreMarks).toBe(1); // Q1 right, Q2 wrong
+    expect(row.attemptsUsed).toBe(1);
     expect(row.pendingManualGrade).toBe(true);
 
     const detail = await http()
       .get(`/v1/entrance/admin/candidates/${String(candidate._id)}`)
       .set(staff);
     expect(detail.status).toBe(200);
-    const attempt = detail.body.data.attempt;
+    expect(detail.body.data.attempts).toHaveLength(1);
+    const attempt = detail.body.data.attempts[0];
+    expect(attempt.attemptNumber).toBe(1);
     expect(attempt.answers[2].textAnswer).toBe('Because I am creative.');
     expect(attempt.answers[0].isCorrect).toBe(true);
 

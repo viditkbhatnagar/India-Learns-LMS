@@ -63,6 +63,8 @@ const client = makeEntranceClient();
 export interface EntranceState {
   exam: EntranceExamPublicDto;
   attempt: EntranceAttemptSelfDto | null;
+  attemptsUsed: number;
+  maxAttempts: number;
 }
 
 export const entranceApi = {

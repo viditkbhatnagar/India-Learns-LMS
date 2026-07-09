@@ -34,16 +34,19 @@ function TextGrader({
   attemptId,
   candidateId,
   answer,
+  initialComment,
 }: {
   attemptId: string;
   candidateId: string;
   answer: EntranceAttemptAnswerAdminDto;
+  initialComment: string;
 }) {
   const qc = useQueryClient();
   const [marks, setMarks] = useState<string>(
     answer.awardedMarks !== null ? String(answer.awardedMarks) : '',
   );
-  const [comment, setComment] = useState('');
+  // Seed from the saved comment so re-grading doesn't silently wipe it.
+  const [comment, setComment] = useState(initialComment);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -61,7 +64,8 @@ function TextGrader({
   const inputCls =
     'rounded-xl border border-black/10 bg-white p-2.5 text-sm focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all';
   const marksNum = Number(marks);
-  const invalid = marks === '' || Number.isNaN(marksNum) || marksNum < 0 || marksNum > answer.points;
+  const invalid =
+    marks === '' || Number.isNaN(marksNum) || marksNum < 0 || marksNum > answer.points;
 
   return (
     <div className="mt-4 rounded-xl border border-brand-orange/30 bg-orange-50/60 p-4">
@@ -93,11 +97,7 @@ function TextGrader({
             className={`${inputCls} w-full`}
           />
         </label>
-        <Button
-          loading={mutation.isPending}
-          disabled={invalid}
-          onClick={() => mutation.mutate()}
-        >
+        <Button loading={mutation.isPending} disabled={invalid} onClick={() => mutation.mutate()}>
           Save score
         </Button>
       </div>
@@ -152,9 +152,7 @@ function AnswerRow({
                 }`}
               >
                 <span className="flex-1">{opt}</span>
-                {isSelected && (
-                  <span className="text-xs font-semibold text-ink/70">chosen</span>
-                )}
+                {isSelected && <span className="text-xs font-semibold text-ink/70">chosen</span>}
                 {isCorrect && (
                   <span className="text-xs font-semibold text-success">correct answer</span>
                 )}
@@ -175,15 +173,74 @@ function AnswerRow({
             )}
           </div>
           {graded ? (
-            <TextGrader attemptId={attempt.id} candidateId={candidateId} answer={answer} />
+            <TextGrader
+              attemptId={attempt.id}
+              candidateId={candidateId}
+              answer={answer}
+              initialComment={attempt.manualComment}
+            />
           ) : (
-            <p className="mt-2 text-xs text-muted">
-              Grading opens once the candidate submits.
-            </p>
+            <p className="mt-2 text-xs text-muted">Grading opens once the candidate submits.</p>
           )}
         </div>
       )}
     </Card>
+  );
+}
+
+function AttemptSection({
+  attempt,
+  candidateId,
+}: {
+  attempt: EntranceAttemptAdminDto;
+  candidateId: string;
+}) {
+  return (
+    <section className="space-y-3">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-brand-navy">
+              Attempt {attempt.attemptNumber}
+            </span>
+            <Badge
+              tone={
+                attempt.status === 'graded'
+                  ? 'success'
+                  : attempt.status === 'submitted'
+                    ? 'warning'
+                    : 'info'
+              }
+            >
+              {attempt.status.replace('_', ' ')}
+            </Badge>
+            {attempt.autoSubmitted && <Badge tone="neutral">auto-submitted</Badge>}
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold text-brand-navy tabular-nums">
+              {attempt.totalScoreMarks !== null
+                ? attempt.totalScoreMarks
+                : attempt.autoScoreMarks}
+              <span className="text-base text-muted font-normal"> / {attempt.totalMarks}</span>
+            </p>
+            <p className="text-xs text-muted">
+              {attempt.totalScoreMarks !== null
+                ? `Auto ${attempt.autoScoreMarks} + Written ${attempt.manualScoreMarks}`
+                : `Auto ${attempt.autoScoreMarks} · written not yet graded`}
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+          <Meta label="Started" value={fmtIST(attempt.startedAt)} />
+          <Meta label="Submitted" value={fmtIST(attempt.submittedAt)} />
+          <Meta label="Graded" value={fmtIST(attempt.gradedAt)} />
+          <Meta label="IP address" value={attempt.ip || '—'} />
+        </div>
+      </Card>
+      {attempt.answers.map((a) => (
+        <AnswerRow key={a.questionIndex} answer={a} attempt={attempt} candidateId={candidateId} />
+      ))}
+    </section>
   );
 }
 
@@ -205,76 +262,28 @@ export function AdminEntranceAttemptPage() {
     );
   }
 
-  const { candidate, attempt } = query.data!;
+  const { candidate, attempts, maxAttempts } = query.data!;
+  const attemptsUsed = attempts.filter(
+    (a) => a.status === 'submitted' || a.status === 'graded',
+  ).length;
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Entrance exam"
         title={candidate.name}
-        subtitle={candidate.phone}
+        subtitle={`${candidate.phone} · ${attemptsUsed} of ${maxAttempts} attempts used`}
         back={{ to: '/admin/entrance', label: 'Back to entrance exam' }}
       />
 
-      {!attempt ? (
-        <EmptyState
-          title="Not started"
-          message="This candidate has not begun the exam yet."
-        />
+      {attempts.length === 0 ? (
+        <EmptyState title="Not started" message="This candidate has not begun the exam yet." />
       ) : (
-        <>
-          <Card>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Badge
-                  tone={
-                    attempt.status === 'graded'
-                      ? 'success'
-                      : attempt.status === 'submitted'
-                        ? 'warning'
-                        : 'info'
-                  }
-                >
-                  {attempt.status.replace('_', ' ')}
-                </Badge>
-                {attempt.autoSubmitted && <Badge tone="neutral">auto-submitted</Badge>}
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-brand-navy tabular-nums">
-                  {attempt.totalScoreMarks !== null
-                    ? attempt.totalScoreMarks
-                    : attempt.autoScoreMarks}
-                  <span className="text-lg text-muted font-normal">
-                    {' '}
-                    / {attempt.totalMarks}
-                  </span>
-                </p>
-                <p className="text-xs text-muted">
-                  {attempt.totalScoreMarks !== null
-                    ? `Final · Auto ${attempt.autoScoreMarks} + Written ${attempt.manualScoreMarks}`
-                    : `Auto ${attempt.autoScoreMarks} so far · written answer not yet graded`}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
-              <Meta label="Started" value={fmtIST(attempt.startedAt)} />
-              <Meta label="Submitted" value={fmtIST(attempt.submittedAt)} />
-              <Meta label="Graded" value={fmtIST(attempt.gradedAt)} />
-              <Meta label="IP address" value={attempt.ip || '—'} />
-            </div>
-          </Card>
-
-          <div className="space-y-4">
-            {attempt.answers.map((a) => (
-              <AnswerRow
-                key={a.questionIndex}
-                answer={a}
-                attempt={attempt}
-                candidateId={candidateId}
-              />
-            ))}
-          </div>
-        </>
+        <div className="space-y-8">
+          {attempts.map((a) => (
+            <AttemptSection key={a.id} attempt={a} candidateId={candidateId} />
+          ))}
+        </div>
       )}
     </div>
   );

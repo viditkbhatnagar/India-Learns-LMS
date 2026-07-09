@@ -55,6 +55,7 @@ const UpdateExamBody = z.object({
   opensAt: z.string().datetime().nullable().optional(),
   closesAt: z.string().datetime().nullable().optional(),
   durationMinutes: z.number().int().min(1).max(600).optional(),
+  maxAttempts: z.number().int().min(1).max(20).optional(),
 });
 
 const GradeBody = z.object({

@@ -21,6 +21,7 @@ export interface EntranceExamDoc {
   instructions: string;
   durationMinutes: number;
   totalMarks: number;
+  maxAttempts: number;
   questions: EntranceQuestionDoc[];
   state: EntranceExamState;
   opensAt: Date | null;
@@ -47,6 +48,7 @@ const EntranceExamSchema = new Schema<EntranceExamDoc>(
     instructions: { type: String, default: '', maxlength: 4000 },
     durationMinutes: { type: Number, required: true, min: 1, default: 45 },
     totalMarks: { type: Number, required: true, min: 0, default: 20 },
+    maxAttempts: { type: Number, required: true, min: 1, default: 1 },
     questions: { type: [EntranceQuestionSchema], default: [] },
     state: {
       type: String,

@@ -1,7 +1,7 @@
 import type { Types } from 'mongoose';
 import type {
   EntranceAttemptAdminDto,
-  EntranceCandidatePublicDto,
+  EntranceCandidateDetailDto,
   EntranceCandidateRowDto,
   EntranceExamAdminDto,
   GradeEntranceTextInput,
@@ -55,6 +55,7 @@ export async function updateExam(
 
   if (input.state !== undefined) exam.state = input.state;
   if (input.durationMinutes !== undefined) exam.durationMinutes = input.durationMinutes;
+  if (input.maxAttempts !== undefined) exam.maxAttempts = input.maxAttempts;
   if (input.opensAt !== undefined) exam.opensAt = input.opensAt ? new Date(input.opensAt) : null;
   if (input.closesAt !== undefined) exam.closesAt = input.closesAt ? new Date(input.closesAt) : null;
 
@@ -79,32 +80,36 @@ export async function updateExam(
   return after;
 }
 
-/** Roster with per-candidate status + scores. One attempt per candidate. */
+/** Roster with per-candidate status + best score across all their attempts. */
 export async function listCandidates(examId: string): Promise<EntranceCandidateRowDto[]> {
   const exam = await loadExam(examId);
   const candidates = await EntranceCandidate.find({ examId: exam._id }).sort({ name: 1 });
   const attempts = await EntranceAttempt.find({ examId: exam._id });
-  const byCandidate = new Map<string, EntranceAttemptDoc>(
-    attempts.map((a) => [String(a.candidateId), a]),
-  );
+  const byCandidate = new Map<string, EntranceAttemptDoc[]>();
+  for (const a of attempts) {
+    const key = String(a.candidateId);
+    const list = byCandidate.get(key) ?? [];
+    list.push(a);
+    byCandidate.set(key, list);
+  }
   return candidates.map((c) =>
-    toCandidateRowDto(c, exam, byCandidate.get(String(c._id)) ?? null),
+    toCandidateRowDto(c, exam, byCandidate.get(String(c._id)) ?? []),
   );
 }
 
-export interface CandidateDetail {
-  candidate: EntranceCandidatePublicDto;
-  attempt: EntranceAttemptAdminDto | null;
-}
-
-export async function getCandidateDetail(candidateId: string): Promise<CandidateDetail> {
+export async function getCandidateDetail(
+  candidateId: string,
+): Promise<EntranceCandidateDetailDto> {
   const candidate = await EntranceCandidate.findById(candidateId);
   if (!candidate) throw new HttpError(404, 'NOT_FOUND', 'Candidate not found.');
   const exam = await loadExam(String(candidate.examId));
-  const attempt = await EntranceAttempt.findOne({ candidateId: candidate._id });
+  const attempts = await EntranceAttempt.find({ candidateId: candidate._id }).sort({
+    attemptNumber: -1,
+  });
   return {
     candidate: toCandidatePublicDto(candidate),
-    attempt: attempt ? toAttemptAdminDto(attempt, exam, candidate) : null,
+    maxAttempts: exam.maxAttempts,
+    attempts: attempts.map((a) => toAttemptAdminDto(a, exam, candidate)),
   };
 }
 

@@ -220,10 +220,10 @@ function CandidatesTable({
       </div>
 
       <p className="text-sm text-muted">
-        Every candidate is scored out of{' '}
-        <span className="font-semibold text-brand-navy">{totalMarks}</span> marks.
+        Scores shown are each candidate&rsquo;s <span className="font-semibold text-brand-navy">best attempt</span>,
+        out of <span className="font-semibold text-brand-navy">{totalMarks}</span> marks.
         The written answer is graded manually — a candidate&rsquo;s full total
-        appears in the table once you score it.
+        appears once you score it. Open a candidate to see all their attempts.
       </p>
 
       <Card className="p-0 overflow-hidden">
@@ -234,6 +234,7 @@ function CandidatesTable({
                 <th className="p-3 font-semibold">Name</th>
                 <th className="p-3 font-semibold">Phone</th>
                 <th className="p-3 font-semibold">Status</th>
+                <th className="p-3 font-semibold text-right">Attempts</th>
                 <th className="p-3 font-semibold text-right">Auto</th>
                 <th className="p-3 font-semibold text-right">Written</th>
                 <th className="p-3 font-semibold text-right">Total / {totalMarks}</th>
@@ -250,6 +251,9 @@ function CandidatesTable({
                       <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
                       {r.pendingManualGrade && <Badge tone="accent">Needs grading</Badge>}
                     </div>
+                  </td>
+                  <td className="p-3 text-right tabular-nums">
+                    {r.attemptsUsed}/{r.maxAttempts}
                   </td>
                   <td className="p-3 text-right tabular-nums">
                     {r.autoScoreMarks ?? '—'}

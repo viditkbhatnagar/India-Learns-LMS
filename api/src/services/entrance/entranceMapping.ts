@@ -66,6 +66,7 @@ export function toExamPublicDto(exam: EntranceExamDoc): EntranceExamPublicDto {
     instructions: exam.instructions,
     durationMinutes: exam.durationMinutes,
     totalMarks: exam.totalMarks,
+    maxAttempts: exam.maxAttempts,
     state: exam.state,
     opensAt: iso(exam.opensAt),
     closesAt: iso(exam.closesAt),
@@ -87,6 +88,7 @@ export function toExamAdminDto(exam: EntranceExamDoc): EntranceExamAdminDto {
     instructions: exam.instructions,
     durationMinutes: exam.durationMinutes,
     totalMarks: exam.totalMarks,
+    maxAttempts: exam.maxAttempts,
     state: exam.state,
     opensAt: iso(exam.opensAt),
     closesAt: iso(exam.closesAt),
@@ -116,6 +118,7 @@ export function toAttemptSelfDto(
 ): EntranceAttemptSelfDto {
   return {
     id: String(attempt._id),
+    attemptNumber: attempt.attemptNumber,
     status: attempt.status,
     startedAt: new Date(attempt.startedAt).toISOString(),
     submittedAt: iso(attempt.submittedAt),
@@ -129,32 +132,58 @@ export function toAttemptSelfDto(
   };
 }
 
-function candidateStatus(attempt: EntranceAttemptDoc | null): EntranceCandidateStatus {
-  if (!attempt) return 'not_started';
-  return attempt.status;
+/** Effective score used to pick the "best" attempt (total if graded, else auto). */
+function effectiveScore(a: EntranceAttemptDoc): number {
+  return a.totalScoreMarks ?? a.autoScoreMarks;
 }
 
 export function toCandidateRowDto(
   candidate: EntranceCandidateDoc,
   exam: EntranceExamDoc,
-  attempt: EntranceAttemptDoc | null,
+  attempts: EntranceAttemptDoc[],
 ): EntranceCandidateRowDto {
-  const submitted = attempt?.status === 'submitted' || attempt?.status === 'graded';
   const hasText = manualPossibleMarks(exam) > 0;
+  const used = attempts.filter(
+    (a) => a.status === 'submitted' || a.status === 'graded',
+  );
+  const inProgress = attempts.some((a) => a.status === 'in_progress');
+  const pendingManualGrade = hasText && used.some((a) => a.status === 'submitted');
+
+  // Best submitted/graded attempt; ties broken toward the later attempt.
+  let best: EntranceAttemptDoc | null = null;
+  for (const a of used) {
+    if (
+      !best ||
+      effectiveScore(a) > effectiveScore(best) ||
+      (effectiveScore(a) === effectiveScore(best) && a.attemptNumber > best.attemptNumber)
+    ) {
+      best = a;
+    }
+  }
+
+  let status: EntranceCandidateStatus;
+  if (attempts.length === 0) status = 'not_started';
+  else if (inProgress) status = 'in_progress';
+  else if (used.length > 0 && used.every((a) => a.status === 'graded')) status = 'graded';
+  else status = 'submitted';
+
+  const display = best ?? attempts[0] ?? null;
+
   return {
     id: String(candidate._id),
     name: candidate.name,
     phone: candidate.phone,
     active: candidate.active,
-    status: candidateStatus(attempt),
-    startedAt: attempt ? new Date(attempt.startedAt).toISOString() : null,
-    submittedAt: attempt ? iso(attempt.submittedAt) : null,
-    autoScoreMarks: submitted ? (attempt?.autoScoreMarks ?? 0) : null,
-    manualScoreMarks: attempt?.manualScoreMarks ?? null,
-    totalScoreMarks: attempt?.totalScoreMarks ?? null,
+    status,
+    attemptsUsed: used.length,
+    maxAttempts: exam.maxAttempts,
+    startedAt: display ? new Date(display.startedAt).toISOString() : null,
+    submittedAt: display ? iso(display.submittedAt) : null,
+    autoScoreMarks: best ? best.autoScoreMarks : null,
+    manualScoreMarks: best ? best.manualScoreMarks : null,
+    totalScoreMarks: best ? best.totalScoreMarks : null,
     totalMarks: exam.totalMarks,
-    pendingManualGrade:
-      Boolean(submitted && hasText && attempt?.status !== 'graded'),
+    pendingManualGrade,
   };
 }
 
@@ -204,6 +233,7 @@ export function toAttemptAdminDto(
 
   return {
     id: String(attempt._id),
+    attemptNumber: attempt.attemptNumber,
     candidate: toCandidatePublicDto(candidate),
     examId: String(attempt.examId),
     status: attempt.status,

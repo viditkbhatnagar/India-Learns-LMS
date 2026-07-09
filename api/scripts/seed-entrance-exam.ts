@@ -27,6 +27,7 @@ import { hashPassword } from '../src/services/passwordService.js';
 
 const EXAM_TITLE = 'Entrance Examination – Fashion College (After Plus Two)';
 const DURATION_MINUTES = 45;
+const MAX_ATTEMPTS = 5;
 
 const MCQ_MARKS = 5;
 const TEXT_MARKS = 5;
@@ -206,6 +207,7 @@ async function main(): Promise<void> {
         'Answer all questions. Each MCQ carries 5 marks and the written question carries 5 marks. Choose the most appropriate answer. Duration: 45 minutes. Maximum marks: 100.',
       durationMinutes: DURATION_MINUTES,
       totalMarks,
+      maxAttempts: MAX_ATTEMPTS,
       questions: QUESTIONS,
       state: env.ENTRANCE_STATE ?? 'draft',
       opensAt: env.ENTRANCE_OPENS_AT ? new Date(env.ENTRANCE_OPENS_AT) : null,
@@ -217,6 +219,7 @@ async function main(): Promise<void> {
     exam.questions = QUESTIONS;
     exam.totalMarks = totalMarks;
     exam.durationMinutes = DURATION_MINUTES;
+    exam.maxAttempts = MAX_ATTEMPTS;
     if (env.ENTRANCE_STATE) exam.state = env.ENTRANCE_STATE;
     if (env.ENTRANCE_OPENS_AT !== undefined) {
       exam.opensAt = env.ENTRANCE_OPENS_AT ? new Date(env.ENTRANCE_OPENS_AT) : null;

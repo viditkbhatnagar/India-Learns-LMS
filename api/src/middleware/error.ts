@@ -87,9 +87,14 @@ export function errorHandler(
     } else if (keys.length === 1 && keys.includes('date')) {
       code = 'HOLIDAY_DUPLICATE';
       message = 'A holiday already exists on this date.';
+    } else if (keys.includes('candidateId')) {
+      code = 'ENTRANCE_ATTEMPT_CONFLICT';
+      message = 'Could not start another attempt. Please refresh and try again.';
     }
+    // Don't echo candidate identifiers back to the (unauthenticated) client.
+    const details = keys.includes('candidateId') ? undefined : err.keyValue;
     res.status(409).json({
-      error: { code, message, details: err.keyValue },
+      error: { code, message, details },
     } satisfies ErrorEnvelope);
     return;
   }

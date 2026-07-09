@@ -16,6 +16,7 @@ export interface EntranceAttemptDoc {
   _id: Types.ObjectId;
   examId: Types.ObjectId;
   candidateId: Types.ObjectId;
+  attemptNumber: number;
   status: EntranceAttemptStatus;
   startedAt: Date;
   submittedAt: Date | null;
@@ -53,14 +54,16 @@ const EntranceAttemptSchema = new Schema<EntranceAttemptDoc>(
       required: true,
       index: true,
     },
-    // Unique — a candidate takes the paper exactly once. The attempt doc is
-    // created at start and mutated in place by autosave/submit.
+    // A candidate may take the paper up to exam.maxAttempts times; each attempt
+    // is its own doc, created at start and mutated in place by autosave/submit.
     candidateId: {
       type: Schema.Types.ObjectId,
       ref: 'EntranceCandidate',
       required: true,
-      unique: true,
+      index: true,
     },
+    // 1-based sequence per candidate (1 = first attempt).
+    attemptNumber: { type: Number, required: true, min: 1, default: 1 },
     status: {
       type: String,
       enum: ['in_progress', 'submitted', 'graded'],
@@ -95,6 +98,8 @@ const EntranceAttemptSchema = new Schema<EntranceAttemptDoc>(
 );
 
 EntranceAttemptSchema.index({ examId: 1, status: 1 });
+// One doc per (candidate, attempt number) — prevents accidental duplicates.
+EntranceAttemptSchema.index({ candidateId: 1, attemptNumber: 1 }, { unique: true });
 
 export type HydratedEntranceAttempt = HydratedDocument<EntranceAttemptDoc>;
 

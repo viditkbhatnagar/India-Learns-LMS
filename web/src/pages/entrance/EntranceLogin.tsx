@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEntranceAuthStore } from '../../store/entranceAuth.js';
 import { entranceApi } from '../../lib/entranceApi.js';
 import { ApiHttpError } from '../../lib/api.js';
@@ -15,6 +16,7 @@ export function EntranceLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   if (token) return <Navigate to="/entrance/exam" replace />;
 
@@ -24,6 +26,8 @@ export function EntranceLoginPage() {
     setLoading(true);
     try {
       const result = await entranceApi.login(phone, password);
+      // Purge any prior candidate's cached state (shared/kiosk device).
+      qc.removeQueries({ queryKey: ['entrance'] });
       setSession(result.candidate, result.token);
       navigate('/entrance/exam', { replace: true });
     } catch (err) {

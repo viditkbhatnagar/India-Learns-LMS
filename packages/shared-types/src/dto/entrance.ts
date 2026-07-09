@@ -34,6 +34,7 @@ export interface EntranceExamPublicDto {
   instructions: string;
   durationMinutes: number;
   totalMarks: number;
+  maxAttempts: number;
   state: EntranceExamState;
   opensAt: string | null;
   closesAt: string | null;
@@ -46,6 +47,7 @@ export interface EntranceExamAdminDto {
   instructions: string;
   durationMinutes: number;
   totalMarks: number;
+  maxAttempts: number;
   state: EntranceExamState;
   opensAt: string | null;
   closesAt: string | null;
@@ -70,6 +72,7 @@ export interface EntranceAttemptAnswerDto {
 /** What a candidate sees about their own in-flight attempt. Never any score. */
 export interface EntranceAttemptSelfDto {
   id: string;
+  attemptNumber: number;
   status: EntranceAttemptStatus;
   startedAt: string;
   submittedAt: string | null;
@@ -87,7 +90,19 @@ export interface EntranceLoginResponse {
   exam: EntranceExamPublicDto;
   token: string;
   tokenExpiresIn: number;
+  /** Current in-progress attempt to resume, if any. */
   attempt: EntranceAttemptSelfDto | null;
+  /** Submitted (or graded) attempts already used. */
+  attemptsUsed: number;
+  maxAttempts: number;
+}
+
+/** Candidate page state: exam + current attempt + attempt allowance. */
+export interface EntranceCandidateStateDto {
+  exam: EntranceExamPublicDto;
+  attempt: EntranceAttemptSelfDto | null;
+  attemptsUsed: number;
+  maxAttempts: number;
 }
 
 export interface SaveEntranceAnswerInput {
@@ -108,8 +123,11 @@ export interface EntranceCandidateRowDto {
   phone: string;
   active: boolean;
   status: EntranceCandidateStatus;
+  attemptsUsed: number;
+  maxAttempts: number;
   startedAt: string | null;
   submittedAt: string | null;
+  // Scores reflect the candidate's BEST attempt so far.
   autoScoreMarks: number | null;
   manualScoreMarks: number | null;
   totalScoreMarks: number | null;
@@ -136,6 +154,7 @@ export interface EntranceAttemptAnswerAdminDto {
 
 export interface EntranceAttemptAdminDto {
   id: string;
+  attemptNumber: number;
   candidate: EntranceCandidatePublicDto;
   examId: string;
   status: EntranceAttemptStatus;
@@ -156,7 +175,9 @@ export interface EntranceAttemptAdminDto {
 
 export interface EntranceCandidateDetailDto {
   candidate: EntranceCandidatePublicDto;
-  attempt: EntranceAttemptAdminDto | null;
+  maxAttempts: number;
+  /** All attempts, newest first. */
+  attempts: EntranceAttemptAdminDto[];
 }
 
 export interface GradeEntranceTextInput {
@@ -170,4 +191,5 @@ export interface UpdateEntranceExamInput {
   opensAt?: string | null;
   closesAt?: string | null;
   durationMinutes?: number;
+  maxAttempts?: number;
 }
