@@ -219,6 +219,13 @@ function CandidatesTable({
         <Stat label="Needs grading" value={counts.pending} />
       </div>
 
+      <p className="text-sm text-muted">
+        Every candidate is scored out of{' '}
+        <span className="font-semibold text-brand-navy">{totalMarks}</span> marks.
+        The written answer is graded manually — a candidate&rsquo;s full total
+        appears in the table once you score it.
+      </p>
+
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -229,7 +236,7 @@ function CandidatesTable({
                 <th className="p-3 font-semibold">Status</th>
                 <th className="p-3 font-semibold text-right">Auto</th>
                 <th className="p-3 font-semibold text-right">Written</th>
-                <th className="p-3 font-semibold text-right">Total</th>
+                <th className="p-3 font-semibold text-right">Total / {totalMarks}</th>
                 <th className="p-3" />
               </tr>
             </thead>
@@ -251,7 +258,14 @@ function CandidatesTable({
                     {r.manualScoreMarks ?? '—'}
                   </td>
                   <td className="p-3 text-right tabular-nums font-semibold">
-                    {r.totalScoreMarks !== null ? `${r.totalScoreMarks}/${totalMarks}` : '—'}
+                    {r.totalScoreMarks !== null ? (
+                      <span className="text-success">
+                        {r.totalScoreMarks}
+                        <span className="text-muted font-normal">/{totalMarks}</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted font-normal">—/{totalMarks}</span>
+                    )}
                   </td>
                   <td className="p-3 text-right">
                     <Link
