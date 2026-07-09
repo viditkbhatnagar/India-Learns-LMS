@@ -85,6 +85,12 @@ import type {
   MarkStaffAttendanceInput,
   StaffAttendanceDto,
   StaffAttendanceStatus,
+  EntranceAttemptAdminDto,
+  EntranceCandidateDetailDto,
+  EntranceCandidateRowDto,
+  EntranceExamAdminDto,
+  GradeEntranceTextInput,
+  UpdateEntranceExamInput,
 } from 'india-learns-shared-types';
 import { api, unwrap } from './api.js';
 import { getDeviceId } from './deviceId.js';
@@ -2019,5 +2025,48 @@ export const filesApi = {
       { params: { folder }, headers: { 'content-type': 'multipart/form-data' } },
     );
     return res.data.data;
+  },
+};
+
+// Entrance Exam — admin/teacher side. Uses the normal (staff) `api` client;
+// candidate-facing calls live in lib/entranceApi.ts with an isolated token.
+export const entranceAdminApi = {
+  async listExams(): Promise<EntranceExamAdminDto[]> {
+    const res = await api.get<{ data: { exams: EntranceExamAdminDto[] } }>(
+      '/entrance/admin/exams',
+    );
+    return res.data.data.exams;
+  },
+  async updateExam(
+    examId: string,
+    body: UpdateEntranceExamInput,
+  ): Promise<EntranceExamAdminDto> {
+    const res = await api.patch<{ data: { exam: EntranceExamAdminDto } }>(
+      `/entrance/admin/exams/${examId}`,
+      body,
+    );
+    return res.data.data.exam;
+  },
+  async listCandidates(examId: string): Promise<EntranceCandidateRowDto[]> {
+    const res = await api.get<{ data: { candidates: EntranceCandidateRowDto[] } }>(
+      `/entrance/admin/exams/${examId}/candidates`,
+    );
+    return res.data.data.candidates;
+  },
+  async getCandidate(candidateId: string): Promise<EntranceCandidateDetailDto> {
+    const res = await api.get<{ data: EntranceCandidateDetailDto }>(
+      `/entrance/admin/candidates/${candidateId}`,
+    );
+    return res.data.data;
+  },
+  async gradeText(
+    attemptId: string,
+    body: GradeEntranceTextInput,
+  ): Promise<EntranceAttemptAdminDto> {
+    const res = await api.patch<{ data: { attempt: EntranceAttemptAdminDto } }>(
+      `/entrance/admin/attempts/${attemptId}/grade`,
+      body,
+    );
+    return res.data.data.attempt;
   },
 };

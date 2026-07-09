@@ -98,6 +98,11 @@ import { visitorLeadsRouter } from './visitorLeads.js';
 import { installmentsRouter } from './installments.js';
 import { staffAttendanceRouter } from './staffAttendance.js';
 import { publicVisitorRouter } from './publicVisitor.js';
+import {
+  entranceAdminRouter,
+  entranceCandidateRouter,
+  entrancePublicRouter,
+} from './entrance.js';
 
 export function v1Router(): Router {
   const router = Router();
@@ -222,6 +227,14 @@ export function v1Router(): Router {
   router.use('/admissions/referee', refereeRouter());
   // M10u — Public visitor lead self-registration (no auth, IP rate-limited).
   router.use('/public/visitor', publicVisitorRouter());
+
+  // Entrance Exam — isolated temporary-candidate module. `/entrance/login` is
+  // public (phone + password → entrance token); `/entrance/me/*` is gated by
+  // the entrance token only (candidates are not Users); `/entrance/admin/*`
+  // uses normal staff auth. Mount the specific prefixes before the public one.
+  router.use('/entrance/admin', entranceAdminRouter());
+  router.use('/entrance/me', entranceCandidateRouter());
+  router.use('/entrance', entrancePublicRouter());
   router.use('/admissions/me', meAdmissionsRouter());
   // M6 — applicant view of their own fee + finance staff record-payment.
   router.use('/admissions/me/fee', meFeeRouter());

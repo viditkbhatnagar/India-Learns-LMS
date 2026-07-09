@@ -77,6 +77,35 @@ export function buildPublicVisitorLimiter(): RequestHandler {
   }) as unknown as RequestHandler;
 }
 
+// Entrance-exam candidate login limiter. Keyed by phone+IP (the entrance login
+// authenticates by phone, not email). Same env switch and limits as the main
+// login limiter so brute-forcing a candidate password is bounded.
+export function buildEntranceLoginLimiter(): RequestHandler {
+  const env = loadEnv();
+  if (env.RATE_LIMITS_DISABLED) return passthrough();
+  return rateLimit({
+    windowMs: env.LOGIN_RATE_WINDOW_MIN * 60_000,
+    max: env.LOGIN_RATE_MAX,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    keyGenerator: (req) => {
+      const phone =
+        typeof req.body?.phone === 'string' ? req.body.phone.replace(/\D/g, '') : '';
+      const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+      return `${ip}:${phone}`;
+    },
+    handler: (_req, res) => {
+      res.status(429).json({
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many login attempts — try again shortly.',
+        },
+      });
+    },
+  }) as unknown as RequestHandler;
+}
+
 // Slide import (.pptx) limiter — authenticated staff endpoint. Parsing a
 // PowerPoint is CPU/memory-bound (server-side unzip + XML scan), so cap each
 // user to blunt abuse from a compromised account. Keyed by user id, with an

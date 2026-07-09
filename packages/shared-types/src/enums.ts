@@ -354,6 +354,15 @@ export const AUDIT_ACTIONS = [
   // M10u — Staff attendance marking (self-mark + admin override).
   'staff_attendance.marked',
   'staff_attendance.updated',
+  // Entrance Exam — isolated temporary-candidate assessment module. Candidate
+  // actions carry a null actorUserId (candidates are not Users); the candidate
+  // id travels in `details`. Admin actions (exam window/state, Q20 grading)
+  // carry the acting staff user id as actor.
+  'entrance.candidate.login',
+  'entrance.attempt.started',
+  'entrance.attempt.submitted',
+  'entrance.attempt.graded',
+  'entrance.exam.updated',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
