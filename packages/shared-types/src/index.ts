@@ -20,3 +20,4 @@ export * from './dto/chat.js';
 export * from './dto/visitorLeads.js';
 export * from './dto/staffAttendance.js';
 export * from './dto/entrance.js';
+export * from './dto/showcase.js';

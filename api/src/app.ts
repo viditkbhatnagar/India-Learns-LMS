@@ -21,7 +21,22 @@ export function createApp(): Express {
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use(requestId);
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          // In single-service prod this same process serves the SPA (see the
+          // web/dist static block below), so this CSP governs the app HTML.
+          // The Showcase viewer embeds brochure PDFs via <iframe src="blob:…">;
+          // the blob: scheme is NOT covered by the default `default-src 'self'`
+          // fallback, so allow same-origin + blob frames explicitly. Everything
+          // else stays at helmet's secure defaults.
+          'frame-src': ["'self'", 'blob:'],
+        },
+      },
+    }),
+  );
   app.use(
     cors({
       origin: env.WEB_ORIGIN,

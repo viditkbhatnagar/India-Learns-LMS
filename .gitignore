@@ -51,3 +51,11 @@ lighthouse*.report.*
 # only — the import contract lives in curriculum-import/SCHEMA-NOTES.md and
 # the JSON fixtures, not these rendered exports.
 curriculum_generated_outputs/
+
+# Showcase collateral (company profile + program brochures). Large PDFs
+# (~120 MB total) — ingested into GridFS via `npm run seed:showcase -w api`,
+# never committed. Keep them locally; point the seed at them with
+# SHOWCASE_DIR if they live elsewhere.
+INDIA LEARNS PROFILE FINALLLL.pdf
+INDIA LEARNS DIPLOMA IN FASHION DESIGN & RETAIL MANAGEMENT.pdf
+DIPLOMA IN DIGITAL FASHION ENTREPRENEURSHIP.pdf

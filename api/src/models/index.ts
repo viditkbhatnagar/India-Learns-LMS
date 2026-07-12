@@ -251,6 +251,11 @@ export type { StaffAttendanceDoc, HydratedStaffAttendance } from './staffAttenda
 export { FileMeta } from './fileMeta.js';
 export type { FileMetaDoc, HydratedFileMeta } from './fileMeta.js';
 
+// Showcase — marketing collateral (company profile + program brochures)
+// staff present in-app. Bytes live in GridFS; this is the section index.
+export { ShowcaseDocument } from './showcaseDocument.js';
+export type { ShowcaseDocumentDoc, HydratedShowcaseDocument } from './showcaseDocument.js';
+
 // Entrance Exam — isolated temporary-candidate assessment module. Separate
 // collections so entrance candidates never mix with real Users/Enrollments.
 export { EntranceExam } from './entrance/entranceExam.js';

@@ -256,3 +256,12 @@ Live task list. Update at every session start (mark new) and every session end (
 - [ ] Apply Form step-3 UI to capture `parentGuardian` during apply (DTO already accepts it)
 - [ ] WhatsApp template for daily attendance report (parent channel) — needs WABA approval first
 - [ ] Cloudinary CDN — switch from GridFS once LUC asks for a CDN (env flip only, no code change)
+
+### Post-M10 — Showcase (staff marketing collateral) — DONE 2026-07-12 (D-112)
+- [x] Staff-only Showcase section: Admin/Superadmin/Faculty present the India Learns company profile + 2 program brochures in-app.
+- [x] `ShowcaseDocument` model + `GET /v1/showcase(/:id)` (requireRole admin/superadmin/faculty); bytes served by existing `/v1/files/:id`.
+- [x] `seed:showcase` streams the 3 PDFs (55/55/9 MB) straight into GridFS (bypasses 5 MB upload cap; provider-independent). PDFs gitignored.
+- [x] Web `/showcase` page + in-app PDF viewer (authed blob → `<iframe>` + fullscreen present mode); nav for admin/superadmin/faculty.
+- [x] Tests: `showcaseService.test.ts` (unit) + `showcase.test.ts` (integration). Smoke: `docs/smoke/showcase.md`.
+- [ ] Follow-up: admin self-serve upload of new collateral (needs streaming direct-to-GridFS; 55 MB > 5 MB HTTP cap).
+- [ ] Ops: run `npm run seed:showcase -w api` against prod Atlas (with PDFs present) to populate production.

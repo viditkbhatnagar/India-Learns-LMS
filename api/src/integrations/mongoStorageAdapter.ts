@@ -1,6 +1,5 @@
 import { Readable } from 'node:stream';
 import mongoose from 'mongoose';
-import { GridFSBucket, ObjectId, type Db } from 'mongodb';
 import { nanoid } from 'nanoid';
 import type {
   StorageAdapter,
@@ -11,6 +10,18 @@ import type {
 } from 'india-learns-shared-types';
 import { logger } from '../config/logger.js';
 import { loadEnv } from '../config/env.js';
+
+// Use mongoose's OWN bundled mongodb driver (`mongoose.mongo`) for GridFS —
+// NOT the top-level `mongodb` package. `mongodb-memory-server` (a
+// devDependency) hoists `mongodb@5` (bson 5.x) to `node_modules/mongodb`,
+// which is a different bson major than mongoose 8's bundled `mongodb@6`
+// (bson 6.x). Constructing an ObjectId / GridFSBucket from the mismatched
+// driver and handing it to mongoose's connection throws
+// `BSONVersionError: bson types must be from bson 6.x.x` on every GridFS op.
+// `mongoose.mongo` is always version-matched to the active connection.
+const { GridFSBucket, ObjectId } = mongoose.mongo;
+type GridFsBucketInstance = InstanceType<typeof mongoose.mongo.GridFSBucket>;
+type ObjectIdInstance = InstanceType<typeof mongoose.mongo.ObjectId>;
 
 // M10q — MongoDB GridFS storage adapter (LMS_Requirements §1 + §2 file
 // uploads, without depending on Cloudinary).
@@ -35,8 +46,8 @@ import { loadEnv } from '../config/env.js';
 
 const BUCKET_NAME = 'il_files';
 
-let cachedBucket: GridFSBucket | null = null;
-function bucket(): GridFSBucket {
+let cachedBucket: GridFsBucketInstance | null = null;
+function bucket(): GridFsBucketInstance {
   if (cachedBucket) return cachedBucket;
   const conn = mongoose.connection;
   if (conn.readyState !== 1 || !conn.db) {
@@ -45,13 +56,13 @@ function bucket(): GridFSBucket {
         'Make sure connectDb() ran before any storage call.',
     );
   }
-  cachedBucket = new GridFSBucket(conn.db as unknown as Db, {
+  cachedBucket = new GridFSBucket(conn.db, {
     bucketName: BUCKET_NAME,
   });
   return cachedBucket;
 }
 
-function urlFor(id: ObjectId): string {
+function urlFor(id: ObjectIdInstance): string {
   const env = loadEnv();
   // Always emit absolute URLs so external sinks (email links, exports)
   // don't break. Same-origin in prod; localhost in dev.
@@ -137,6 +148,21 @@ export class MongoStorageAdapter implements StorageAdapter {
 
 // Helpers used by the GET /v1/files/:id route.
 
+/**
+ * Cheap existence check — does a metadata `findOne` WITHOUT opening a
+ * download stream. Use this instead of `Boolean(await fetchGridfsFile(id))`
+ * when you only need presence (fetchGridfsFile eagerly builds an unconsumed
+ * openDownloadStream cursor).
+ */
+export async function gridfsFileExists(id: string): Promise<boolean> {
+  if (!ObjectId.isValid(id)) return false;
+  const conn = mongoose.connection;
+  if (!conn.db) return false;
+  const files = conn.db.collection(`${BUCKET_NAME}.files`);
+  const doc = await files.findOne({ _id: new ObjectId(id) }, { projection: { _id: 1 } });
+  return Boolean(doc);
+}
+
 export async function fetchGridfsFile(
   id: string,
 ): Promise<{
@@ -149,13 +175,8 @@ export async function fetchGridfsFile(
   const conn = mongoose.connection;
   if (!conn.db) return null;
   const files = conn.db.collection(`${BUCKET_NAME}.files`);
-  // Mongoose ships its own bundled `bson` whose `ObjectId` is structurally
-  // distinct from `mongodb/bson`'s, even though both wrap the same 12-byte
-  // value at runtime. Cast the filter through `unknown` to sidestep the
-  // duelling type hierarchies.
   const oid = new ObjectId(id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const doc = await files.findOne({ _id: oid } as any);
+  const doc = await files.findOne({ _id: oid });
   if (!doc) return null;
   return {
     filename: (doc.filename as string) ?? 'file',

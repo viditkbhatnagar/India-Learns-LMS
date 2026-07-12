@@ -68,8 +68,25 @@ export const STORAGE_FOLDERS = [
   'chat-attachments',
   'student-documents',
   'resumes',
+  // Showcase — marketing collateral (company profile + program brochures)
+  // that staff present in-app from the Showcase section. Large PDFs,
+  // ingested via the seed-showcase script (not the 5 MB HTTP upload route).
+  'showcase',
 ] as const;
 export type StorageFolder = (typeof STORAGE_FOLDERS)[number];
+
+// Showcase — categories for the marketing PDFs staff can present in-app
+// (India Learns company profile + program brochures). Drives the category
+// badge + grouping on the Showcase section.
+export const SHOWCASE_CATEGORIES = ['profile', 'program', 'brochure', 'other'] as const;
+export type ShowcaseCategory = (typeof SHOWCASE_CATEGORIES)[number];
+
+export const SHOWCASE_CATEGORY_LABELS: Record<ShowcaseCategory, string> = {
+  profile: 'Company profile',
+  program: 'Program brochure',
+  brochure: 'Brochure',
+  other: 'Document',
+};
 
 export const OVERRIDE_ACTIONS = ['cancel', 'reschedule', 'add'] as const;
 export type OverrideAction = (typeof OVERRIDE_ACTIONS)[number];

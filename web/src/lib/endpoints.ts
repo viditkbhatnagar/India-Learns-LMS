@@ -42,6 +42,7 @@ import type {
   ApplyToJobInput,
   AssignmentSubmissionsReportDto,
   AttendanceReportDto,
+  ShowcaseDocumentDto,
   StaffAttendanceReportDto,
   BatchSummaryReportDto,
   ChatMessageDto,
@@ -2015,6 +2016,31 @@ export interface UploadFileResult {
   url: string;
   key: string;
 }
+// Showcase — staff-only marketing collateral (company profile + program
+// brochures). The list returns metadata only; the PDF bytes are fetched as an
+// authed blob from the STAFF-gated `/showcase/:id/file` route (keyed by the
+// document id — the raw GridFS fileId is never exposed). A plain <iframe src>
+// can't send the bearer token, so we fetch → blob → object URL in the viewer.
+export const showcaseApi = {
+  async list(): Promise<ShowcaseDocumentDto[]> {
+    const res = await api.get<{ data: { items: ShowcaseDocumentDto[] } }>('/showcase');
+    return res.data.data.items;
+  },
+  /**
+   * Fetch a showcase PDF as a Blob through the staff-gated route. `onProgress`
+   * reports 0..1 for the (large) download so the viewer can show a bar.
+   */
+  async fetchFileBlob(documentId: string, onProgress?: (fraction: number) => void): Promise<Blob> {
+    const res = await api.get<Blob>(`/showcase/${documentId}/file`, {
+      responseType: 'blob',
+      onDownloadProgress: (e) => {
+        if (onProgress && e.total) onProgress(Math.min(1, e.loaded / e.total));
+      },
+    });
+    return res.data;
+  },
+};
+
 export const filesApi = {
   async upload(file: File, folder: string): Promise<UploadFileResult> {
     const form = new FormData();

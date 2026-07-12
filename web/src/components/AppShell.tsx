@@ -107,6 +107,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
   faculty: [
     { label: 'Dashboard', to: '/faculty/dashboard', icon: Icon.home },
     { label: 'Courses', to: '/faculty/courses', icon: Icon.book },
+    // Showcase — present the company profile + program brochures in-app.
+    { label: 'Showcase', to: '/showcase', icon: Icon.layers },
     { label: 'Grading', to: '/faculty/grading', icon: Icon.feedback },
     { label: 'Feedback', to: '/faculty/feedback', icon: Icon.feedback },
     { label: 'Timetable', to: '/faculty/timetable', icon: Icon.calendar },
@@ -131,6 +133,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     // disambiguated as "Add & View Programs".
     { label: 'Add & View Programs', to: '/admin/programs', icon: Icon.layers },
     { label: 'Programs', to: '/admin/courses', icon: Icon.book },
+    // Showcase — present the company profile + program brochures in-app.
+    { label: 'Showcase', to: '/showcase', icon: Icon.layers },
     { label: 'Batches', to: '/admin/batches', icon: Icon.grid },
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },
@@ -169,6 +173,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
     { label: 'Add & View Programs', to: '/admin/programs', icon: Icon.layers },
     { label: 'Programs', to: '/admin/courses', icon: Icon.book },
     { label: 'Curriculum import', to: '/admin/curriculum-import', icon: Icon.book },
+    // Showcase — present the company profile + program brochures in-app.
+    { label: 'Showcase', to: '/showcase', icon: Icon.layers },
     { label: 'Batches', to: '/admin/batches', icon: Icon.grid },
     { label: 'Timetable', to: '/admin/timetable', icon: Icon.calendar },
     { label: 'Tickets', to: '/admin/tickets', icon: Icon.ticket },

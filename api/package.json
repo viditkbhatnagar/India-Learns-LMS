@@ -18,6 +18,7 @@
     "seed": "tsx scripts/seed.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "seed:entrance": "tsx scripts/seed-entrance-exam.ts",
+    "seed:showcase": "tsx scripts/seed-showcase.ts",
     "backfill:personal-details": "tsx scripts/backfill-personal-details.ts",
     "migrate:gridfs-to-s3": "tsx scripts/migrate-gridfs-to-s3.ts"
   },

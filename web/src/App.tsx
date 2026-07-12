@@ -83,6 +83,7 @@ import { FinancePaymentsListPage } from './pages/finance/FinancePaymentsList.js'
 import { FinancePaymentDetailPage } from './pages/finance/FinancePaymentDetail.js';
 import { FinanceReportsPage } from './pages/finance/FinanceReports.js';
 import { ReportsPage } from './pages/Reports.js';
+import { ShowcasePage } from './pages/staff/Showcase.js';
 import { AdminPlacementPage } from './pages/AdminPlacement.js';
 import { StudentJobsPage } from './pages/StudentJobs.js';
 import { ChatPage } from './pages/Chat.js';
@@ -328,6 +329,19 @@ export function App() {
               <RequireAuth>
                 <RequireRole roles={['admin', 'superadmin', 'faculty', 'admissions_officer']}>
                   <ReportsPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+
+          {/* Showcase — staff-only marketing collateral (company profile +
+              program brochures) presented in-app. Admin/Superadmin + Faculty. */}
+          <Route
+            path="/showcase"
+            element={
+              <RequireAuth>
+                <RequireRole roles={['admin', 'superadmin', 'faculty']}>
+                  <ShowcasePage />
                 </RequireRole>
               </RequireAuth>
             }

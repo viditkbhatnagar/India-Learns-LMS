@@ -17,6 +17,7 @@ import { meCoursesRouter } from './meCourses.js';
 import { studentDashboardRouter } from './studentDashboard.js';
 import { storageRouter } from './storage.js';
 import { filesRouter } from './files.js';
+import { showcaseRouter } from './showcase.js';
 import {
   batchTimetableRouter,
   timetableEntriesRouter,
@@ -175,6 +176,8 @@ export function v1Router(): Router {
   // M10q — generic upload + stream route, used by the GridFS adapter and
   // anything else that wants to push bytes through the configured storage.
   router.use('/files', filesRouter());
+  // Showcase — staff-only marketing collateral (profile + program brochures).
+  router.use('/showcase', showcaseRouter());
   router.use('/timetable/overrides', timetableOverridesRouter());
   router.use('/timetable', timetableRouter());
   router.use('/timetable', timetableEntriesRouter());

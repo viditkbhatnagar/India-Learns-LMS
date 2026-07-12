@@ -1,6 +1,5 @@
 import type { Readable } from 'node:stream';
 import mongoose from 'mongoose';
-import { GridFSBucket, type Db, type ObjectId } from 'mongodb';
 import {
   HeadObjectCommand,
   PutObjectCommand,
@@ -9,6 +8,12 @@ import {
 import { STORAGE_FOLDERS, type StorageFolder } from 'india-learns-shared-types';
 import { logger } from '../config/logger.js';
 import { FileMeta } from '../models/fileMeta.js';
+
+// Use mongoose's bundled mongodb driver — the top-level `mongodb` package is
+// bson-skewed by the test-only mongodb-memory-server (see mongoStorageAdapter).
+const { GridFSBucket } = mongoose.mongo;
+type GridFsBucketInstance = InstanceType<typeof mongoose.mongo.GridFSBucket>;
+type ObjectIdInstance = InstanceType<typeof mongoose.mongo.ObjectId>;
 
 // One-shot migration: each GridFS file in `il_files` is streamed to S3
 // at key `<folder>/<id>`, a matching FileMeta row is written with the
@@ -39,7 +44,7 @@ export interface MigrationSummary {
 }
 
 interface GridfsDoc {
-  _id: ObjectId;
+  _id: ObjectIdInstance;
   filename?: string;
   contentType?: string | null;
   length: number;
@@ -55,12 +60,12 @@ function inferFolder(doc: GridfsDoc): StorageFolder {
   return 'ticket-attachments';
 }
 
-function gridfsBucket(): GridFSBucket {
+function gridfsBucket(): GridFsBucketInstance {
   const conn = mongoose.connection;
   if (conn.readyState !== 1 || !conn.db) {
     throw new Error('Mongoose connection not ready.');
   }
-  return new GridFSBucket(conn.db as unknown as Db, { bucketName: BUCKET_NAME });
+  return new GridFSBucket(conn.db, { bucketName: BUCKET_NAME });
 }
 
 async function streamToBuffer(stream: Readable): Promise<Buffer> {
