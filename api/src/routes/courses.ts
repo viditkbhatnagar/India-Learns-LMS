@@ -19,6 +19,7 @@ import {
   listModulesForCourse,
   toModuleDto,
 } from '../services/moduleService.js';
+import { listCourseStudents } from '../services/courseStudentsService.js';
 
 const CreateBody = z.object({
   programId: z.string().min(1),
@@ -156,6 +157,29 @@ export function coursesRouter(): Router {
           throw new HttpError(403, 'FORBIDDEN', 'Not assigned to this course.');
         }
         res.status(200).json({ data: { course: toCourseDto(doc) } });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // Roster of students enrolled in this course. Faculty must be assigned to
+  // the course (same gate as GET /:id); admin/superadmin always allowed.
+  router.get(
+    '/:id/students',
+    requireRole('admin', 'superadmin', 'faculty'),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const doc = await findCourseById(req.params.id ?? '');
+        if (!doc) throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
+        if (
+          req.auth!.role === 'faculty' &&
+          !facultyAssignedToCourse(doc, req.auth!.userId)
+        ) {
+          throw new HttpError(403, 'FORBIDDEN', 'Not assigned to this course.');
+        }
+        const items = await listCourseStudents(req.params.id ?? '');
+        res.status(200).json({ data: { items } });
       } catch (err) {
         next(err);
       }

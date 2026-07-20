@@ -18,6 +18,7 @@ import { studentDashboardRouter } from './studentDashboard.js';
 import { storageRouter } from './storage.js';
 import { filesRouter } from './files.js';
 import { showcaseRouter } from './showcase.js';
+import { facultyRouter } from './faculty.js';
 import {
   batchTimetableRouter,
   timetableEntriesRouter,
@@ -178,6 +179,9 @@ export function v1Router(): Router {
   router.use('/files', filesRouter());
   // Showcase — staff-only marketing collateral (profile + program brochures).
   router.use('/showcase', showcaseRouter());
+  // Faculty account management — admin creates faculty logins with generated,
+  // persisted passwords.
+  router.use('/faculty', facultyRouter());
   router.use('/timetable/overrides', timetableOverridesRouter());
   router.use('/timetable', timetableRouter());
   router.use('/timetable', timetableEntriesRouter());

@@ -15,7 +15,8 @@ import { CourseOversightProvider } from '../../contexts/CourseOversightContext.j
 // cost.
 import { CourseOverviewTab } from './tabs/OverviewTab.js';
 import { CourseGradebookTab } from './tabs/GradebookTab.js';
-import { CourseStudentsStub, CourseAnnouncementsStub, CourseSettingsStub } from './tabs/Stubs.js';
+import { CourseAnnouncementsStub, CourseSettingsStub } from './tabs/Stubs.js';
+import { CourseStudentsTab } from './tabs/CourseStudentsTab.js';
 import { CourseGlossaryTab, CourseReadingListTab } from './tabs/GlossaryReadingTab.js';
 
 const CourseContentTab = lazy(() =>
@@ -280,7 +281,7 @@ export function CourseShell(): JSX.Element {
             <Route path="glossary" element={<CourseGlossaryTab courseId={id} />} />
             <Route path="reading-list" element={<CourseReadingListTab courseId={id} />} />
             <Route path="gradebook" element={<CourseGradebookTab courseId={id} />} />
-            <Route path="students" element={<CourseStudentsStub />} />
+            <Route path="students" element={<CourseStudentsTab />} />
             <Route path="announcements" element={<CourseAnnouncementsStub courseId={id} />} />
             <Route path="settings" element={<CourseSettingsStub />} />
             <Route path="sessions/:sessionId" element={<SessionDetailPage />} />

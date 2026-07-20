@@ -74,6 +74,11 @@ services:
         value: staging
       - key: SENTRY_TRACES_SAMPLE_RATE
         value: 0.1
+      # Encrypts admin-recoverable faculty passwords at rest. Set a strong
+      # random value in the Render dashboard (e.g. `openssl rand -base64 48`);
+      # empty just disables the admin Faculty create/list feature.
+      - key: CREDENTIALS_ENC_KEY
+        sync: false
       - fromGroup: il-app-secrets
 
   # -------- Cron jobs (5) --------

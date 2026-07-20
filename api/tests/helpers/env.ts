@@ -33,6 +33,9 @@ const DEFAULTS: Record<string, string> = {
   RATE_LIMITS_DISABLED: 'true',
   LOG_LEVEL: 'silent',
   GIT_SHA: 'test',
+  // Faculty-credential encryption key (any ≥16-char string works; it's hashed
+  // to a 32-byte AES key).
+  CREDENTIALS_ENC_KEY: 'test-credentials-encryption-key-please',
 };
 
 export function seedTestEnv(): void {

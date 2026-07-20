@@ -4,27 +4,10 @@ import { Card, CardHeader } from '../../../components/ui/Card.js';
 import { Button } from '../../../components/ui/Button.js';
 
 /**
- * Phase B-2 stubs — Students / Announcements / Settings render
- * placeholder cards so the shell's six tabs all click through to
- * something coherent. Real implementations land in B-3+.
+ * Phase B-2 stubs — Announcements / Settings render placeholder cards so the
+ * shell's tabs all click through to something coherent. (The Students tab is
+ * now a real roster — see CourseStudentsTab.) Real implementations land in B-3+.
  */
-
-export function CourseStudentsStub(): JSX.Element {
-  return (
-    <Card>
-      <CardHeader
-        title="Students — coming soon"
-        subtitle="Roster + per-student grades + attendance summary."
-      />
-      <p className="text-sm text-muted max-w-[68ch]">
-        The Students tab will surface enrolled students for this course with
-        their submission completeness, attendance rate, and cumulative
-        grade. Click-through to individual profiles. Spec lands once the
-        shape is validated against pilot usage.
-      </p>
-    </Card>
-  );
-}
 
 export function CourseAnnouncementsStub({ courseId }: { courseId: string }): JSX.Element {
   return (

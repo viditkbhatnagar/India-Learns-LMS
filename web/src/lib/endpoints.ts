@@ -42,6 +42,9 @@ import type {
   ApplyToJobInput,
   AssignmentSubmissionsReportDto,
   AttendanceReportDto,
+  CourseStudentDto,
+  CreateFacultyInput,
+  FacultyAccountDto,
   ShowcaseDocumentDto,
   StaffAttendanceReportDto,
   BatchSummaryReportDto,
@@ -2038,6 +2041,40 @@ export const showcaseApi = {
       },
     });
     return res.data;
+  },
+};
+
+// Admin faculty-account management — create faculty logins with generated,
+// persisted passwords and list them (password shown in the admin table).
+export const facultyAdminApi = {
+  async list(): Promise<FacultyAccountDto[]> {
+    const res = await api.get<{ data: { items: FacultyAccountDto[] } }>('/faculty');
+    return res.data.data.items;
+  },
+  async create(
+    input: CreateFacultyInput,
+  ): Promise<{ faculty: FacultyAccountDto; temporaryPassword: string }> {
+    const res = await api.post<{
+      data: { faculty: FacultyAccountDto; temporaryPassword: string };
+    }>('/faculty', input);
+    return res.data.data;
+  },
+  async resetPassword(id: string): Promise<string> {
+    const res = await api.post<{ data: { temporaryPassword: string } }>(
+      `/faculty/${id}/reset-password`,
+      {},
+    );
+    return res.data.data.temporaryPassword;
+  },
+};
+
+// Roster of students enrolled in a course (assigned faculty + admins).
+export const courseStudentsApi = {
+  async list(courseId: string): Promise<CourseStudentDto[]> {
+    const res = await api.get<{ data: { items: CourseStudentDto[] } }>(
+      `/courses/${courseId}/students`,
+    );
+    return res.data.data.items;
   },
 };
 

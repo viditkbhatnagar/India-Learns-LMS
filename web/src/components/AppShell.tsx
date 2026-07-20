@@ -126,6 +126,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
     { label: 'Users', to: '/admin/users', icon: Icon.users },
+    // Create teacher logins with generated passwords.
+    { label: 'Faculty', to: '/admin/faculty', icon: Icon.users },
     // Logan's nomenclature (UAT round 5): the org-level catalog Logan
     // calls "Programs" is what we call "Courses" internally. Keep the
     // routes stable; relabel the sidebar so admins find what they
@@ -170,6 +172,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
   superadmin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
     { label: 'Users', to: '/admin/users', icon: Icon.users },
+    // Create teacher logins with generated passwords.
+    { label: 'Faculty', to: '/admin/faculty', icon: Icon.users },
     { label: 'Add & View Programs', to: '/admin/programs', icon: Icon.layers },
     { label: 'Programs', to: '/admin/courses', icon: Icon.book },
     { label: 'Curriculum import', to: '/admin/curriculum-import', icon: Icon.book },

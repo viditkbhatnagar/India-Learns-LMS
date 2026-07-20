@@ -52,6 +52,7 @@ import {
   AdminInviteUser,
   AdminUserDetail,
 } from './pages/admin/AdminUsers.js';
+import { AdminFacultyPage } from './pages/admin/AdminFaculty.js';
 import { AdminTickets } from './pages/admin/AdminTickets.js';
 import { AdminPrograms, AdminCourses } from './pages/admin/AdminPrograms.js';
 import { AdminProgramAdmissionsPage } from './pages/admin/AdminProgramAdmissions.js';
@@ -410,6 +411,8 @@ export function App() {
                     <Route path="users" element={<AdminUsers />} />
                     <Route path="users/new" element={<AdminInviteUser />} />
                     <Route path="users/:id" element={<AdminUserDetail />} />
+                    {/* Faculty logins — create with generated passwords. */}
+                    <Route path="faculty" element={<AdminFacultyPage />} />
                     <Route path="programs" element={<AdminPrograms />} />
                     <Route
                       path="programs/:id/admissions"

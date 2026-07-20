@@ -92,6 +92,13 @@ const EnvSchema = z.object({
   RESET_TOKEN_TTL_MIN: z.coerce.number().int().positive().default(30),
   SESSION_CAP: z.coerce.number().int().positive().default(5),
 
+  // Symmetric key used to encrypt persisted, admin-recoverable faculty
+  // passwords at rest (AES-256-GCM; the raw string is hashed to a 32-byte
+  // key). Any sufficiently long random string works. Empty disables the
+  // faculty-credential feature (the create/list endpoints error clearly).
+  // Set a strong random value in prod (e.g. `openssl rand -base64 48`).
+  CREDENTIALS_ENC_KEY: z.string().optional().default(''),
+
   INTEGRATIONS_MODE: z.enum(['stub', 'live']).default('stub'),
   COOKIE_SECURE: z
     .string()
@@ -149,6 +156,13 @@ function assertProdSecrets(env: Env): void {
   }
   if (REJECTED_SECRETS.has(env.JOB_SECRET) || env.JOB_SECRET.length < 32) {
     failures.push('JOB_SECRET (must be ≥32 chars and not the dev default)');
+  }
+  // If the faculty-credential key is set at all in prod, it must be strong
+  // (it encrypts recoverable passwords). Leaving it empty is allowed — that
+  // just disables the feature with a clear runtime error — but a weak key is
+  // worse than none, so reject it at boot.
+  if (env.CREDENTIALS_ENC_KEY && env.CREDENTIALS_ENC_KEY.length < 24) {
+    failures.push('CREDENTIALS_ENC_KEY (must be ≥24 chars when set)');
   }
   if (failures.length > 0) {
     console.error('Refusing to start in production with insecure secrets:', failures);

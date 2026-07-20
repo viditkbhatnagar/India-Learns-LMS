@@ -7,6 +7,7 @@ import {
 } from 'india-learns-shared-types';
 import {
   coursesApi,
+  courseStudentsApi,
   timetableApi,
   facultyApi,
   staffAttendanceApi,
@@ -34,6 +35,20 @@ export function FacultyDashboard() {
   });
 
   const myCourses = (coursesQ.data ?? []).filter((c) => c.facultyIds?.includes(me.id));
+  const myCourseIds = myCourses.map((c) => c.id);
+  // Distinct students across the faculty's courses (one small roster fetch per
+  // course, run only once their course list is known).
+  const studentsQ = useQuery({
+    queryKey: ['faculty', 'student-count', myCourseIds],
+    enabled: myCourseIds.length > 0,
+    queryFn: async () => {
+      const rosters = await Promise.all(myCourseIds.map((id) => courseStudentsApi.list(id)));
+      const uniq = new Set<string>();
+      rosters.forEach((roster) => roster.forEach((s) => uniq.add(s.studentId)));
+      return uniq.size;
+    },
+  });
+  const studentCount = studentsQ.data;
   const hourIst = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: false });
   const greeting =
     Number(hourIst) < 12 ? 'Good morning' : Number(hourIst) < 17 ? 'Good afternoon' : 'Good evening';
@@ -68,7 +83,12 @@ export function FacultyDashboard() {
           value={gradingPending.toString()}
           tone={gradingPending > 0 ? 'warning' : 'neutral'}
         />
-        <StatTile label="Students" value="—" tone="neutral" sub="Coming soon" />
+        <StatTile
+          label="Students"
+          value={studentCount != null ? studentCount.toString() : '—'}
+          tone="neutral"
+          sub={studentCount != null ? 'across your courses' : undefined}
+        />
       </div>
 
       {/* M10u — Self-mark attendance for today. Faculty taps Present /

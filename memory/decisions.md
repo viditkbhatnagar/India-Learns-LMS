@@ -870,3 +870,19 @@ Also fixed (medium/low): seed reordered to upload→upsert→delete-old (no orph
 
 ### D-112 addendum 2 — fixed pre-existing GridFS bson skew (2026-07-12)
 Adding the Showcase byte round-trip surfaced that `MongoStorageAdapter`/`fetchGridfsFile` imported `ObjectId`/`GridFSBucket` from the TOP-LEVEL `mongodb` package, which `mongodb-memory-server` (devDependency) hoists as `mongodb@5` (bson 5.x). Mongoose 8 bundles `mongodb@6` (bson 6.x) and rejects bson-5 ObjectIds → `BSONVersionError: bson types must be from bson 6.x.x` on every real GridFS op (latent because local dev uses STORAGE_PROVIDER=stub and the rest of the suite never does real GridFS). Fix: `api/src/integrations/mongoStorageAdapter.ts` + `api/src/services/migrateGridfsToS3.ts` now destructure `GridFSBucket`/`ObjectId` from `mongoose.mongo` (mongoose's own bundled driver, always version-matched to the connection) instead of `from 'mongodb'`. This is the canonical mongoose GridFS pattern, needs no reinstall, and unblocks the seed + the `/showcase/:id/file` byte round-trip (now covered by a real streaming integration test). App-wide fix (all file storage), not showcase-specific.
+
+## D-113 — Admin creates faculty logins (generated, persisted passwords) + faculty student roster
+**Date:** 2026-07-20
+**Why:** Admin wanted to onboard teachers fast, in person: enter name/email/phone → auto-generated password → active login immediately → credentials shown in a table to hand to the teacher. Faculty then use the existing faculty dashboard; assigning courses (Course.facultyIds via the course "Teaching faculty" card) and enrolling students already existed.
+
+**Decisions (confirmed with product owner):**
+- **Persist & always show** the password (their explicit choice over show-once). Implemented as **encrypted at rest** (AES-256-GCM, key `CREDENTIALS_ENC_KEY`, SHA-256-derived) in a dedicated `facultycredentials` collection (isolated from User, never in a DTO/log/audit), decrypted only for the staff-gated `GET /v1/faculty`. A raw DB dump alone can't reveal passwords. Accepted residual risk: any admin + the app server can read them.
+- **Fields:** name + email + phone (matches the User model). New login is `status:'active'` with an Argon2id `passwordHash` → can log in immediately (no invite).
+- **Placement:** new `/admin/faculty` section (admin + superadmin), separate from the existing invite-based Users flow (kept intact).
+- **Also built** the faculty "students in my course" roster: `GET /v1/courses/:id/students` (assigned faculty + admin) → real Students tab replacing the stub; dashboard "Students" tile wired to a real count.
+
+**Reused:** `hashPassword`/`validatePolicy` (passwordService), `nextUserCode` (IL-YYYY-NNNN), `recordAudit`/`scrubUser`, `revokeAllForUser`, `facultyAssignedToCourse` gate, the entrance-seed password-generator pattern (CSPRNG + unambiguous alphabet). New: `utils/generatePassword.ts`, `utils/secretBox.ts`, `models/facultyCredential.ts`, `services/facultyAccountService.ts` + `courseStudentsService.ts`, `routes/faculty.ts`, `pages/admin/AdminFaculty.tsx`, `tabs/CourseStudentsTab.tsx`, `dto/faculty.ts`.
+
+**Adversarial review (4 dims, verified) → fixed 9 confirmed:** roster excluded soft-deleted students (medium); `listFacultyAccounts` now self-guards with assertAdmin; create/reset made resilient (compensating delete on orphan; reset stores the new secret before flipping the hash so a partial failure never locks the faculty out); reset audit captures before-state; env rejects a set-but-weak key in prod; AdminFaculty a11y (role=alert, per-field errors, format validation), copy-confirmation feedback, and reset error messages.
+
+**Config:** `CREDENTIALS_ENC_KEY` must be set (api/.env locally, Render dashboard in prod — declared in render.yaml with sync:false). Empty → clear 503; set-but-<24-char in prod → boot fails.

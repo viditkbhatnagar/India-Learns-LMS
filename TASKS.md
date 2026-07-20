@@ -265,3 +265,11 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Tests: `showcaseService.test.ts` (unit) + `showcase.test.ts` (integration). Smoke: `docs/smoke/showcase.md`.
 - [ ] Follow-up: admin self-serve upload of new collateral (needs streaming direct-to-GridFS; 55 MB > 5 MB HTTP cap).
 - [ ] Ops: run `npm run seed:showcase -w api` against prod Atlas (with PDFs present) to populate production.
+
+### Post-M10 — Faculty logins + course roster — DONE 2026-07-20 (D-113)
+- [x] Admin `/admin/faculty`: create teacher logins with auto-generated, persisted (encrypted) passwords shown in a table; per-row reset-password.
+- [x] `POST/GET /v1/faculty` + `/:id/reset-password` (admin/superadmin); AES-256-GCM credential storage (`CREDENTIALS_ENC_KEY`); created faculty active + login-ready.
+- [x] Faculty "students in my course" roster: `GET /v1/courses/:id/students` + real Students tab (replaced stub) + dashboard Students count.
+- [x] Adversarial review — fixed 9 findings (soft-deleted roster leak, service admin-guard, non-transactional resilience, audit before-state, env key guard, a11y/UX).
+- [x] Tests: secretBox + generatePassword + facultyAccountService (unit); faculty (create→login round-trip) + courseStudents (integration).
+- [ ] Ops: set `CREDENTIALS_ENC_KEY` in Render (il-app) before using the feature in prod.

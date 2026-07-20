@@ -256,6 +256,11 @@ export type { FileMetaDoc, HydratedFileMeta } from './fileMeta.js';
 export { ShowcaseDocument } from './showcaseDocument.js';
 export type { ShowcaseDocumentDoc, HydratedShowcaseDocument } from './showcaseDocument.js';
 
+// Faculty credentials — admin-recoverable faculty passwords, encrypted at
+// rest, isolated from the User doc.
+export { FacultyCredential } from './facultyCredential.js';
+export type { FacultyCredentialDoc, HydratedFacultyCredential } from './facultyCredential.js';
+
 // Entrance Exam — isolated temporary-candidate assessment module. Separate
 // collections so entrance candidates never mix with real Users/Enrollments.
 export { EntranceExam } from './entrance/entranceExam.js';
