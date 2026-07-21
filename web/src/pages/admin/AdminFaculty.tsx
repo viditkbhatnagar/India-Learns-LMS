@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/Button.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Input } from '../../components/ui/Input.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
-import { ApiHttpError } from '../../lib/api.js';
+import { apiErrorMessage } from '../../lib/api.js';
 import { facultyAdminApi } from '../../lib/endpoints.js';
 
 // Admin creates faculty logins with an auto-generated password. The password
@@ -36,7 +36,24 @@ async function copy(text: string): Promise<boolean> {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^\+?[\d\s()-]{6,20}$/;
+
+/**
+ * Mirror of the server's phone normalization (api/src/utils/phone.ts): India
+ * users type a bare 10-digit number, which becomes +91…. Returns E.164 or null.
+ */
+function normalizePhone(raw: string): string | null {
+  const cleaned = raw.replace(/[\s().-]/g, '');
+  if (!cleaned) return null;
+  if (cleaned.startsWith('+')) return /^\+\d{6,15}$/.test(cleaned) ? cleaned : null;
+  if (cleaned.startsWith('00')) {
+    const intl = `+${cleaned.slice(2)}`;
+    return /^\+\d{6,15}$/.test(intl) ? intl : null;
+  }
+  const digits = cleaned.replace(/\D/g, '').replace(/^0+/, '');
+  if (/^91\d{10}$/.test(digits)) return `+${digits}`;
+  if (/^\d{10}$/.test(digits)) return `+91${digits}`;
+  return null;
+}
 
 /** Copy affordance with transient "copied!" (and "can't copy" on failure) feedback. */
 function CopyButton({ text, className }: { text: string; className?: string }): JSX.Element {
@@ -75,7 +92,8 @@ export function AdminFacultyPage(): JSX.Element {
   });
 
   const createMut = useMutation({
-    mutationFn: () => facultyAdminApi.create({ name: name.trim(), email: email.trim(), phoneE164: phone.trim() }),
+    mutationFn: (input: { name: string; email: string; phoneE164: string }) =>
+      facultyAdminApi.create(input),
     onSuccess: (res) => {
       setFormErr(null);
       setJustCreated({ faculty: res.faculty, password: res.temporaryPassword });
@@ -84,29 +102,33 @@ export function AdminFacultyPage(): JSX.Element {
       setPhone('');
       qc.invalidateQueries({ queryKey: ['faculty-accounts'] });
     },
-    onError: (e) => setFormErr(e instanceof ApiHttpError ? e.message : 'Could not create the faculty login.'),
+    onError: (e) => setFormErr(apiErrorMessage(e, 'Could not create the faculty login.')),
   });
 
   function onSubmit(e: FormEvent): void {
     e.preventDefault();
     setEmailErr(null);
     setPhoneErr(null);
-    if (!name.trim() || !email.trim() || !phone.trim()) {
+    const n = name.trim();
+    const em = email.trim();
+    const ph = phone.trim();
+    if (!n || !em || !ph) {
       setFormErr('Name, email and phone are all required.');
       return;
     }
-    if (!EMAIL_RE.test(email.trim())) {
+    if (!EMAIL_RE.test(em)) {
       setEmailErr('Enter a valid email address.');
       setFormErr('Enter a valid email address.');
       return;
     }
-    if (!PHONE_RE.test(phone.trim())) {
-      setPhoneErr('Enter a valid phone number, e.g. +919812345678.');
-      setFormErr('Enter a valid phone number, e.g. +919812345678.');
+    const normalizedPhone = normalizePhone(ph);
+    if (!normalizedPhone) {
+      setPhoneErr('Enter a 10-digit mobile number, or +country code.');
+      setFormErr('Enter a valid phone number.');
       return;
     }
     setFormErr(null);
-    createMut.mutate();
+    createMut.mutate({ name: n, email: em, phoneE164: normalizedPhone });
   }
 
   return (
@@ -267,7 +289,7 @@ function FacultyRow({ faculty }: { faculty: FacultyAccountDto }): JSX.Element {
       setRevealed(true);
       qc.invalidateQueries({ queryKey: ['faculty-accounts'] });
     },
-    onError: (e) => setResetErr(e instanceof ApiHttpError ? e.message : 'Reset failed — try again.'),
+    onError: (e) => setResetErr(apiErrorMessage(e, 'Reset failed — try again.')),
   });
 
   const password = freshPassword ?? faculty.password;

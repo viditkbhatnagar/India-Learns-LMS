@@ -29,6 +29,37 @@ export class ApiHttpError extends Error {
   }
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  phoneE164: 'Phone',
+  email: 'Email',
+  name: 'Name',
+};
+
+/**
+ * Human-readable message for an API error, preferring the server's field-level
+ * validation detail (zod flatten: `details.fieldErrors`) over the generic
+ * top-level message. Turns "Request failed validation." into
+ * "Phone: Enter a valid phone number …".
+ */
+export function apiErrorMessage(err: unknown, fallback = 'Something went wrong.'): string {
+  if (err instanceof ApiHttpError) {
+    const details = err.details as
+      | { fieldErrors?: Record<string, string[] | undefined>; formErrors?: string[] }
+      | undefined;
+    const fieldErrors = details?.fieldErrors;
+    if (fieldErrors) {
+      const parts = Object.entries(fieldErrors)
+        .filter(([, msgs]) => Array.isArray(msgs) && msgs.length > 0)
+        .map(([field, msgs]) => `${FIELD_LABELS[field] ?? field}: ${msgs![0]}`);
+      if (parts.length > 0) return parts.join(' · ');
+    }
+    if (details?.formErrors && details.formErrors.length > 0) return details.formErrors[0]!;
+    return err.message || fallback;
+  }
+  if (err instanceof Error) return err.message || fallback;
+  return fallback;
+}
+
 function makeClient(): AxiosInstance {
   const instance = axios.create({
     baseURL: `${API_ORIGIN}/v1`,

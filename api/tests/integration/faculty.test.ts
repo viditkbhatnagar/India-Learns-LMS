@@ -9,6 +9,7 @@ import { makeAdmin, makeStudent } from '../helpers/factories.js';
 interface FacultyRow {
   id: string;
   email: string;
+  phoneE164: string;
   password: string | null;
   role?: unknown;
 }
@@ -24,13 +25,15 @@ describe('faculty account routes', () => {
     const created = await http()
       .post('/v1/faculty')
       .set(bearer(at))
-      .send({ name: 'Priya Menon', email: 'priya@luc.local', phoneE164: '+91 98123 45678' });
+      // Bare 10-digit number (what admins actually type) — must normalize to +91.
+      .send({ name: 'Priya Menon', email: 'priya@luc.local', phoneE164: '9812345678' });
     expect(created.status).toBe(201);
     const { faculty, temporaryPassword } = created.body.data as {
       faculty: FacultyRow;
       temporaryPassword: string;
     };
     expect(faculty.email).toBe('priya@luc.local');
+    expect(faculty.phoneE164).toBe('+919812345678'); // normalized
     expect(faculty.role).toBeUndefined(); // FacultyAccountDto exposes no role/hash
     expect(temporaryPassword).toBeTruthy();
     expect(faculty.password).toBe(temporaryPassword);
@@ -75,6 +78,18 @@ describe('faculty account routes', () => {
       .post('/v1/auth/login')
       .send({ email: 'rs@luc.local', password: next, deviceId: 'd' });
     expect(login.status).toBe(200);
+  });
+
+  it('rejects an unusable phone with a clear field-level 422', async () => {
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    const res = await http()
+      .post('/v1/faculty')
+      .set(bearer(at))
+      .send({ name: 'Bad Phone', email: 'bad@luc.local', phoneE164: '12345' });
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    expect(res.body.error.details.fieldErrors.phoneE164).toBeTruthy();
   });
 
   it('is forbidden for students (403) and unauthenticated (401)', async () => {

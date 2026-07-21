@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import { phoneE164Schema } from '../utils/phone.js';
 import {
   createFacultyAccount,
   listFacultyAccounts,
@@ -12,13 +13,6 @@ import {
 // Admin faculty-account management. Admin/superadmin create faculty logins
 // with an auto-generated, persisted (encrypted) password shown back in the
 // admin table. Staff-only throughout.
-
-const phoneE164Schema = z
-  .string()
-  .transform((s) => s.replace(/[\s()-]/g, ''))
-  .refine((s) => /^\+\d{6,15}$/.test(s), {
-    message: 'Enter a valid phone in E.164 format, e.g. +919812345678.',
-  });
 
 const CreateBody = z.object({
   name: z.string().min(1).max(120),

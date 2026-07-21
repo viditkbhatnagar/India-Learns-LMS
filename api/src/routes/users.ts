@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import { HttpError } from '../middleware/error.js';
+import { phoneE164Schema } from '../utils/phone.js';
 import {
   createUser,
   findUserById,
@@ -39,17 +40,9 @@ const PersonalAddressBody = z.object({
   country: z.string().min(1).max(80),
 });
 
-// Phones must end up as strict E.164 (`+` + 6–15 digits), but people
-// naturally type spaces / dashes / parens (e.g. "+91 80899 30510"). Strip
-// those first, then validate — a well-formed number shouldn't be rejected
-// for its formatting alone. The normalised value is what we persist.
-const phoneE164Schema = z
-  .string()
-  .transform((s) => s.replace(/[\s()-]/g, ''))
-  .refine((s) => /^\+\d{6,15}$/.test(s), {
-    message: 'Enter a valid phone in E.164 format, e.g. +919812345678.',
-  });
-
+// Phones are normalized to strict E.164 by `phoneE164Schema` (utils/phone) —
+// people naturally type spaces/dashes and, in India, a bare 10-digit number,
+// so the schema accepts those and stores `+91…`.
 const ContactRefBody = z
   .object({
     name: z.string().min(1).max(120),
