@@ -52,6 +52,36 @@ describe('POST /v1/users (generate password) + credentials', () => {
     expect(login.body.data.user.role).toBe('student');
   });
 
+  it('warns (but still creates the login) when the program has no courses to enrol into', async () => {
+    const program = await makeProgram(); // deliberately NO course
+    const batch = await makeBatch({ programId: program._id });
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+
+    const res = await http()
+      .post('/v1/users')
+      .set(bearer(at))
+      .send({
+        role: 'student',
+        name: 'No Courses Yet',
+        email: 'nocourses@luc.local',
+        phoneE164: '9812345671',
+        programId: String(program._id),
+        batchId: String(batch._id),
+        generatePassword: true,
+        enrol: true,
+      });
+    expect(res.status).toBe(201);
+    // Enrolment silently no-op'd before — now it's surfaced.
+    expect(res.body.data.enrolmentsCount).toBe(0);
+    expect(res.body.data.enrolmentWarning).toBeTruthy();
+    // The login itself is still fully usable.
+    const login = await http()
+      .post('/v1/auth/login')
+      .send({ email: 'nocourses@luc.local', password: res.body.data.temporaryPassword, deviceId: 'd' });
+    expect(login.status).toBe(200);
+  });
+
   it('credentials list shows created logins with decrypted password + role filter', async () => {
     const { user: admin } = await makeAdmin();
     const at = await tokenFor(admin);

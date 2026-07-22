@@ -97,7 +97,14 @@ export function AdminUserLoginsPage(): JSX.Element {
   const [emailErr, setEmailErr] = useState<string | null>(null);
   const [phoneErr, setPhoneErr] = useState<string | null>(null);
   const [justCreated, setJustCreated] = useState<
-    { name: string; email: string; password: string; code: string | null; enrolmentsCount: number } | null
+    {
+      name: string;
+      email: string;
+      password: string;
+      code: string | null;
+      enrolmentsCount: number;
+      enrolmentWarning: string | null;
+    } | null
   >(null);
   const [copiedBoth, setCopiedBoth] = useState(false);
 
@@ -139,6 +146,7 @@ export function AdminUserLoginsPage(): JSX.Element {
         password: res.temporaryPassword,
         code: res.user.code,
         enrolmentsCount: res.enrolmentsCount,
+        enrolmentWarning: res.enrolmentWarning,
       });
       setName('');
       setEmail('');
@@ -308,6 +316,11 @@ export function AdminUserLoginsPage(): JSX.Element {
                 ? ` · enrolled in ${justCreated.enrolmentsCount} course${justCreated.enrolmentsCount === 1 ? '' : 's'}`
                 : ''}
             </p>
+            {justCreated.enrolmentWarning && (
+              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-900">
+                ⚠️ {justCreated.enrolmentWarning}
+              </p>
+            )}
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <CredField label="Email" value={justCreated.email} />
               <CredField label="Password" value={justCreated.password} mono />

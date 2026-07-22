@@ -2091,9 +2091,19 @@ export const userLoginsApi = {
     programId?: string;
     batchId?: string;
     enrol?: boolean;
-  }): Promise<{ user: UserPublicDto; temporaryPassword: string; enrolmentsCount: number }> {
+  }): Promise<{
+    user: UserPublicDto;
+    temporaryPassword: string;
+    enrolmentsCount: number;
+    enrolmentWarning: string | null;
+  }> {
     const res = await api.post<{
-      data: { user: UserPublicDto; temporaryPassword: string; enrolmentsCount: number };
+      data: {
+        user: UserPublicDto;
+        temporaryPassword: string;
+        enrolmentsCount: number;
+        enrolmentWarning: string | null;
+      };
     }>('/users', { ...input, generatePassword: true });
     return res.data.data;
   },

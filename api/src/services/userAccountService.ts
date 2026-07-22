@@ -83,6 +83,10 @@ export interface CreateUserAccountResult {
   user: HydratedUser;
   temporaryPassword: string;
   enrolmentsCount: number;
+  // Set when enrolment was requested but produced no course access (e.g. the
+  // program has no courses yet). The login is still created — the UI shows
+  // this so the admin knows the student is NOT enrolled.
+  enrolmentWarning: string | null;
 }
 
 /**
@@ -133,6 +137,7 @@ export async function createUserAccount(
   }
 
   let enrolmentsCount = 0;
+  let enrolmentWarning: string | null = null;
   if (input.role === 'student' && input.enrol && input.programId && input.batchId) {
     // Best-effort: a failed enrolment must NOT undo a successfully created
     // login — the admin can still enrol from Admin → Enrolments.
@@ -149,12 +154,23 @@ export async function createUserAccount(
         actor,
       );
       enrolmentsCount = created.length;
+      if (enrolmentsCount === 0) {
+        enrolmentWarning =
+          'The login was created, but no course was found in this program to enrol the student into. Add or import the program’s courses first, then enrol from Admin → Enrolments.';
+      }
     } catch (err) {
       // Best-effort: clean up any partial enrolments so we never leave a
       // half-enrolled student (the user was just created, so they own none
       // else). The login still stands; enrol can be redone from Enrolments.
       await Enrollment.deleteMany({ studentId: user._id }).catch(() => undefined);
       enrolmentsCount = 0;
+      // Surface WHY enrolment didn't happen so the admin isn't misled into
+      // thinking the student has course access (the enrol silently no-op'd
+      // before — see D-115).
+      enrolmentWarning =
+        err instanceof HttpError
+          ? `The login was created, but the student was NOT enrolled: ${err.message}`
+          : 'The login was created, but the student could not be enrolled — the program may not have any courses yet. Add courses, then enrol from Admin → Enrolments.';
       logger.warn({ err, userId: String(user._id) }, 'userAccount.enrol_failed');
     }
   }
@@ -169,7 +185,7 @@ export async function createUserAccount(
     ip: actor.ip,
     ua: actor.ua,
   });
-  return { user, temporaryPassword, enrolmentsCount };
+  return { user, temporaryPassword, enrolmentsCount, enrolmentWarning };
 }
 
 /** Generate a fresh password for any credentialed user, re-store it, revoke sessions. */

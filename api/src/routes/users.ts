@@ -213,20 +213,21 @@ export function usersRouter(): Router {
         // Generate-password path: create the user active with a shown/stored
         // password (no email invite, since email delivery is off).
         if (body.generatePassword) {
-          const { user, temporaryPassword, enrolmentsCount } = await createUserAccount(
-            {
-              role: body.role,
-              name: body.name,
-              email: body.email,
-              phoneE164: body.phoneE164,
-              programId: body.programId ?? null,
-              batchId: body.batchId ?? null,
-              enrol: body.enrol,
-            },
-            actor,
-          );
+          const { user, temporaryPassword, enrolmentsCount, enrolmentWarning } =
+            await createUserAccount(
+              {
+                role: body.role,
+                name: body.name,
+                email: body.email,
+                phoneE164: body.phoneE164,
+                programId: body.programId ?? null,
+                batchId: body.batchId ?? null,
+                enrol: body.enrol,
+              },
+              actor,
+            );
           res.status(201).json({
-            data: { user: toUserDto(user), temporaryPassword, enrolmentsCount },
+            data: { user: toUserDto(user), temporaryPassword, enrolmentsCount, enrolmentWarning },
           });
           return;
         }
