@@ -532,20 +532,19 @@ function Step3Contact({
         />
         <Input
           type="tel"
-          label="Mobile phone (with country code)"
+          label="Mobile phone"
           value={s.mobilePhoneE164 ?? ''}
           onChange={(e) => setDraft({ ...draft, step3: { ...s, mobilePhoneE164: e.target.value } })}
           required
-          pattern="^\+\d{6,15}$"
           autoComplete="tel"
-          placeholder="+919876543210"
+          placeholder="9876543210"
         />
         <Input
           type="tel"
           label="Alternate phone (optional)"
           value={s.altPhoneE164 ?? ''}
           onChange={(e) => setDraft({ ...draft, step3: { ...s, altPhoneE164: e.target.value || null } })}
-          pattern="^\+\d{6,15}$"
+          placeholder="9876543210"
         />
       </div>
       <fieldset className="rounded-xl border border-black/10 p-4">
@@ -570,8 +569,7 @@ function Step3Contact({
             value={em.phoneE164 ?? ''}
             onChange={(e) => updateEm({ phoneE164: e.target.value })}
             required
-            pattern="^\+\d{6,15}$"
-            placeholder="+919876543210"
+            placeholder="9876543210"
           />
         </div>
       </fieldset>
@@ -607,8 +605,7 @@ function Step3Contact({
             label="Phone"
             value={pg.phoneE164 ?? ''}
             onChange={(e) => updatePg({ phoneE164: e.target.value })}
-            pattern="^\+\d{6,15}$"
-            placeholder="+919876543210"
+            placeholder="9876543210"
           />
           <Input
             type="email"

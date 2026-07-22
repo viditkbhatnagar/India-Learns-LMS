@@ -19,6 +19,7 @@ import { Badge } from '../../components/ui/Badge.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { PageHeader } from '../../components/ui/PageHeader.js';
 import { ApiHttpError } from '../../lib/api.js';
+import { normalizePhoneLoose, PHONE_HINT } from '../../lib/phone.js';
 
 // M10s — Visitor Leads list + create/edit. Pre-application funnel.
 // Admin / superadmin only. On Convert (future PR), prefills /apply.
@@ -268,7 +269,7 @@ function LeadForm({
       const payload = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        phoneE164: phone.trim(),
+        phoneE164: normalizePhoneLoose(phone) ?? phone.trim(),
         email: email.trim() || null,
         highestQualification: (qualification || null) as VisitorQualification | null,
         dateOfBirth: dob.trim() || null,
@@ -328,11 +329,11 @@ function LeadForm({
           <Input label="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
           <Input label="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
           <Input
-            label="Phone (E.164)"
+            label="Phone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="+919876543210"
-            hint="Include the + and country code."
+            placeholder="9876543210"
+            hint={PHONE_HINT}
             required
           />
           <Input

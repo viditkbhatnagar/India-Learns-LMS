@@ -4,7 +4,7 @@ import { useMongo } from '../helpers/db.js';
 import { useIntegrationSpies } from '../helpers/integrations.js';
 import { makeUser } from '../helpers/factories.js';
 import { http } from '../helpers/http.js';
-import { Application, AuditLog } from '../../src/models/index.js';
+import { Application, AuditLog, User } from '../../src/models/index.js';
 
 describe('admissions M1 — signup + officer dashboard', () => {
   useMongo();
@@ -46,6 +46,21 @@ describe('admissions M1 — signup + officer dashboard', () => {
       action: 'admission.applicant.signed_up',
     });
     expect(audits).toHaveLength(1);
+  });
+
+  it('accepts a bare 10-digit phone and stores it as +91 E.164', async () => {
+    const res = await http()
+      .post('/v1/admissions/apply/signup')
+      .send({
+        email: 'tendigit@example.com',
+        name: 'Ten Digit',
+        phoneE164: '9812345678', // no + / country code — what applicants type
+        password: 'Welcome#12345',
+        deviceId: 'dev-ten',
+      });
+    expect(res.status).toBe(201);
+    const user = await User.findById(res.body.data.application.applicantUserId);
+    expect(user?.phoneE164).toBe('+919812345678');
   });
 
   it('rejects duplicate email with USER_EXISTS', async () => {

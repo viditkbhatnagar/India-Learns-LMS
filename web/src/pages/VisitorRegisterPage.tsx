@@ -7,6 +7,7 @@ import {
   type VisitorQualification,
 } from 'india-learns-shared-types';
 import { api, ApiHttpError } from '../lib/api.js';
+import { normalizePhoneLoose, PHONE_HINT } from '../lib/phone.js';
 import { AuthLayout, AuthCard } from '../components/AuthHero.js';
 import { Button } from '../components/ui/Button.js';
 import { Input, TextArea } from '../components/ui/Input.js';
@@ -64,7 +65,9 @@ export function VisitorRegisterPage() {
       await api.post('/public/visitor/register', {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        phoneE164: phone.trim(),
+        // Send normalized E.164 when we can (10-digit → +91…); otherwise send
+        // the raw value so the server returns the friendly phone error.
+        phoneE164: normalizePhoneLoose(phone) ?? phone.trim(),
         email: email.trim() || null,
         highestQualification: (qualification || null) as VisitorQualification | null,
         dateOfBirth: dob.trim() || null,
@@ -162,7 +165,7 @@ export function VisitorRegisterPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required
-              hint="Include + and country code, e.g. +919876543210"
+              hint={PHONE_HINT}
               error={fieldErrors.phoneE164}
             />
             <Input

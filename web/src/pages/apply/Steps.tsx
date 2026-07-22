@@ -571,7 +571,7 @@ export function ApplyReferencesPage() {
           <Input label="Relationship" value={relationship} onChange={(e) => setRelationship(e.target.value)} placeholder="Manager, advisor, mentor" />
           <Input label="Organization" value={organization} onChange={(e) => setOrganization(e.target.value)} />
           <Input type="email" label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <Input type="tel" label="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} pattern="^\+\d{6,15}$" />
+          <Input type="tel" label="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" />
         </div>
         <Button type="button" onClick={handleAdd} loading={addMutation.isPending}>
           + Add referee

@@ -5,6 +5,7 @@ import type {
   ApplicationDraftStep3Contact,
 } from 'india-learns-shared-types';
 import { HttpError } from '../../middleware/error.js';
+import { normalizeE164Loose } from '../../utils/phone.js';
 import {
   Application,
   ApplicationDraft,
@@ -80,14 +81,18 @@ export function copyPersonalDetailsFromDraft(
     }
   }
 
-  // Emergency contact — step3 emergency block.
+  // Emergency contact — step3 emergency block. Normalize the phone to strict
+  // E.164 (a 10-digit draft entry → +91…) so it satisfies the User model's
+  // match validator; skip the block if it can't be normalized rather than
+  // failing the whole conversion (the student can add it later in Profile).
   if (user.emergencyContact == null && step3?.emergency) {
     const em = step3.emergency;
-    if (em.name && em.phoneE164) {
+    const emPhone = em.phoneE164 ? normalizeE164Loose(em.phoneE164) : null;
+    if (em.name && emPhone) {
       user.emergencyContact = {
         name: em.name,
         relationship: em.relationship ?? '',
-        phoneE164: em.phoneE164,
+        phoneE164: emPhone,
         email: null,
       };
     }
@@ -97,11 +102,12 @@ export function copyPersonalDetailsFromDraft(
   // null when the applicant didn't fill it; student can add later.
   if (user.parentGuardian == null && step3?.parentGuardian) {
     const pg = step3.parentGuardian;
-    if (pg.name && pg.phoneE164) {
+    const pgPhone = pg.phoneE164 ? normalizeE164Loose(pg.phoneE164) : null;
+    if (pg.name && pgPhone) {
       user.parentGuardian = {
         name: pg.name,
         relationship: pg.relationship ?? '',
-        phoneE164: pg.phoneE164,
+        phoneE164: pgPhone,
         email: pg.email ?? null,
       };
     }

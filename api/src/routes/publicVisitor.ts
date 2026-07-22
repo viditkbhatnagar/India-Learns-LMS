@@ -11,6 +11,7 @@ import {
   createVisitorLead,
   toVisitorLeadDto,
 } from '../services/visitorLeadService.js';
+import { phoneE164Schema } from '../utils/phone.js';
 
 // M10u — Public visitor self-registration. Prospect submits the form
 // from a marketing page without logging in. We:
@@ -40,7 +41,7 @@ const Body = z.object({
     .nullable()
     .optional(),
   currentAddress: AddressBody.nullable().optional(),
-  phoneE164: z.string().regex(/^\+\d{6,15}$/),
+  phoneE164: phoneE164Schema,
   email: z.string().email().max(254).nullable().optional(),
   parentGuardianContact: z.string().max(200).nullable().optional(),
   leadSource: z.enum(VISITOR_LEAD_SOURCES),

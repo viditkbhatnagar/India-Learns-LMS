@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/Input.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { AuthCard, AuthLayout } from '../../components/AuthHero.js';
 import { ApiHttpError } from '../../lib/api.js';
+import { normalizePhoneLoose, PHONE_HINT } from '../../lib/phone.js';
 import { admissionsApi } from '../../lib/endpoints.js';
 import { useAuthStore } from '../../store/auth.js';
 
@@ -139,11 +140,14 @@ export function ApplySignupPage() {
       return;
     }
     setLoading(true);
+    // Normalize a 10-digit entry to +91… before sending; fall back to raw so
+    // the server can surface the friendly phone error if it's unparseable.
+    const phoneE164 = normalizePhoneLoose(phone) ?? phone.trim();
     try {
       const result = await admissionsApi.signup({
         name,
         email,
-        phoneE164: phone,
+        phoneE164,
         password,
         commsOptIn,
       });
@@ -158,7 +162,7 @@ export function ApplySignupPage() {
           code: null,
           name,
           email,
-          phoneE164: phone,
+          phoneE164,
           status: 'active',
           suspensionKind: null,
           suspensionReason: null,
@@ -200,9 +204,9 @@ export function ApplySignupPage() {
           const [emailErr] = fe.email ?? [];
           const [passwordErr] = fe.password ?? [];
           if (phoneErr) {
-            // Zod's flattened message ("Invalid") isn't actionable for the
-            // E.164 regex — replace with copy that mirrors the hint.
-            fromServer.phoneE164 = 'Include the + and country code, e.g. +919876543210.';
+            // Prefer the server's message (the loose-phone schema already
+            // returns actionable copy); fall back to the hint if it's terse.
+            fromServer.phoneE164 = phoneErr.length > 12 ? phoneErr : PHONE_HINT;
           }
           if (nameErr) fromServer.name = nameErr;
           if (emailErr) fromServer.email = emailErr;
@@ -256,14 +260,13 @@ export function ApplySignupPage() {
           <Input
             type="tel"
             name="phoneE164"
-            label="Mobile phone (with country code)"
-            placeholder="+919876543210"
-            pattern="^\+\d{6,15}$"
+            label="Mobile phone"
+            placeholder="9876543210"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             required
             autoComplete="tel"
-            hint="Include the + and country code."
+            hint={PHONE_HINT}
             error={fieldErrors.phoneE164}
           />
           <Input

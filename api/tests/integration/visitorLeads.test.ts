@@ -36,6 +36,22 @@ describe('POST /v1/visitor-leads', () => {
     expect(res.body.data.lead.status).toBe('new');
   });
 
+  it('accepts a bare 10-digit phone and stores it as +91 E.164', async () => {
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    const res = await http()
+      .post('/v1/visitor-leads')
+      .set(bearer(at))
+      .send({
+        firstName: 'Josmy',
+        lastName: 'Jaimon',
+        phoneE164: '9249551757', // exactly what staff type — no + / country code
+        leadSource: 'walk_in',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.lead.phoneE164).toBe('+919249551757');
+  });
+
   it('rejects duplicate phone on active leads with 409', async () => {
     const { user: admin } = await makeAdmin();
     const at = await tokenFor(admin);

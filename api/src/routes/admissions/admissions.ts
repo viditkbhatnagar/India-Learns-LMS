@@ -28,6 +28,7 @@ import {
   signDocumentUploadForApplicant,
   toApplicationDocumentDto,
 } from '../../services/admissions/applicationDocumentService.js';
+import { phoneE164Schema } from '../../utils/phone.js';
 import {
   getStatementForApplicant,
   saveStatementForApplicant,
@@ -77,7 +78,7 @@ import {
 const SignupBody = z.object({
   email: z.string().email().max(254),
   name: z.string().min(1).max(120),
-  phoneE164: z.string().regex(/^\+\d{6,15}$/),
+  phoneE164: phoneE164Schema,
   password: z.string().min(1).max(256),
   commsOptIn: z.boolean().optional(),
   programId: z.string().min(1).optional(),
@@ -160,7 +161,7 @@ const AddRefereeBody = z.object({
   relationship: z.string().min(1).max(200),
   organization: z.string().min(1).max(200),
   email: z.string().email().max(254),
-  phoneE164: z.string().regex(/^\+\d{6,15}$/).nullable().optional(),
+  phoneE164: phoneE164Schema.nullable().optional(),
 });
 
 const RefereeSignBody = z.object({

@@ -16,6 +16,7 @@ import {
   toVisitorLeadDto,
   updateVisitorLead,
 } from '../services/visitorLeadService.js';
+import { phoneE164Schema } from '../utils/phone.js';
 
 const AddressBody = z.object({
   street: z.string().max(200).default(''),
@@ -35,7 +36,7 @@ const CreateBody = z.object({
     .nullable()
     .optional(),
   currentAddress: AddressBody.nullable().optional(),
-  phoneE164: z.string().regex(/^\+\d{6,15}$/),
+  phoneE164: phoneE164Schema,
   email: z.string().email().max(254).nullable().optional(),
   parentGuardianContact: z.string().max(200).nullable().optional(),
   leadSource: z.enum(VISITOR_LEAD_SOURCES),
