@@ -284,5 +284,6 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] 10-digit phones accepted on visitor register, admin visitor-leads, admissions signup + referee; emergency/parent normalized at conversion. Commit 363a139.
 - [x] Program slug auto-slugified (Create program no longer fails on a space); auto-fills from name. Commit 0a38158.
 - [x] Admin + Faculty end-to-end guides (md+pdf) in docs/guides/ + ~/Downloads; adversarially verified (17 findings applied). Commit 19cc25b.
-- [ ] FOLLOW-UP (UX, from guide verification): warn when Create-login enrol no-ops (program has no courses); friendlier timetable builder (pickers, not raw IDs); reconsider admin course "oversight" vs content ownership.
+- [x] Create-login enrol now WARNS when the program has no courses (enrolmentWarning, amber notice). Commit 8bfdc5e. Live-verified on prod (slug + phone + enrol-warning) 2026-07-22.
+- [ ] FOLLOW-UP (UX): friendlier timetable builder (pickers, not raw IDs); reconsider admin course "oversight" vs content ownership.
 - [ ] FOLLOW-UP: Showcase brochures are seed-only + >5MB — need the 3 new programme PDFs (+ changed brochures) from Prabisha to re-seed.
