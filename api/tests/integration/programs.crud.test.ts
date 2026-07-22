@@ -18,6 +18,30 @@ describe('programs CRUD', () => {
   useMongo();
   useIntegrationSpies();
 
+  it('accepts a loosely-typed slug (spaces/capitals) and stores it normalized', async () => {
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    // Exactly what staff typed in the field: "retail management-diploma"
+    // (space, not a hyphen) — previously bounced as "Request failed validation".
+    const created = await http()
+      .post('/v1/programs')
+      .set(bearer(at))
+      .send({ name: 'Diploma in fashion & Retail Management', slug: 'retail management-diploma' });
+    expect(created.status).toBe(201);
+    expect(created.body.data.program.slug).toBe('retail-management-diploma');
+  });
+
+  it('rejects a slug with no usable characters with a field-level error', async () => {
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    const res = await http()
+      .post('/v1/programs')
+      .set(bearer(at))
+      .send({ name: 'X', slug: '   ---   ' });
+    expect(res.status).toBe(422);
+    expect(res.body.error.details.fieldErrors.slug?.length).toBeGreaterThan(0);
+  });
+
   it('admin can create, list, fetch, patch, and delete a program', async () => {
     const { user: admin } = await makeAdmin();
     const at = await tokenFor(admin);

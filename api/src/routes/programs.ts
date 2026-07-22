@@ -4,6 +4,7 @@ import { PROGRAM_REQUIRED_DOC_TYPES } from 'india-learns-shared-types';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import { HttpError } from '../middleware/error.js';
+import { slugSchema } from '../utils/slug.js';
 import {
   createProgram,
   deleteProgram,
@@ -15,7 +16,8 @@ import {
 
 const CreateBody = z.object({
   name: z.string().min(1).max(160),
-  slug: z.string().min(1).max(160).regex(/^[a-z0-9-]+$/),
+  // Forgiving: "retail management-diploma" → "retail-management-diploma".
+  slug: slugSchema,
   description: z.string().max(2000).optional(),
   totalHours: z.coerce.number().int().positive().optional(),
   isActive: z.boolean().optional(),
@@ -27,7 +29,7 @@ const DocReqEnum = z.enum(PROGRAM_REQUIRED_DOC_TYPES);
 
 const UpdateBody = z.object({
   name: z.string().min(1).max(160).optional(),
-  slug: z.string().min(1).max(160).regex(/^[a-z0-9-]+$/).optional(),
+  slug: slugSchema.optional(),
   description: z.string().max(2000).optional(),
   totalHours: z.coerce.number().int().positive().optional(),
   isActive: z.boolean().optional(),

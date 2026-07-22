@@ -9,7 +9,8 @@ import { Input } from '../../components/ui/Input.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Skeleton, ErrorAlert, EmptyState } from '../../components/ui/States.js';
 import { PageHeader } from '../../components/ui/PageHeader.js';
-import { ApiHttpError } from '../../lib/api.js';
+import { ApiHttpError, apiErrorMessage } from '../../lib/api.js';
+import { slugify } from '../../lib/slug.js';
 
 export function AdminPrograms() {
   const readOnly = false; // superadmin now has full write access (round 3)
@@ -18,15 +19,25 @@ export function AdminPrograms() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  // Once the admin hand-edits the slug, stop auto-filling it from the name.
+  const slugEdited = useRef(false);
   const create = useMutation({
-    mutationFn: () => programsApi.create({ name, slug }),
+    // Slugify on the way out too, so a stray space/capital can never bounce
+    // as "Request failed validation" — the server normalizes it either way.
+    mutationFn: () => programsApi.create({ name: name.trim(), slug: slugify(slug || name) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['programs'] });
       setName('');
       setSlug('');
+      slugEdited.current = false;
     },
-    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Failed'),
+    onError: (e) => setErr(apiErrorMessage(e, 'Could not create the program. Please try again.')),
   });
+
+  function onNameChange(value: string) {
+    setName(value);
+    if (!slugEdited.current) setSlug(slugify(value));
+  }
 
   return (
     <div className="space-y-6">
@@ -80,7 +91,7 @@ export function AdminPrograms() {
         <Card accent="orange">
           <CardHeader
             title="Create program"
-            subtitle="Slug is the URL-friendly identifier (lowercase, hyphens)"
+            subtitle="Just type the name — the slug fills in automatically."
           />
           <form
             onSubmit={(e: FormEvent) => {
@@ -93,18 +104,21 @@ export function AdminPrograms() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="Name"
-                placeholder="Aviation Diploma"
+                placeholder="Diploma in Fashion & Retail Management"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => onNameChange(e.target.value)}
                 required
               />
               <Input
-                label="Slug"
-                placeholder="aviation-diploma"
+                label="Slug (auto-filled)"
+                placeholder="diploma-in-fashion-retail-management"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                required
-                hint="Lowercase, hyphens only"
+                onChange={(e) => {
+                  slugEdited.current = true;
+                  setSlug(e.target.value);
+                }}
+                onBlur={() => setSlug((s) => slugify(s))}
+                hint="Auto-generated from the name. You can edit it — spaces and capitals are fixed for you."
               />
             </div>
             {err && (
