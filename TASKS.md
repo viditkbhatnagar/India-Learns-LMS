@@ -295,3 +295,6 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Self-serve Curriculum import: GET /v1/curriculum-import/workflows + curriculum dropdown + "N duplicates removed" summary. Commit 41ec09f.
 - [x] Fashion diploma re-imported clean: 431 -> 279 sessions (152 dupes removed), course sandbox. Admin guide §4 updated (self-serve import + "edit in generator, not Word").
 - [ ] FOLLOW-UP: Fashion course is sandbox — assign a teaching faculty so it can be published to students.
+
+### Post-M10 — Add lesson manually — DONE 2026-07-22 (D-119)
+- [x] POST /v1/courses/:id/sessions (createSession); faculty-gated; manual lessons (sourceLessonId=null) survive re-import. Content-tab "+ Add lesson" form. Faculty guide §5. Commit b39a89b.
