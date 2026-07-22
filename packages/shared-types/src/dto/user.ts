@@ -76,6 +76,12 @@ export interface CreateUserInput {
   parentGuardian?: ContactRefDto | null;
   // M10x — Marketing source ("Meta / Google / Agent / Walk-in" etc).
   source?: VisitorLeadSource | null;
+  // Faculty-style provisioning: when true, the server generates a password,
+  // creates the user as `active` (no email invite — email is off), stores the
+  // password encrypted for the admin credentials table, and (for students,
+  // when `enrol` + programId + batchId are set) enrols them in the program.
+  generatePassword?: boolean;
+  enrol?: boolean;
 }
 
 export interface UpdateUserInput {

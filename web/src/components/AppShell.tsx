@@ -126,7 +126,9 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
     { label: 'Users', to: '/admin/users', icon: Icon.users },
-    // Create teacher logins with generated passwords.
+    // Create any login (student/teacher/admin) with a generated password + credentials table.
+    { label: 'Create login', to: '/admin/users/logins', icon: Icon.users },
+    // Faculty-specific view (course assignments).
     { label: 'Faculty', to: '/admin/faculty', icon: Icon.users },
     // Logan's nomenclature (UAT round 5): the org-level catalog Logan
     // calls "Programs" is what we call "Courses" internally. Keep the
@@ -172,7 +174,9 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
   superadmin: [
     { label: 'Dashboard', to: '/admin/dashboard', icon: Icon.home },
     { label: 'Users', to: '/admin/users', icon: Icon.users },
-    // Create teacher logins with generated passwords.
+    // Create any login (student/teacher/admin) with a generated password + credentials table.
+    { label: 'Create login', to: '/admin/users/logins', icon: Icon.users },
+    // Faculty-specific view (course assignments).
     { label: 'Faculty', to: '/admin/faculty', icon: Icon.users },
     { label: 'Add & View Programs', to: '/admin/programs', icon: Icon.layers },
     { label: 'Programs', to: '/admin/courses', icon: Icon.book },

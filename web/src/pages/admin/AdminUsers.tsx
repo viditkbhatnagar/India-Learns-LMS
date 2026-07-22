@@ -46,14 +46,19 @@ export function AdminUsers() {
         subtitle={`${query.data?.length ?? 0} matching user${(query.data?.length ?? 0) === 1 ? '' : 's'}`}
         action={
           !isReadOnly && (
-            <Link to="/admin/users/new">
-              <Button>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Invite user
-              </Button>
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/admin/users/logins">
+                <Button>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Create login
+                </Button>
+              </Link>
+              <Link to="/admin/users/new">
+                <Button variant="secondary">Invite by email</Button>
+              </Link>
+            </div>
           )
         }
       />

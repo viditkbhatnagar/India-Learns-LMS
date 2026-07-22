@@ -44,7 +44,9 @@ import type {
   AttendanceReportDto,
   CourseStudentDto,
   CreateFacultyInput,
+  CredentialedUserDto,
   FacultyAccountDto,
+  Role,
   ShowcaseDocumentDto,
   StaffAttendanceReportDto,
   BatchSummaryReportDto,
@@ -2075,6 +2077,38 @@ export const courseStudentsApi = {
       `/courses/${courseId}/students`,
     );
     return res.data.data.items;
+  },
+};
+
+// Admin "create login" for ANY role with a generated, persisted password
+// (no email invite). Powers the Users → Create login screen + credentials table.
+export const userLoginsApi = {
+  async create(input: {
+    role: Role;
+    name: string;
+    email: string;
+    phoneE164: string;
+    programId?: string;
+    batchId?: string;
+    enrol?: boolean;
+  }): Promise<{ user: UserPublicDto; temporaryPassword: string; enrolmentsCount: number }> {
+    const res = await api.post<{
+      data: { user: UserPublicDto; temporaryPassword: string; enrolmentsCount: number };
+    }>('/users', { ...input, generatePassword: true });
+    return res.data.data;
+  },
+  async list(role?: Role): Promise<CredentialedUserDto[]> {
+    const res = await api.get<{ data: { items: CredentialedUserDto[] } }>('/users/credentials', {
+      params: role ? { role } : undefined,
+    });
+    return res.data.data.items;
+  },
+  async resetPassword(id: string): Promise<string> {
+    const res = await api.post<{ data: { temporaryPassword: string } }>(
+      `/users/${id}/reset-password`,
+      {},
+    );
+    return res.data.data.temporaryPassword;
   },
 };
 

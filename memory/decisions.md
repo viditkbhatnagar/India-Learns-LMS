@@ -886,3 +886,17 @@ Adding the Showcase byte round-trip surfaced that `MongoStorageAdapter`/`fetchGr
 **Adversarial review (4 dims, verified) → fixed 9 confirmed:** roster excluded soft-deleted students (medium); `listFacultyAccounts` now self-guards with assertAdmin; create/reset made resilient (compensating delete on orphan; reset stores the new secret before flipping the hash so a partial failure never locks the faculty out); reset audit captures before-state; env rejects a set-but-weak key in prod; AdminFaculty a11y (role=alert, per-field errors, format validation), copy-confirmation feedback, and reset error messages.
 
 **Config:** `CREDENTIALS_ENC_KEY` must be set (api/.env locally, Render dashboard in prod — declared in render.yaml with sync:false). Empty → clear 503; set-but-<24-char in prod → boot fails.
+
+## D-114 — Generalize "create login (generated password)" to all roles + student enrolment
+**Date:** 2026-07-21
+**Why:** A staff member needed to onboard a STUDENT (orientation next day) but email is off (`EMAIL_PROVIDER=stub`), so the invite-based Users flow can't deliver a set-password link. The product owner's motive = the Faculty feature (admin adds user → generated password → credentials table always visible → hand over → they log in), for ALL roles. Chose: integrate into the Users screen (all roles), and also enrol students.
+
+**Shipped:**
+- `userAccountService.ts` — `createUserAccount(role, +programId/batchId/enrol)`, `resetUserPassword`, `listCredentialedUsers` — generalizes the faculty machinery to student/faculty/admin/admissions_officer (NOT superadmin/applicant). `facultyAccountService` now delegates create/reset here (keeps the faculty page's course-count list). Credentials share the existing `facultycredentials` collection (role-agnostic).
+- `POST /v1/users` gains a `generatePassword` (+`enrol`) branch (else the existing invite path); new `GET /v1/users/credentials` + `POST /v1/users/:id/reset-password` (admin-gated; credentials route declared before `/:id`).
+- Students with program+batch+enrol are enrolled via the existing `enrolStudentInProgram` (fans out across the program's courses; best-effort with orphan cleanup).
+- Web: `AdminUserLogins` page (`/admin/users/logins`) — role select + fields + program/batch for students + credentials table (reveal/copy/reset); "Create login" button on the Users page + nav item.
+
+**Adversarial review → fixed 10 (1 CRITICAL):** `resetUserPassword` had no TARGET-role guard → a plain admin could reset a **superadmin**'s password and take over (escalation). Fixed: reset now rejects non-provisionable targets and requires superadmin to reset an admin. Also: credentials table never exposes superadmin, shows admin rows only to superadmin; enrol cleans up orphans on failure; list capped (500); create invalidates Users/Faculty/Enrolments; copy feedback + reset confirmation.
+
+**Note:** superadmin can't be created or reset via this flow (only via seed). Email invite path preserved for when email is turned on.

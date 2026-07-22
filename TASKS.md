@@ -273,3 +273,9 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Adversarial review — fixed 9 findings (soft-deleted roster leak, service admin-guard, non-transactional resilience, audit before-state, env key guard, a11y/UX).
 - [x] Tests: secretBox + generatePassword + facultyAccountService (unit); faculty (create→login round-trip) + courseStudents (integration).
 - [ ] Ops: set `CREDENTIALS_ENC_KEY` in Render (il-app) before using the feature in prod.
+
+### Post-M10 — Create login for all roles + student enrolment — DONE 2026-07-21 (D-114)
+- [x] Generalized faculty "generate password + credentials table" to all roles on the Users screen (`/admin/users/logins`); students also enrolled into the program.
+- [x] `POST /v1/users` generatePassword branch + `GET /v1/users/credentials` + `POST /v1/users/:id/reset-password`.
+- [x] Adversarial review fixed 10 findings incl. a CRITICAL reset-password privilege-escalation (admin→superadmin takeover).
+- [x] Tests: userAccountService unit (+ escalation guards) + userLogins integration; full suite 655 pass. Faculty feature still green via delegation.

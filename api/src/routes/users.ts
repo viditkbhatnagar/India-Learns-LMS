@@ -5,6 +5,11 @@ import { requireRole } from '../middleware/requireRole.js';
 import { HttpError } from '../middleware/error.js';
 import { phoneE164Schema } from '../utils/phone.js';
 import {
+  createUserAccount,
+  listCredentialedUsers,
+  resetUserPassword,
+} from '../services/userAccountService.js';
+import {
   createUser,
   findUserById,
   listUsers,
@@ -90,6 +95,14 @@ const CreateBody = z.object({
     ])
     .nullable()
     .optional(),
+  // Faculty-style provisioning: generate a password + create the user active
+  // (no email invite). For students, `enrol` also enrols them in the program.
+  generatePassword: z.boolean().optional(),
+  enrol: z.boolean().optional(),
+});
+
+const CredentialsQuery = z.object({
+  role: z.enum(['student', 'faculty', 'admin', 'admissions_officer']).optional(),
 });
 
 const UpdateBody = z.object({
@@ -192,12 +205,69 @@ export function usersRouter(): Router {
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = CreateBody.parse(req.body);
-        const doc = await createUser(body, {
+        const actor = {
+          role: req.auth!.role,
+          actorUserId: req.auth!.userId,
+          ...requestContext(req),
+        };
+        // Generate-password path: create the user active with a shown/stored
+        // password (no email invite, since email delivery is off).
+        if (body.generatePassword) {
+          const { user, temporaryPassword, enrolmentsCount } = await createUserAccount(
+            {
+              role: body.role,
+              name: body.name,
+              email: body.email,
+              phoneE164: body.phoneE164,
+              programId: body.programId ?? null,
+              batchId: body.batchId ?? null,
+              enrol: body.enrol,
+            },
+            actor,
+          );
+          res.status(201).json({
+            data: { user: toUserDto(user), temporaryPassword, enrolmentsCount },
+          });
+          return;
+        }
+        const doc = await createUser(body, actor);
+        res.status(201).json({ data: { user: toUserDto(doc) } });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // Credentials table — all users created with a generated password (any role),
+  // decrypted for the admin. MUST be declared before GET /:id.
+  router.get(
+    '/credentials',
+    requireRole('admin', 'superadmin'),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { role } = CredentialsQuery.parse(req.query);
+        const items = await listCredentialedUsers(
+          { role: req.auth!.role, actorUserId: req.auth!.userId, ...requestContext(req) },
+          role,
+        );
+        res.status(200).json({ data: { items } });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  router.post(
+    '/:id/reset-password',
+    requireRole('admin', 'superadmin'),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { temporaryPassword } = await resetUserPassword(req.params.id ?? '', {
           role: req.auth!.role,
           actorUserId: req.auth!.userId,
           ...requestContext(req),
         });
-        res.status(201).json({ data: { user: toUserDto(doc) } });
+        res.status(200).json({ data: { temporaryPassword } });
       } catch (err) {
         next(err);
       }
