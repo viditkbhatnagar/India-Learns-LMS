@@ -285,5 +285,6 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Program slug auto-slugified (Create program no longer fails on a space); auto-fills from name. Commit 0a38158.
 - [x] Admin + Faculty end-to-end guides (md+pdf) in docs/guides/ + ~/Downloads; adversarially verified (17 findings applied). Commit 19cc25b.
 - [x] Create-login enrol now WARNS when the program has no courses (enrolmentWarning, amber notice). Commit 8bfdc5e. Live-verified on prod (slug + phone + enrol-warning) 2026-07-22.
-- [ ] FOLLOW-UP (UX): friendlier timetable builder (pickers, not raw IDs); reconsider admin course "oversight" vs content ownership.
+- [x] Timetable builder rebuilt: Course/Teacher dropdowns + time pickers (no raw IDs/minutes); readable weekly schedule. Commit 2bb1303. Admin guide §9 updated.
+- [x] Admin course "oversight" already has an actionable banner (assign teaching faculty on Overview) — no change needed.
 - [ ] FOLLOW-UP: Showcase brochures are seed-only + >5MB — need the 3 new programme PDFs (+ changed brochures) from Prabisha to re-seed.
