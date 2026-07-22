@@ -544,6 +544,97 @@ export async function updateSession(
   return session;
 }
 
+export interface CreateSessionInput {
+  moduleId: string;
+  title: string;
+  plannedMinutes?: number | null;
+  description?: string;
+}
+
+// Sessions numbered at or above this are "parked" mid-reorder (see
+// reorderSession); exclude them when finding the last real lesson.
+const PARK_BASE_NUMBER = 1_000_000;
+
+/**
+ * Create a lesson (session) manually inside a module. Appended after the
+ * module's current last lesson. Deliberately has `sourceLessonId = null` and
+ * `synthesized = false`, so a later curriculum re-import (which only wipes
+ * generator-sourced + synthesized sessions) leaves it untouched.
+ */
+export async function createSession(
+  actor: AuthContext,
+  courseId: string,
+  input: CreateSessionInput,
+  ctx: ActorCtx,
+): Promise<HydratedSession> {
+  if (!Types.ObjectId.isValid(courseId)) {
+    throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
+  }
+  const course = await Course.findOne({ _id: courseId, deletedAt: null });
+  if (!course) throw new HttpError(404, 'NOT_FOUND', 'Course not found.');
+  await assertFacultyCanWriteCourse(actor.userId, actor.role, course._id);
+
+  if (!Types.ObjectId.isValid(input.moduleId)) {
+    throw new HttpError(422, 'VALIDATION_FAILED', 'moduleId is invalid.');
+  }
+  const targetModule = await ModuleModel.findOne({ _id: input.moduleId, deletedAt: null });
+  if (!targetModule) throw new HttpError(404, 'NOT_FOUND', 'Module not found.');
+  if (!targetModule.courseId.equals(course._id)) {
+    throw new HttpError(
+      409,
+      'CROSS_COURSE_FORBIDDEN',
+      'That module belongs to a different course.',
+    );
+  }
+
+  // Append after the last real lesson so we never hit the unique
+  // (moduleId, number) index.
+  const last = await SessionModel.findOne({
+    moduleId: targetModule._id,
+    number: { $lt: PARK_BASE_NUMBER },
+  })
+    .sort({ number: -1 })
+    .select('number');
+  const number = last ? last.number + 1 : 1;
+
+  const session = await SessionModel.create({
+    moduleId: targetModule._id,
+    courseId: course._id,
+    number,
+    title: input.title.trim(),
+    description: input.description?.trim() ?? '',
+    type: null,
+    plannedMinutes: input.plannedMinutes ?? null,
+    status: 'upcoming',
+    notes: '',
+    sourceLessonId: null,
+    linkedMLOs: [],
+    bloomLevel: null,
+    objectives: [],
+    activities: [],
+    formativeChecks: [],
+    synthesized: false,
+  });
+
+  await recordAudit({
+    actorUserId: actor.userId,
+    action: 'session.created',
+    targetType: 'Session',
+    targetId: session._id,
+    before: null,
+    after: session.toObject(),
+    details: {
+      courseId: String(course._id),
+      moduleId: String(targetModule._id),
+      number,
+      manual: true,
+    },
+    ip: ctx.ip,
+    ua: ctx.ua,
+  });
+  return session;
+}
+
 /**
  * Renumber a single session into a target module + position. Sessions in
  * the source module shift down to fill the gap; sessions in the target

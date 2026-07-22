@@ -74,6 +74,8 @@ You can upload material for the courses you're assigned to teach.
 4. Fill in the **Title**, choose the **Type** (**Video**, **PDF**, **Reading**, **Link**, **File**), then **drag your PowerPoint / PDF** into the box (*up to 25 MB*) or paste a **URL**.
 5. Click **Add material**.
 
+**To add a whole new lesson (topic):** on the **Content** tab, open a module and click **+ Add lesson** — type a title (and minutes, if you like), then **Add lesson**. It's added to the bottom of that module and stays there even if the curriculum is re-imported later.
+
 When the whole course is ready for students, click **Publish course** (top of the course workspace).
 
 > **Big video?** The limit is 25 MB. Upload it to Google Drive or YouTube (unlisted) and paste the **link** as the material instead.

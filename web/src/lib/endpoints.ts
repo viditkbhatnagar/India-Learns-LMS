@@ -1302,6 +1302,16 @@ export const sessionsApi = {
     );
     return res.data.data.sessions;
   },
+  async create(
+    courseId: string,
+    input: { moduleId: string; title: string; plannedMinutes?: number | null; description?: string },
+  ) {
+    const res = await api.post<{ data: { session: SessionDto } }>(
+      `/courses/${courseId}/sessions`,
+      input,
+    );
+    return res.data.data.session;
+  },
   async detail(sessionId: string) {
     const res = await api.get<{ data: SessionDetailDto }>(`/sessions/${sessionId}`);
     return res.data.data;

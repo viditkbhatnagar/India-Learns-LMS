@@ -20,7 +20,7 @@ import type { ModuleDto, GlossaryEntryDto, ReadingItemDto } from 'india-learns-s
 import { Card } from '../../../components/ui/Card.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
-import { TextArea } from '../../../components/ui/Input.js';
+import { Input, TextArea } from '../../../components/ui/Input.js';
 import { FileDropZone } from '../../../components/ui/FileDropZone.js';
 import { GlossaryEditor, ReadingListEditor } from '../../../components/GlossaryReadingEditors.js';
 import { FileLink } from '../../../components/FileLink.js';
@@ -241,6 +241,7 @@ export function CourseContentTab({ courseId }: { courseId: string }): JSX.Elemen
                           ))}
                         </ul>
                       )}
+                      <AddLessonForm module={m} courseId={courseId} />
                     </div>
                   )}
                 </li>
@@ -250,6 +251,101 @@ export function CourseContentTab({ courseId }: { courseId: string }): JSX.Elemen
         </SortableContext>
       </DndContext>
     </div>
+  );
+}
+
+/**
+ * Add a lesson (session) to a module by hand. Only shown to users who can
+ * write the course (assigned faculty) — an admin/superadmin in oversight mode
+ * sees nothing here (the server also rejects the write). Lessons added this
+ * way survive curriculum re-imports.
+ */
+function AddLessonForm({ module: m, courseId }: { module: ModuleDto; courseId: string }): JSX.Element | null {
+  const qc = useQueryClient();
+  const { isOversight } = useCourseOversight();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [minutes, setMinutes] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const createMut = useMutation({
+    mutationFn: () =>
+      sessionsApi.create(courseId, {
+        moduleId: m.id,
+        title: title.trim(),
+        plannedMinutes: minutes.trim() ? Number(minutes) : null,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['course', courseId, 'sessions'] });
+      setTitle('');
+      setMinutes('');
+      setOpen(false);
+      setError(null);
+    },
+    onError: (e) => setError(e instanceof ApiHttpError ? e.message : 'Could not add the lesson.'),
+  });
+
+  if (isOversight) return null;
+
+  if (!open) {
+    return (
+      <div className="px-5 py-3 border-t border-black/5">
+        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+          + Add lesson
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        setError(null);
+        if (!title.trim()) {
+          setError('Give the lesson a title.');
+          return;
+        }
+        createMut.mutate();
+      }}
+      className="px-5 py-4 border-t border-black/5 space-y-3 bg-surface-muted/40"
+    >
+      <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+        <Input
+          label="Lesson title"
+          placeholder="e.g. Store layout & visual merchandising basics"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          autoFocus
+        />
+        <Input
+          label="Minutes (optional)"
+          type="number"
+          placeholder="e.g. 90"
+          value={minutes}
+          onChange={(e) => setMinutes(e.target.value)}
+        />
+      </div>
+      {error && <p className="text-danger text-sm">{error}</p>}
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" loading={createMut.isPending}>
+          Add lesson
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            setOpen(false);
+            setTitle('');
+            setMinutes('');
+            setError(null);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 

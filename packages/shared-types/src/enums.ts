@@ -349,6 +349,7 @@ export const AUDIT_ACTIONS = [
   // Post-M9 — curriculum-generator import (Phase A)
   'curriculum.imported',
   // Phase B-2 — Course→Module→Session tree
+  'session.created',
   'session.completed',
   'session.uncompleted',
   'session.reordered',

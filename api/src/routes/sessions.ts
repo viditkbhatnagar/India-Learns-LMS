@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import {
+  createSession,
   getSessionDetail,
   listSessionsForBatchOnDate,
   listSessionsForCourse,
@@ -30,6 +31,13 @@ const UpdateBody = z.object({
   notes: z.string().max(8000).optional(),
   moduleId: z.string().min(1).optional(),
   orderIndex: z.number().int().min(0).max(1_000).optional(),
+});
+
+const CreateSessionBody = z.object({
+  moduleId: z.string().min(1),
+  title: z.string().min(1).max(240),
+  plannedMinutes: z.number().int().min(0).max(600).nullable().optional(),
+  description: z.string().max(8000).optional(),
 });
 
 const AttendanceBody = z.object({
@@ -81,6 +89,21 @@ export function courseSessionsRouter(): Router {
     try {
       const sessions = await listSessionsForCourse(req.auth!, req.params.courseId ?? '');
       res.json({ data: { sessions } });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Add a lesson manually (assigned faculty / on-roster only — the service
+  // enforces write access). Manual lessons survive curriculum re-imports.
+  router.post('/', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = CreateSessionBody.parse(req.body);
+      const session = await createSession(req.auth!, req.params.courseId ?? '', body, {
+        ip: req.ip ?? '',
+        ua: req.header('user-agent') ?? '',
+      });
+      res.status(201).json({ data: { session: toSessionDto(session) } });
     } catch (err) {
       next(err);
     }
