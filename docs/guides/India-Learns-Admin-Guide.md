@@ -152,10 +152,12 @@ Click **Enrolments** in the menu to **see** every student–course link (Student
 
 1. In the left menu, click **Timetable**.
 2. On the **Timetable builder**, pick the **Batch**.
-3. In the **Add entry** card, fill in **Course ID**, **Faculty ID**, **Weekday**, **Start** and **End** (in *minutes from midnight* — e.g. `540` = 09:00, `600` = 10:00, `780` = 13:00), and **Room**.
-4. Click **Add entry**.
+3. In the **Add a class** card:
+   - Choose the **Course** and the **Teacher** from the dropdowns.
+   - Pick the **Day**, set the **Start time** and **End time** (normal clock times), and type the **Room**.
+4. Click **Add class**. It appears under **Weekly schedule** — each row shows the day, time, course, teacher and room, with a **Delete** button.
 
-> **This screen is the most technical one** — it asks for long Course/Faculty IDs and times as minute-numbers, and there isn't an easy place to copy those IDs from yet. **We recommend your India Learns contact sets up the first timetable together with you.** After that, copying an existing entry is easy.
+> No codes or IDs to type — just pick from the lists. If the **Course** dropdown is empty, the program has no courses yet (import the curriculum first). If the **Teacher** dropdown is empty, create a Faculty login first (section 7).
 
 ---
 
