@@ -52,6 +52,14 @@ function isNoOp(result: CurriculumImportResult): boolean {
   return !c.course && c.modules === 0 && c.sessions === 0 && c.materials === 0 && c.assignments === 0;
 }
 
+/** How many repeated lessons the importer auto-removed (from its warnings). */
+function countDuplicatesRemoved(warnings: string[]): number {
+  return warnings.filter((w) => /identical title and objectives/i.test(w)).length;
+}
+
+const SELECT_CLS =
+  'w-full h-11 px-3.5 rounded-xl border border-black/10 bg-white hover:border-black/20 focus:outline-none focus:ring-4 focus:ring-brand-navy/15 focus:border-brand-orange transition-all';
+
 export function AdminCurriculumImport() {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -71,8 +79,14 @@ export function AdminCurriculumImport() {
 
   const programsQ = useQuery({ queryKey: ['programs'], queryFn: programsApi.list });
 
+  const workflowsQ = useQuery({
+    queryKey: ['curriculum-import', 'workflows'],
+    queryFn: curriculumImportApi.listWorkflows,
+    staleTime: 60_000,
+  });
+
   const previewMut = useMutation({
-    mutationFn: () => curriculumImportApi.preview(extractWorkflowId(workflowId)),
+    mutationFn: (id?: string) => curriculumImportApi.preview(extractWorkflowId(id ?? workflowId)),
     onSuccess: (data) => {
       setPreview(data);
       setPreviewError(null);
@@ -135,15 +149,55 @@ export function AdminCurriculumImport() {
 
       <Card>
         <CardHeader
+          title="Choose a curriculum"
+          subtitle="Pick a curriculum from the generator by name — no ID needed."
+        />
+        {workflowsQ.isLoading ? (
+          <Skeleton lines={1} />
+        ) : workflowsQ.isError ? (
+          <p className="text-sm text-muted">
+            Couldn't load the list (the generator may be waking up — try Refresh above, or paste an ID below).
+          </p>
+        ) : (
+          <select
+            value={
+              workflowId && (workflowsQ.data ?? []).some((w) => w.id === workflowId) ? workflowId : ''
+            }
+            onChange={(e) => {
+              const id = e.target.value;
+              if (!id) return;
+              setWorkflowId(id);
+              setResult(null);
+              setPreviewError(null);
+              previewMut.mutate(id);
+            }}
+            className={SELECT_CLS}
+          >
+            <option value="">— Select a curriculum —</option>
+            {(workflowsQ.data ?? []).map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+                {w.status ? ` — ${w.status.replace(/_/g, ' ')}` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+        <p className="text-xs text-muted mt-2">
+          Selecting a curriculum previews it automatically. Repeated lessons are removed for you on import.
+        </p>
+      </Card>
+
+      <Card>
+        <CardHeader
           title="Step 1 — Preview"
-          subtitle="Paste a workflow ID and the LMS will fetch + validate the workflow."
+          subtitle="Or paste a workflow ID / URL and the LMS will fetch + validate the workflow."
         />
         <form
           onSubmit={(e) => {
             e.preventDefault();
             if (workflowId.trim()) {
               setResult(null);
-              previewMut.mutate();
+              previewMut.mutate(undefined);
             }
           }}
           className="space-y-3"
@@ -203,13 +257,21 @@ export function AdminCurriculumImport() {
               {preview.course.summary.length >= 600 && '…'}
             </div>
           )}
-          {preview.warnings.length > 0 && (
+          {countDuplicatesRemoved(preview.warnings) > 0 && (
+            <div className="mt-4 p-3 rounded-lg border border-success/30 bg-success/5 text-sm text-brand-navy">
+              ✓ {countDuplicatesRemoved(preview.warnings)} repeated lesson
+              {countDuplicatesRemoved(preview.warnings) === 1 ? '' : 's'} will be removed automatically on import (the count above is already after removing them).
+            </div>
+          )}
+          {preview.warnings.filter((w) => !/identical title and objectives/i.test(w)).length > 0 && (
             <div className="mt-4 p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm">
-              <p className="font-semibold text-amber-900 mb-1.5">Warnings</p>
+              <p className="font-semibold text-amber-900 mb-1.5">Notes</p>
               <ul className="list-disc list-inside space-y-1 text-amber-900">
-                {preview.warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
+                {preview.warnings
+                  .filter((w) => !/identical title and objectives/i.test(w))
+                  .map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
               </ul>
             </div>
           )}
@@ -327,13 +389,21 @@ export function AdminCurriculumImport() {
               <li><span className="text-muted">Assignments:</span> {result.created.assignments}</li>
             </ul>
           )}
-          {result.warnings.length > 0 && (
+          {countDuplicatesRemoved(result.warnings) > 0 && (
+            <div className="mt-3 p-3 rounded-lg border border-success/30 bg-success/5 text-sm text-brand-navy">
+              ✓ Removed {countDuplicatesRemoved(result.warnings)} repeated lesson
+              {countDuplicatesRemoved(result.warnings) === 1 ? '' : 's'} automatically.
+            </div>
+          )}
+          {result.warnings.filter((w) => !/identical title and objectives/i.test(w)).length > 0 && (
             <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm">
-              <p className="font-semibold text-amber-900 mb-1.5">Warnings</p>
+              <p className="font-semibold text-amber-900 mb-1.5">Notes</p>
               <ul className="list-disc list-inside space-y-1 text-amber-900">
-                {result.warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
+                {result.warnings
+                  .filter((w) => !/identical title and objectives/i.test(w))
+                  .map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
               </ul>
             </div>
           )}

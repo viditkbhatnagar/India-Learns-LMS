@@ -3,12 +3,20 @@ import { HttpError } from '../../middleware/error.js';
 import { Program } from '../../models/index.js';
 import type { AuthContext } from '../../middleware/auth.js';
 import { recordAudit } from '../auditService.js';
-import { fetchWorkflow, checkGeneratorHealth } from './client.js';
+import { fetchWorkflow, checkGeneratorHealth, listWorkflows, type WorkflowSummary } from './client.js';
 import { isWorkflowComplete } from './schema.js';
 import { transformWorkflow, type TransformedImport } from './transformer.js';
 import { persistImport, type PersistResult } from './persister.js';
 
 export { checkGeneratorHealth, fetchWorkflow };
+
+/** Available curricula in the generator, for a self-serve picker. */
+export async function listAvailableWorkflows(actor: AuthContext): Promise<WorkflowSummary[]> {
+  if (actor.role !== 'superadmin') {
+    throw new HttpError(403, 'FORBIDDEN', 'Curriculum import is super-admin only.');
+  }
+  return listWorkflows();
+}
 
 export interface PreviewResult {
   workflowId: string;

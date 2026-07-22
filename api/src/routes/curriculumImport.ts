@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import {
   checkGeneratorHealth,
+  listAvailableWorkflows,
   previewImport,
   runImport,
 } from '../services/curriculumImport/index.js';
@@ -30,6 +31,18 @@ export function curriculumImportRouter(): Router {
       try {
         const result = await checkGeneratorHealth();
         res.json({ data: result });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  router.get(
+    '/workflows',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const items = await listAvailableWorkflows(req.auth!);
+        res.json({ data: { items } });
       } catch (err) {
         next(err);
       }

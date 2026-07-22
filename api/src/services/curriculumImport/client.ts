@@ -83,6 +83,49 @@ export async function checkGeneratorHealth(): Promise<{ ok: boolean; baseUrl: st
 
 const WorkflowIdSchema = z.string().regex(/^[a-f0-9]{24}$/i, 'Workflow id must be a 24-hex Mongo ObjectId.');
 
+export interface WorkflowSummary {
+  id: string;
+  name: string;
+  status: string;
+  currentStep: number;
+}
+
+const WorkflowListItemSchema = z
+  .object({
+    _id: z.string(),
+    projectName: z.string().optional(),
+    status: z.string().optional(),
+    currentStep: z.number().optional(),
+  })
+  .passthrough();
+const WorkflowListEnvelopeSchema = z.object({
+  success: z.boolean().optional(),
+  data: z.array(WorkflowListItemSchema),
+});
+
+/**
+ * List the curricula available in the generator so staff can pick one by name
+ * instead of hunting for a 24-hex workflow id. Newest step first is nice but
+ * the generator's order is fine; we just map to a small summary.
+ */
+export async function listWorkflows(): Promise<WorkflowSummary[]> {
+  const raw = await generatorFetch('/api/v3/workflow');
+  const parsed = WorkflowListEnvelopeSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new HttpError(
+      502,
+      'GENERATOR_PAYLOAD_INVALID',
+      'Generator workflow list failed schema validation.',
+    );
+  }
+  return parsed.data.data.map((w) => ({
+    id: w._id,
+    name: w.projectName?.trim() || '(untitled curriculum)',
+    status: w.status ?? '',
+    currentStep: w.currentStep ?? 0,
+  }));
+}
+
 export async function fetchWorkflow(workflowId: string): Promise<Workflow> {
   const id = WorkflowIdSchema.parse(workflowId.trim());
   const raw = await generatorFetch(`/api/v3/workflow/${id}`);

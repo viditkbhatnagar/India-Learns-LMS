@@ -1358,12 +1358,25 @@ export const sessionsApi = {
   },
 };
 
+export interface CurriculumWorkflowSummary {
+  id: string;
+  name: string;
+  status: string;
+  currentStep: number;
+}
+
 export const curriculumImportApi = {
   async health() {
     const res = await api.get<{ data: { ok: boolean; baseUrl: string } }>(
       '/curriculum-import/health',
     );
     return res.data.data;
+  },
+  async listWorkflows(): Promise<CurriculumWorkflowSummary[]> {
+    const res = await api.get<{ data: { items: CurriculumWorkflowSummary[] } }>(
+      '/curriculum-import/workflows',
+    );
+    return res.data.data.items;
   },
   async preview(workflowId: string) {
     const res = await api.get<{ data: CurriculumImportPreview }>(
