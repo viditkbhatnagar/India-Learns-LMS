@@ -288,3 +288,10 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Timetable builder rebuilt: Course/Teacher dropdowns + time pickers (no raw IDs/minutes); readable weekly schedule. Commit 2bb1303. Admin guide §9 updated.
 - [x] Admin course "oversight" already has an actionable banner (assign teaching faculty on Overview) — no change needed.
 - [ ] FOLLOW-UP: Showcase brochures are seed-only + >5MB — need the 3 new programme PDFs (+ changed brochures) from Prabisha to re-seed.
+
+
+### Post-M10 — Curriculum import dedup + self-serve picker — DONE 2026-07-22 (D-118)
+- [x] Transformer drops byte-identical (title+objectives) duplicate lessons; spiral curricula (same title/diff objectives) preserved. Test added. Commit 7254ad3.
+- [x] Self-serve Curriculum import: GET /v1/curriculum-import/workflows + curriculum dropdown + "N duplicates removed" summary. Commit 41ec09f.
+- [x] Fashion diploma re-imported clean: 431 -> 279 sessions (152 dupes removed), course sandbox. Admin guide §4 updated (self-serve import + "edit in generator, not Word").
+- [ ] FOLLOW-UP: Fashion course is sandbox — assign a teaching faculty so it can be published to students.

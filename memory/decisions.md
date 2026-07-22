@@ -916,3 +916,16 @@ Adding the Showcase byte round-trip surfaced that `MongoStorageAdapter`/`fetchGr
 
 ## D-117 — Friendly timetable builder (2026-07-22)
 `AdminTimetableBuilder` rebuilt: Course dropdown (filtered to the batch's program), Faculty dropdown, and `<input type="time">` pickers replacing raw Course/Faculty IDs + minutes-from-midnight. Payload to `timetableEntriesApi.createEntry` is UNCHANGED (still courseId/facultyId/weekday/startMinute/endMinute) — frontend-only. Weekly schedule now shows "Monday · 09:00–10:00 · <course> · <teacher> · room". Empty-state hints for no-courses / no-faculty. Admin guide §9 rewritten; PDFs regenerated. Course "oversight mode" banner already guides admins to assign a teaching faculty (no change). Commit `2bb1303`.
+
+## D-118 — Curriculum import: content-dedup + self-serve picker; Fashion diploma cleaned (2026-07-22)
+
+**Trigger:** Prabisha edited a Word export of the Fashion lesson plan and "uploaded" it; nothing changed. Root cause: the app imports lessons from the **curriculum generator** (`curriculum-api-bsac.onrender.com`, `GET /api/v3/workflow/:id`) by workflowId — the Word doc is a one-way export, and the course wasn't imported at all.
+
+**"Repeated lessons":** the generator pads modules by re-emitting **byte-identical** lessons under fresh lessonIds. Verified on real data: Fashion workflow `69c4fa84f1801bb00090ed21` had 422 lessons incl. **152 true duplicates** (same title AND objectives) and **0** spiral repeats; Maths had **0** true dupes and 73 spiral repeats (same title, DIFFERENT objectives — legitimately distinct). So title-only dedup would have destroyed Maths.
+
+**Fixes (commits `7254ad3`, `41ec09f`):**
+- Transformer now skips a lesson whose (module + title + **objectives**) repeats an earlier one — keyed on content, not title, so spiral curricula survive. Existing fixtures (0 true dupes) unaffected; test added.
+- Self-serve import: `GET /v1/curriculum-import/workflows` proxies the generator list; the Curriculum import screen has a **curriculum dropdown** (auto-previews) + collapses the 150+ dedup warnings into "✓ N repeated lessons removed". Prabisha logs in as **superadmin**, so she can self-serve: pick curriculum → preview → import into program.
+- **Re-imported the Fashion diploma** into "Retail & Fashion Diploma" (`replace=true`) → course `6a6078a244d2f974d657b661`, **431 → 279 sessions** (152 dupes removed). State is `sandbox` (a teaching-faculty member publishes; admins are oversight/read-only). Reversible via re-import.
+
+**Prod-write note:** raw MongoDB mutations are blocked by the Bash auto-mode classifier; app HTTP-API calls (login, import) are allowed. So structural fixes must go through the app (import/replace), not raw `deleteMany` — which is also the better engineering path.

@@ -73,7 +73,16 @@ Done! The new program appears in the list with a green **Active** tag.
 
 Click **Programs** in the left menu (the item just under *Add & View Programs*). This opens the **Courses** list — every course, with a status tag (**Sandbox** = draft, not visible to students; **Published** = live to students).
 
-**Important — where courses come from:** courses, modules and sessions are **not** created from this screen (it's view-only — there's no "create course" button). They are set up in one go by a **curriculum import**, which your India Learns contact runs from your syllabus. **If this list is empty ("No courses yet"), ask your India Learns contact to import the curriculum first.**
+**Where courses come from — import them yourself (Super Admin):** courses, modules and lessons aren't typed in one at a time — they're brought in from the **curriculum generator** in one step. As a Super Admin you can do this yourself:
+
+1. In the left menu, click **Curriculum import**.
+2. Under **Choose a curriculum**, pick the course by name from the dropdown (e.g. *Diploma in Fashion Design and Retail Management*). It previews automatically. *(The first click can take ~30 seconds while the generator wakes up.)*
+3. Check the preview. If it shows *"✓ N repeated lessons will be removed automatically,"* that's expected and good — the system strips exact duplicate lessons for you.
+4. Under **Step 2 — Import**, choose the **Target program** and click **Import**. To refresh a course you imported before, tick **Replace existing** first.
+
+The course then appears in the **Programs** (Courses) list.
+
+> **Editing the lessons / removing repeats:** the lessons live in the **curriculum generator**, *not* in any uploaded Word file — editing a downloaded Word document won't change the app. To change lessons, edit them in the generator, then come back here and re-import with **Replace existing**. Exact-duplicate lessons (same title *and* objectives) are removed automatically on every import.
 
 To look inside a course, click it. It opens in the **course workspace** with tabs across the top:
 
