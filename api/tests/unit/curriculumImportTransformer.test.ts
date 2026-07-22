@@ -59,6 +59,31 @@ describe('curriculum import transformer', () => {
     expect(synthesized.length).toBe(moduleCount + 1);
   });
 
+  it('drops a byte-identical repeated lesson but keeps a same-title lesson with different objectives', () => {
+    const clone = structuredClone(wf);
+    const plan = clone.step10!.moduleLessonPlans![0]!;
+    const base = plan.lessons[0]!;
+    const before = transformWorkflow(clone).sessions.length;
+
+    // True duplicate: identical title + objectives, fresh id → must be skipped.
+    plan.lessons.push({
+      ...structuredClone(base),
+      lessonId: `${base.lessonId}-dup`,
+      lessonNumber: 9990,
+    });
+    // Distinct spiral lesson: same title, DIFFERENT objectives → must be kept.
+    plan.lessons.push({
+      ...structuredClone(base),
+      lessonId: `${base.lessonId}-var`,
+      lessonNumber: 9991,
+      objectives: [...(base.objectives ?? []), 'A genuinely distinct objective for this lesson.'],
+    });
+
+    const out2 = transformWorkflow(clone);
+    expect(out2.sessions.length).toBe(before + 1); // dup dropped, variant kept
+    expect(out2.warnings.some((w) => /identical title and objectives/i.test(w))).toBe(true);
+  });
+
   it('produces a Material (slides) per PPT deck attached to the right session', () => {
     const totalDecks = (wf.step11?.modulePPTDecks ?? []).reduce(
       (sum, g) => sum + g.pptDecks.length,

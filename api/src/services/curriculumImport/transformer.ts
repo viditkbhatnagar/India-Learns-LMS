@@ -188,6 +188,11 @@ function slugify(s: string): string {
     .slice(0, 60);
 }
 
+// Normalized lesson title for duplicate detection (case/spacing-insensitive).
+function normalizeTitle(s: string | null | undefined): string {
+  return (s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 function safeCodePoint(n: number): string {
   try {
     return Number.isFinite(n) ? String.fromCodePoint(n) : '';
@@ -741,6 +746,14 @@ export function transformWorkflow(w: Workflow): TransformedImport {
   const highestLessonNumberByModule = new Map<string, number>();
   const seenPlanModules = new Set<string>();
   const seenLessonIds = new Set<string>();
+  // Collapse lessons that are a byte-for-byte repeat of an earlier lesson in
+  // the same module — same title AND same objectives. The generator sometimes
+  // pads a module by re-emitting an identical lesson under a fresh lessonId,
+  // which the lessonId dedup below can't catch. We deliberately key on
+  // title+objectives (NOT title alone): a spiral curriculum legitimately
+  // reuses a title across lessons that have DIFFERENT objectives, and those
+  // must be kept as distinct lessons.
+  const seenContentKeys = new Set<string>();
 
   for (const plan of lessonPlans) {
     if (!moduleByKey.has(plan.moduleId)) {
@@ -764,7 +777,16 @@ export function transformWorkflow(w: Workflow): TransformedImport {
         );
         continue;
       }
+      const normTitle = normalizeTitle(lesson.lessonTitle);
+      const contentKey = `${plan.moduleId}::${normTitle}::${JSON.stringify(lesson.objectives ?? [])}`;
+      if (normTitle && seenContentKeys.has(contentKey)) {
+        warnings.push(
+          `Duplicate lesson "${lesson.lessonTitle}" in module ${plan.moduleId} — skipped (identical title and objectives as an earlier lesson).`,
+        );
+        continue;
+      }
       seenLessonIds.add(lesson.lessonId);
+      seenContentKeys.add(contentKey);
       sessions.push(transformSession(lesson, plan.moduleId, warnings));
       lessonIdToModuleKey.set(lesson.lessonId, plan.moduleId);
       if (lesson.lessonNumber > high) high = lesson.lessonNumber;
