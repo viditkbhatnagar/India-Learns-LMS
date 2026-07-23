@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import { HttpError } from '../middleware/error.js';
+import { flexibleDateSchema } from '../utils/date.js';
 import {
   createBatch,
   deleteBatch,
@@ -17,8 +18,9 @@ const BatchStatusEnum = z.enum(['planned', 'active', 'completed', 'archived']);
 const CreateBody = z.object({
   programId: z.string().min(1),
   name: z.string().min(1).max(160),
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
+  // Forgiving: accepts a date-only value (what the date picker sends) or ISO.
+  startDate: flexibleDateSchema,
+  endDate: flexibleDateSchema,
   capacity: z.coerce.number().int().positive().optional(),
   status: BatchStatusEnum.optional(),
   coordinators: z.array(z.string()).max(20).optional(),
@@ -26,8 +28,8 @@ const CreateBody = z.object({
 
 const UpdateBody = z.object({
   name: z.string().min(1).max(160).optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  startDate: flexibleDateSchema.optional(),
+  endDate: flexibleDateSchema.optional(),
   capacity: z.coerce.number().int().positive().optional(),
   status: BatchStatusEnum.optional(),
   coordinators: z.array(z.string()).max(20).optional(),

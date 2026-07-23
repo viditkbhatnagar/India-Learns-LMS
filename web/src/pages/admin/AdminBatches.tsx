@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
 import { EmptyState, ErrorAlert, Skeleton } from '../../components/ui/States.js';
 import { batchesApi, programsApi } from '../../lib/endpoints.js';
+import { apiErrorMessage } from '../../lib/api.js';
 
 export function AdminBatchesPage() {
   const qc = useQueryClient();
@@ -21,14 +22,13 @@ export function AdminBatchesPage() {
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
-    mutationFn: () =>
-      batchesApi.create({ name, programId, capacity, startDate, endDate: endDate || startDate }),
+    mutationFn: () => batchesApi.create({ name, programId, capacity, startDate, endDate }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'batches'] });
       setName('');
       setEndDate('');
     },
-    onError: (e) => setError((e as Error).message),
+    onError: (e) => setError(apiErrorMessage(e, 'Could not create the batch.')),
   });
 
   return (
@@ -44,8 +44,11 @@ export function AdminBatchesPage() {
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
-            if (!name || !programId) return setError('Name and program required.');
-            create.mutate();
+            if (!name || !programId) return setError('Please enter a name and pick a program.');
+            if (!startDate) return setError('Please pick a Start date.');
+            if (!endDate) return setError('Please pick an End date (all three of day, month and year).');
+            if (endDate <= startDate) return setError('End date must be after the Start date.');
+            return create.mutate();
           }}
           className="grid grid-cols-1 sm:grid-cols-2 gap-3"
         >
@@ -81,7 +84,14 @@ export function AdminBatchesPage() {
             onChange={(e) => setStartDate(e.target.value)}
             required
           />
-          <Input label="End date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <Input
+            label="End date"
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(e) => setEndDate(e.target.value)}
+            required
+          />
           <div className="sm:col-span-2 flex justify-between items-center">
             {error && <p className="text-danger text-sm">{error}</p>}
             <Button type="submit" loading={create.isPending} className="ml-auto">

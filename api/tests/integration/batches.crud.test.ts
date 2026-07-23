@@ -43,6 +43,23 @@ describe('batches CRUD', () => {
     expect(patched.body.data.batch.status).toBe('active');
   });
 
+  it('accepts date-only startDate/endDate (what the date picker sends)', async () => {
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    const program = await makeProgram();
+    const res = await http()
+      .post('/v1/batches')
+      .set(bearer(at))
+      .send({
+        programId: program._id.toString(),
+        name: 'Fashion Batch — date-only',
+        startDate: '2026-07-23', // no time component — previously bounced
+        endDate: '2026-11-30',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.batch.startDate).toContain('2026-07-23');
+  });
+
   it('validates endDate > startDate', async () => {
     const { user: admin } = await makeAdmin();
     const at = await tokenFor(admin);
