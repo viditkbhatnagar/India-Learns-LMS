@@ -8,6 +8,25 @@ import {
   previewImport,
   runImport,
 } from '../services/curriculumImport/index.js';
+import { ingestLessonPlan } from '../services/curriculumImport/lessonIngest.js';
+
+const IngestLessonBody = z.object({
+  title: z.string().min(1).max(240),
+  plannedMinutes: z.number().int().min(0).max(600).nullable().optional(),
+  description: z.string().max(8000).optional(),
+  objectives: z.array(z.string().max(2000)).max(60).optional(),
+});
+const IngestModuleBody = z.object({
+  title: z.string().min(1).max(200),
+  lessons: z.array(IngestLessonBody).max(500),
+});
+const IngestLessonsBody = z.object({
+  programId: z.string().min(1),
+  name: z.string().min(1).max(200),
+  slug: z.string().max(200).optional(),
+  courseId: z.string().optional(),
+  modules: z.array(IngestModuleBody).min(1).max(60),
+});
 
 const PreviewQuery = z.object({
   workflowId: z.string().min(1),
@@ -31,6 +50,22 @@ export function curriculumImportRouter(): Router {
       try {
         const result = await checkGeneratorHealth();
         res.json({ data: result });
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // Ingest a hand-finalized lesson plan (structured modules/lessons parsed
+  // from a Word document) — creates a new course or replaces an existing
+  // course's lessons wholesale.
+  router.post(
+    '/lessons',
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const body = IngestLessonsBody.parse(req.body);
+        const result = await ingestLessonPlan(body, req.auth!);
+        res.status(201).json({ data: result });
       } catch (err) {
         next(err);
       }
