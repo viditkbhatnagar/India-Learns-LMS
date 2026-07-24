@@ -298,3 +298,8 @@ Live task list. Update at every session start (mark new) and every session end (
 
 ### Post-M10 — Add lesson manually — DONE 2026-07-22 (D-119)
 - [x] POST /v1/courses/:id/sessions (createSession); faculty-gated; manual lessons (sourceLessonId=null) survive re-import. Content-tab "+ Add lesson" form. Faculty guide §5. Commit b39a89b.
+
+### Post-M10 — Word lesson-plan ingest + self-serve upload — DONE 2026-07-23 (D-121)
+- [x] Parser + built-in docx extractor (no mammoth); ingest create/replace endpoint + upload UI. Commits 358c6fd, bb664d1.
+- [x] Ingested both docs on prod: Digital Fashion created (214), Fashion Design replaced 279->214. Both sandbox.
+- [ ] FOLLOW-UP: assign a teaching faculty + publish the two fashion courses (currently sandbox).

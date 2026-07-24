@@ -80,9 +80,16 @@ Click **Programs** in the left menu (the item just under *Add & View Programs*).
 3. Check the preview. If it shows *"✓ N repeated lessons will be removed automatically,"* that's expected and good — the system strips exact duplicate lessons for you.
 4. Under **Step 2 — Import**, choose the **Target program** and click **Import**. To refresh a course you imported before, tick **Replace existing** first.
 
-The course then appears in the **Programs** (Courses) list.
+The course then appears in the **Programs** (Courses) list. Repeated lessons (same title *and* objectives) are removed automatically on every import.
 
-> **Editing the lessons / removing repeats:** the lessons live in the **curriculum generator**, *not* in any uploaded Word file — editing a downloaded Word document won't change the app. To change lessons, edit them in the generator, then come back here and re-import with **Replace existing**. Exact-duplicate lessons (same title *and* objectives) are removed automatically on every import.
+**Prefer your own finalized Word lesson plan?** On the same **Curriculum import** screen, use **Upload a finalized lesson plan (Word)**:
+
+1. Choose your **.docx** file — it instantly shows how many modules and lessons it read.
+2. Pick the **Target program**.
+3. Choose **Create a new course** (give it a name) *or* **Replace an existing course** (pick it from the list).
+4. Click **Create course** / **Replace lessons**.
+
+The document becomes the source — the app rebuilds the course's modules and lessons from your file exactly (your edits and de-duplication are kept as-is). This is the way to get a hand-edited lesson plan into the app; a re-import from the generator would overwrite it, so keep such courses on the upload path.
 
 To look inside a course, click it. It opens in the **course workspace** with tabs across the top:
 

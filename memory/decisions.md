@@ -935,3 +935,17 @@ Lessons could only arrive via curriculum import. Added `POST /v1/courses/:course
 
 ## D-120 — Batch create date-only fix (2026-07-23)
 "Create batch" always failed with "Request failed validation": the web date picker sends date-only (`YYYY-MM-DD`) but the route used `z.string().datetime()` (requires a full timestamp). Added `flexibleDateSchema` (`api/src/utils/date.ts`, accepts date-only OR ISO → normalizes to ISO); batches create/update use it. Web `AdminBatches`: End date now `required` (was defaulting to start → "endDate must be after startDate"), added client checks, errors via `apiErrorMessage`. Part of the ongoing forgiving-input pattern ([[forgiving-input-and-guides]], D-115). Commit `b4e3fe4`.
+
+## D-121 — Ingest hand-finalized lesson plans (Word) + self-serve upload (2026-07-23)
+
+**Why:** Athira finalizes lesson plans in Word (de-dups the generator's bloat to ~214 lessons). The generator (422) can't reproduce her cut, and Digital Fashion's workflow is incomplete (step 9) so it can't be generator-imported at all. The Word file had to become a real source into the app.
+
+**Built (commits `358c6fd`, `bb664d1`):**
+- `lessonPlanParser.ts` — text → modules/lessons. Handles `MOD101:`/`M1:` module headings + `Lesson N:` lines; **colon-only** separator (a hyphen let `M1-LO1:` MLO codes in a lesson body masquerade as modules — that was the first bug). Lesson body → description; `Duration: N minutes` → plannedMinutes.
+- `docxExtract.ts` — **built-in** .docx→text (node:zlib zip reader + `word/document.xml`, one line per `<w:p>`). No mammoth dep (noted in `DEPENDENCY_REQUEST.md`). Validated on both real decks: 8 modules / 214 lessons each.
+- `ingestLessonPlan()` — create a new sandbox course OR **replace** an existing course wholesale (wipes modules/sessions/materials/assignments, rebuilds). Lessons: `sourceLessonId=null`, `synthesized=false`; course `sourceWorkflowId` nulled → detached from the generator so a re-import can't clobber it.
+- Endpoints (superadmin): `POST /v1/curriculum-import/lessons` (structured JSON), `/parse-file` (preview counts), `/lessons-file` (upload → create/replace). UI: **"Upload a finalized lesson plan (Word)"** card on Curriculum import (auto-preview → pick program → create-new/replace → confirm).
+
+**Prod result (one-off):** Digital Fashion **created** (course `6a63610f…`, 8 mod / 214 lessons) under its existing program `6a61ca8b…`; Fashion Design **replaced** `6a6078a2…` **279 → 214**. Both sandbox. Full suite 680 pass.
+
+Key insight for the future: for doc-sourced courses, use the **upload** path, not the generator re-import (which would overwrite). See [[curriculum-import]].
