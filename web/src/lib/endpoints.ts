@@ -1402,6 +1402,35 @@ export const curriculumImportApi = {
     );
     return res.data.data;
   },
+  async parseFile(file: File): Promise<{
+    suggestedName: string;
+    moduleCount: number;
+    lessonCount: number;
+    modules: { title: string; lessons: number }[];
+  }> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await api.post<{
+      data: { suggestedName: string; moduleCount: number; lessonCount: number; modules: { title: string; lessons: number }[] };
+    }>('/curriculum-import/parse-file', form, { headers: { 'content-type': 'multipart/form-data' } });
+    return res.data.data;
+  },
+  async ingestFile(
+    file: File,
+    input: { programId: string; name: string; courseId?: string },
+  ): Promise<{ courseId: string; created: boolean; modules: number; lessons: number }> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('programId', input.programId);
+    form.append('name', input.name);
+    if (input.courseId) form.append('courseId', input.courseId);
+    const res = await api.post<{ data: { courseId: string; created: boolean; modules: number; lessons: number } }>(
+      '/curriculum-import/lessons-file',
+      form,
+      { headers: { 'content-type': 'multipart/form-data' } },
+    );
+    return res.data.data;
+  },
 };
 
 export const adminEnrollmentsApi = {
