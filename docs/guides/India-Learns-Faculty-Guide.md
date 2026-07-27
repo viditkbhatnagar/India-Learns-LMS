@@ -74,7 +74,15 @@ You can upload material for the courses you're assigned to teach.
 4. Fill in the **Title**, choose the **Type** (**Video**, **PDF**, **Reading**, **Link**, **File**), then **drag your PowerPoint / PDF** into the box (*up to 25 MB*) or paste a **URL**.
 5. Click **Add material**.
 
-**To add a whole new lesson (topic):** on the **Content** tab, open a module and click **+ Add lesson** — type a title (and minutes, if you like), then **Add lesson**. It's added to the bottom of that module and stays there even if the curriculum is re-imported later.
+**To edit the course structure**, use the **Content** tab — everything is done here, you never need another system:
+
+- **Add a lesson:** open a module and click **+ Add lesson** (title, and minutes if you like).
+- **Rename or delete a lesson:** hover the lesson row and click **rename** or **delete**.
+- **Add a module:** click **+ Add module** at the bottom.
+- **Rename or delete a module:** use **rename module** / **delete module** under its heading (deleting a module removes its lessons too).
+- **Reorder lessons:** drag them by the handle on the left.
+
+> A lesson can't be deleted once attendance has been taken or students have submitted work — the system protects those records.
 
 When the whole course is ready for students, click **Publish course** (top of the course workspace).
 

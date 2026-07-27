@@ -965,3 +965,8 @@ Key insight for the future: for doc-sourced courses, use the **upload** path, no
 - **One-click destroy** → UI requires typing the course name, flags PUBLISHED courses in the dropdown.
 
 Commit `e68ba76`. Suite 682 pass (the 5 reds were the known `feeReminderService` MongoMemoryServer flake — 6/6 in isolation).
+
+## D-123 — Full in-app curriculum editing; LMS no longer depends on the generator (2026-07-25)
+Staff had to return to the curriculum generator to restructure a course. Closed every gap: `DELETE /v1/sessions/:id` (`deleteSession`, soft, cascades materials/assignments, new `session.deleted` audit action) and `deleteModule` now runs the same guard + **cascades** to its lessons (previously orphaned them). Shared guard `assertNoStudentWork()` → 409 `SESSION_IN_USE` when attendance or submissions exist, so curriculum edits can never strand student records. Content tab gained: rename/delete per lesson, rename/delete per module, **+ Add module** (all oversight-hidden = assigned faculty only, confirm before destroy). With D-121/D-122 (Word upload create/replace) + D-119 (+ Add lesson), the whole build-and-maintain loop is in the LMS. Commit `4e5fd28`; suite 689 pass.
+
+**Still generator-only (by design, not a gap we can close here):** the generator is a separate app — data flows generator → LMS only. PPT auto-generation (its step 11) and the generator's own copy of the syllabus live there; the LMS can't push back. If PPTs must match a trimmed plan, the generator's data has to be edited in the generator.

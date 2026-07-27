@@ -308,3 +308,7 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Faculty can upload a Word lesson plan (/faculty/lesson-plans); replace limited to their own courses; generator import still superadmin.
 - [x] Hardened the destructive replace: COURSE_IN_USE guard, soft-delete, validate-before-wipe, zip-bomb/ReDoS guards, rate limit, typed confirmation. Commit e68ba76.
 - [x] Assigned Athira to both fashion courses (faculty see only assigned courses).
+
+### Post-M10 — Full in-app curriculum editing — DONE 2026-07-25 (D-123)
+- [x] Delete lesson (soft, guarded by attendance/submissions), module delete cascades, rename lesson/module, + Add module. Commit 4e5fd28.
+- [ ] OPEN (needs a decision): the curriculum generator still holds the old 422-lesson version + generates PPTs. LMS cannot push back to it.
