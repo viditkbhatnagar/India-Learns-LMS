@@ -91,6 +91,8 @@ export interface RunImportInput {
   workflowId: string;
   programId: string;
   replace?: boolean;
+  /** Adopt + rebuild an existing course (see PersistOptions.adoptCourseId). */
+  courseId?: string;
 }
 
 export interface RunImportResult extends PersistResult {
@@ -125,6 +127,7 @@ export async function runImport(
     programId: program._id,
     importerUserId: actor.userId,
     replace: input.replace ?? false,
+    adoptCourseId: input.courseId,
   });
 
   await recordAudit({

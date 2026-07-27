@@ -62,6 +62,8 @@ const RunBody = z.object({
   workflowId: z.string().min(1),
   programId: z.string().min(1),
   replace: z.boolean().optional(),
+  /** Rebuild this existing course from the workflow instead of creating a new one. */
+  courseId: z.string().optional(),
 });
 
 export function curriculumImportRouter(): Router {

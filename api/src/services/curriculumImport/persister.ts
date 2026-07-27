@@ -1,8 +1,11 @@
-import type { Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { HttpError } from '../../middleware/error.js';
 import {
   Assignment,
+  AssignmentSubmission,
+  AttendanceRecord,
   Course,
+  Enrollment,
   Material,
   ModuleModel,
   SessionModel,
@@ -32,6 +35,15 @@ export interface PersistOptions {
   programId: Types.ObjectId;
   importerUserId: Types.ObjectId;
   replace: boolean;
+  /**
+   * Point an EXISTING course at this workflow and rebuild it from the
+   * generator. Needed for a course that was previously built from an uploaded
+   * lesson-plan document (those are detached: `sourceWorkflowId = null`), so a
+   * plain import would either duplicate the course or collide on the unique
+   * (programId, slug) index. Adopting keeps the course _id — enrolments,
+   * faculty roster and shared links all survive.
+   */
+  adoptCourseId?: string;
 }
 
 export interface PersistResult {
@@ -60,9 +72,70 @@ export async function persistImport(
   // place (preserving _id + slug + sourceWorkflowId so enrolments,
   // audit logs, and stored URLs keep working) rather than fail on the
   // programId+slug unique index.
-  const existing = await Course.findOne({
+  let existing = await Course.findOne({
     sourceWorkflowId: data.course.sourceWorkflowId,
   });
+
+  // Adoption: no course tracks this workflow yet, but the operator named an
+  // existing course to rebuild from it (typically a document-sourced course
+  // being switched back to generator tracking).
+  let adopted = false;
+  if (!existing && opts.adoptCourseId) {
+    if (!Types.ObjectId.isValid(opts.adoptCourseId)) {
+      throw new HttpError(422, 'VALIDATION_FAILED', 'courseId is not a valid id.');
+    }
+    const target = await Course.findOne({ _id: opts.adoptCourseId, deletedAt: null });
+    if (!target) throw new HttpError(404, 'NOT_FOUND', 'Course to rebuild was not found.');
+    if (!target.programId.equals(opts.programId)) {
+      throw new HttpError(
+        409,
+        'PROGRAM_MISMATCH',
+        'That course belongs to a different program than the one selected.',
+      );
+    }
+    if (target.sourceWorkflowId && target.sourceWorkflowId !== data.course.sourceWorkflowId) {
+      throw new HttpError(
+        409,
+        'COURSE_TRACKS_OTHER_WORKFLOW',
+        'That course is already linked to a different curriculum workflow.',
+      );
+    }
+
+    // Same protection as the document ingest: never rebuild a course whose
+    // students already have work riding on it.
+    const [activeEnrolments, submissions, attendance] = await Promise.all([
+      Enrollment.countDocuments({ courseId: target._id, status: 'active' }),
+      AssignmentSubmission.countDocuments({ courseId: target._id }),
+      AttendanceRecord.countDocuments({ courseId: target._id }),
+    ]);
+    if (activeEnrolments > 0 || submissions > 0 || attendance > 0) {
+      throw new HttpError(
+        409,
+        'COURSE_IN_USE',
+        'This course already has enrolled students or recorded work — rebuilding it from the generator would delete content they depend on.',
+      );
+    }
+
+    // Wipe EVERY live child, not just generator-sourced ones: the course is
+    // switching source of truth, so its document-sourced lessons (which carry
+    // no source*Id and would otherwise be preserved) must go too, or the
+    // course ends up with both sets. Soft-delete keeps it recoverable.
+    const tomb = { $set: { deletedAt: now } };
+    await Promise.all([
+      SessionModel.updateMany({ courseId: target._id, deletedAt: null }, tomb),
+      ModuleModel.updateMany({ courseId: target._id, deletedAt: null }, tomb),
+      Material.updateMany({ courseId: target._id, deletedAt: null }, tomb),
+      Assignment.updateMany({ courseId: target._id, deletedAt: null }, tomb),
+    ]);
+    target.sourceWorkflowId = data.course.sourceWorkflowId;
+    await target.save();
+    existing = target;
+    adopted = true;
+    logger.warn(
+      { courseId: String(target._id), workflowId: data.course.sourceWorkflowId },
+      'curriculum.import.adopted_course',
+    );
+  }
 
   // Soft-deleted records signal "I want a fresh import" more strongly
   // than the replace=true flag does, so trigger the replace path
@@ -75,7 +148,7 @@ export async function persistImport(
   // want their import to land. Surface the auto-recovery in warnings so
   // the audit trail is honest.
   const autoRepair = Boolean(existing && existing.lastSyncedAt === null);
-  const effectiveReplace = opts.replace || autoRepair || revivingDeleted;
+  const effectiveReplace = opts.replace || autoRepair || revivingDeleted || adopted;
 
   if (existing && !effectiveReplace) {
     return {
@@ -99,6 +172,11 @@ export async function persistImport(
       logger.warn(
         { courseId: String(existing._id), workflowId: data.course.sourceWorkflowId },
         'curriculum.import.auto_repair',
+      );
+    }
+    if (adopted) {
+      recoveryWarnings.push(
+        'Rebuilt an existing course from this workflow: its previous content was archived and the course is now tracking the generator again (same course id, enrolments and faculty preserved).',
       );
     }
     if (revivingDeleted) {

@@ -4,7 +4,7 @@ import '../helpers/env.js';
 import { useMongo } from '../helpers/db.js';
 import { useIntegrationSpies } from '../helpers/integrations.js';
 import { makeProgram } from '../helpers/factories.js';
-import { Course, ModuleModel } from '../../src/models/index.js';
+import { Course, ModuleModel, SessionModel } from '../../src/models/index.js';
 import { persistImport } from '../../src/services/curriculumImport/persister.js';
 import type { TransformedImport } from '../../src/services/curriculumImport/transformer.js';
 
@@ -125,5 +125,71 @@ describe('curriculum import — revive after soft-delete', () => {
     // Course name unchanged because replace=true wasn't passed.
     const after = await Course.findById(second.courseId);
     expect(after?.name).toBe('Diploma in Airline and Airport Management');
+  });
+});
+
+describe('curriculum import — adopt an existing (document-sourced) course', () => {
+  useMongo();
+  useIntegrationSpies();
+
+  it('rebuilds a detached course in place: same _id, faculty kept, old lessons archived', async () => {
+    const program = await makeProgram();
+    const actor = { actorUserId: new Types.ObjectId(), ip: '127.0.0.1', ua: 'vitest' };
+
+    // A course built from an uploaded document: no sourceWorkflowId, and its
+    // lessons carry no source ids (so a normal import would NOT clear them).
+    const facultyId = new Types.ObjectId();
+    const docCourse = await Course.create({
+      programId: program._id,
+      name: 'Doc-sourced course',
+      slug: 'doc-sourced-course',
+      state: 'sandbox',
+      facultyIds: [facultyId],
+      sourceWorkflowId: null,
+      lastSyncedAt: new Date(),
+    });
+    const docModule = await ModuleModel.create({
+      courseId: docCourse._id, title: 'From the Word file', order: 0, content: [],
+    });
+    await SessionModel.create({
+      moduleId: docModule._id, courseId: docCourse._id, number: 1,
+      title: 'Doc lesson', sourceLessonId: null, synthesized: false,
+    });
+
+    const res = await persistImport(fixture(), {
+      programId: program._id,
+      replace: false, // adoption alone must force the rebuild
+      actor,
+      adoptCourseId: String(docCourse._id),
+    });
+
+    expect(String(res.courseId)).toBe(String(docCourse._id)); // same course
+    expect(res.created.course).toBe(false);
+
+    const after = await Course.findById(docCourse._id);
+    expect(after!.sourceWorkflowId).toBe(fixture().course.sourceWorkflowId); // now tracked
+    expect(after!.facultyIds.map(String)).toEqual([String(facultyId)]); // roster kept
+
+    // the document lessons are archived, not sitting alongside the new ones
+    const liveSessions = await SessionModel.find({ courseId: docCourse._id, deletedAt: null });
+    expect(liveSessions.every((s) => s.sourceLessonId !== null || s.synthesized)).toBe(true);
+    const archived = await SessionModel.countDocuments({
+      courseId: docCourse._id, deletedAt: { $ne: null },
+    });
+    expect(archived).toBe(1);
+  });
+
+  it('refuses to adopt a course from a different program', async () => {
+    const programA = await makeProgram();
+    const programB = await makeProgram();
+    const actor = { actorUserId: new Types.ObjectId(), ip: '127.0.0.1', ua: 'vitest' };
+    const other = await Course.create({
+      programId: programB._id, name: 'Elsewhere', slug: 'elsewhere', state: 'sandbox',
+    });
+    await expect(
+      persistImport(fixture(), {
+        programId: programA._id, replace: true, actor, adoptCourseId: String(other._id),
+      }),
+    ).rejects.toThrow(/different program/i);
   });
 });
