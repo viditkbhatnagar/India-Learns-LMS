@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import {
   createSession,
+  deleteSession,
   getSessionDetail,
   listSessionsForBatchOnDate,
   listSessionsForCourse,
@@ -131,6 +132,18 @@ export function sessionsRouter(): Router {
     try {
       const body = UpdateBody.parse(req.body);
       const session = await updateSession(req.auth!, req.params.id ?? '', body, {
+        ip: req.ip ?? '',
+        ua: req.header('user-agent') ?? '',
+      });
+      res.json({ data: { session: toSessionDto(session) } });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.delete('/:id', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const session = await deleteSession(req.auth!, req.params.id ?? '', {
         ip: req.ip ?? '',
         ua: req.header('user-agent') ?? '',
       });

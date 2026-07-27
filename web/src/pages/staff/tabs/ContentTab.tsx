@@ -225,6 +225,7 @@ export function CourseContentTab({ courseId }: { courseId: string }): JSX.Elemen
                       {isCollapsed ? '▸' : '▾'}
                     </span>
                   </button>
+                  <ModuleRowActions module={m} courseId={courseId} lessonCount={list.length} />
                   {!isCollapsed && (
                     <div className="border-t border-black/5">
                       <ModuleOverviewPanel module={m} />
@@ -250,7 +251,137 @@ export function CourseContentTab({ courseId }: { courseId: string }): JSX.Elemen
           </ul>
         </SortableContext>
       </DndContext>
+      <AddModuleForm courseId={courseId} nextOrder={modules.length} />
     </div>
+  );
+}
+
+/** Rename / delete a module, inline in its header row. */
+function ModuleRowActions({
+  module: m,
+  courseId,
+  lessonCount,
+}: {
+  module: ModuleDto;
+  courseId: string;
+  lessonCount: number;
+}): JSX.Element | null {
+  const qc = useQueryClient();
+  const { isOversight } = useCourseOversight();
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(m.title);
+  const [err, setErr] = useState<string | null>(null);
+
+  const refresh = (): void => {
+    qc.invalidateQueries({ queryKey: ['course', courseId, 'shell'] });
+    qc.invalidateQueries({ queryKey: ['course', courseId, 'sessions'] });
+  };
+  const renameMut = useMutation({
+    mutationFn: () => modulesApi.update(m.id, { title: draft.trim() }),
+    onSuccess: () => { setRenaming(false); setErr(null); refresh(); },
+    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Rename failed.'),
+  });
+  const deleteMut = useMutation({
+    mutationFn: () => modulesApi.remove(m.id),
+    onSuccess: () => { setErr(null); refresh(); },
+    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Delete failed.'),
+  });
+
+  if (isOversight) return null;
+  return (
+    <div className="px-5 pb-2 -mt-1 flex items-center gap-2 text-xs">
+      {renaming ? (
+        <form
+          className="flex items-center gap-2 flex-1"
+          onSubmit={(e) => { e.preventDefault(); if (draft.trim()) renameMut.mutate(); }}
+        >
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            autoFocus
+            className="flex-1 h-9 px-2.5 rounded-lg border border-black/15 focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
+          />
+          <Button type="submit" size="sm" loading={renameMut.isPending}>Save</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setRenaming(false)}>Cancel</Button>
+        </form>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => { setDraft(m.title); setRenaming(true); }}
+            className="text-muted hover:text-brand-navy hover:underline"
+          >
+            rename module
+          </button>
+          <button
+            type="button"
+            disabled={deleteMut.isPending}
+            onClick={() => {
+              if (window.confirm(`Delete the module "${m.title}" and its ${lessonCount} lesson(s)?`)) {
+                deleteMut.mutate();
+              }
+            }}
+            className="text-danger hover:underline disabled:opacity-50"
+          >
+            delete module
+          </button>
+        </>
+      )}
+      {err && <span className="text-danger">{err}</span>}
+    </div>
+  );
+}
+
+/** Add a module to the course. */
+function AddModuleForm({ courseId, nextOrder }: { courseId: string; nextOrder: number }): JSX.Element | null {
+  const qc = useQueryClient();
+  const { isOversight } = useCourseOversight();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  const createMut = useMutation({
+    mutationFn: () => modulesApi.createOnCourse(courseId, { title: title.trim(), order: nextOrder }),
+    onSuccess: () => {
+      setTitle(''); setOpen(false); setErr(null);
+      qc.invalidateQueries({ queryKey: ['course', courseId, 'shell'] });
+    },
+    onError: (e) => setErr(e instanceof ApiHttpError ? e.message : 'Could not add the module.'),
+  });
+
+  if (isOversight) return null;
+  if (!open) {
+    return (
+      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+        + Add module
+      </Button>
+    );
+  }
+  return (
+    <form
+      className="rounded-2xl border border-black/5 bg-white p-4 space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setErr(null);
+        if (!title.trim()) { setErr('Give the module a title.'); return; }
+        createMut.mutate();
+      }}
+    >
+      <Input
+        label="Module title"
+        placeholder="e.g. Retail Operations and Compliance"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        autoFocus
+      />
+      {err && <p className="text-danger text-sm">{err}</p>}
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" loading={createMut.isPending}>Add module</Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => { setOpen(false); setTitle(''); setErr(null); }}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -705,6 +836,30 @@ function SortableSessionRow({
   session: SessionDto;
   courseId: string;
 }): JSX.Element {
+  const qc = useQueryClient();
+  const { isOversight } = useCourseOversight();
+  const [renaming, setRenaming] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(session.title);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  const renameMut = useMutation({
+    mutationFn: () => sessionsApi.update(session.id, { title: draftTitle.trim() }),
+    onSuccess: () => {
+      setRenaming(false);
+      setRowError(null);
+      qc.invalidateQueries({ queryKey: ['course', courseId, 'sessions'] });
+    },
+    onError: (e) => setRowError(e instanceof ApiHttpError ? e.message : 'Rename failed.'),
+  });
+  const deleteMut = useMutation({
+    mutationFn: () => sessionsApi.remove(session.id),
+    onSuccess: () => {
+      setRowError(null);
+      qc.invalidateQueries({ queryKey: ['course', courseId, 'sessions'] });
+    },
+    onError: (e) => setRowError(e instanceof ApiHttpError ? e.message : 'Delete failed.'),
+  });
+
   const draggable = !session.isAutoGenerated;
   const sortable = useSortable({ id: session.id, disabled: !draggable });
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable;
@@ -746,6 +901,21 @@ function SortableSessionRow({
           <circle cx="10" cy="13" r="1.2" fill="currentColor" />
         </svg>
       </button>
+      {renaming ? (
+        <form
+          className="flex-1 min-w-0 flex items-center gap-2"
+          onSubmit={(e) => { e.preventDefault(); if (draftTitle.trim()) renameMut.mutate(); }}
+        >
+          <input
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            autoFocus
+            className="flex-1 min-w-0 h-9 px-2.5 rounded-lg border border-black/15 focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
+          />
+          <Button type="submit" size="sm" loading={renameMut.isPending}>Save</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setRenaming(false)}>Cancel</Button>
+        </form>
+      ) : (
       <Link
         to={`/courses/${courseId}/sessions/${session.id}`}
         className="flex-1 min-w-0 flex items-center gap-3"
@@ -761,9 +931,34 @@ function SortableSessionRow({
           <span className="text-xs text-muted shrink-0">{session.plannedMinutes} min</span>
         )}
       </Link>
+      )}
       <Badge tone={statusTone} size="sm">
         {session.status === 'in_progress' ? 'in progress' : session.status}
       </Badge>
+      {!isOversight && !session.isAutoGenerated && (
+        <span className="shrink-0 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => { setDraftTitle(session.title); setRenaming(true); }}
+            className="text-xs text-muted hover:text-brand-navy hover:underline"
+          >
+            rename
+          </button>
+          <button
+            type="button"
+            disabled={deleteMut.isPending}
+            onClick={() => {
+              if (window.confirm(`Delete the lesson "${session.title}"? Its materials go with it.`)) {
+                deleteMut.mutate();
+              }
+            }}
+            className="text-xs text-danger hover:underline disabled:opacity-50"
+          >
+            delete
+          </button>
+        </span>
+      )}
+      {rowError && <span className="text-xs text-danger">{rowError}</span>}
     </li>
   );
 }

@@ -504,6 +504,44 @@ describe('Phase B-2 — session lifecycle', () => {
       expect(res.status).toBe(403);
     });
 
+    it('deletes a lesson (soft) and takes its materials with it', async () => {
+      const { faculty, course, moduleA, sessions } = await buildCourseModuleSessions();
+      const t = await tokenFor(faculty);
+      const res = await http()
+        .delete(`/v1/sessions/${sessions.sA0._id.toString()}`)
+        .set(bearer(t));
+      expect(res.status).toBe(200);
+      // gone from the live tree, but recoverable
+      expect(await SessionModel.countDocuments({ moduleId: moduleA._id, deletedAt: null })).toBe(2);
+      const dead = await SessionModel.findById(sessions.sA0._id);
+      expect(dead!.deletedAt).not.toBeNull();
+      expect(await SessionModel.countDocuments({ courseId: course._id })).toBe(5); // nothing destroyed
+    });
+
+    it('REFUSES to delete a lesson once attendance has been taken', async () => {
+      const { faculty, course, batch, program, sessions } = await buildCourseModuleSessions();
+      const { user: student } = await makeStudent();
+      await makeEnrollment({
+        studentId: student._id,
+        batchId: batch._id,
+        courseId: course._id,
+        programId: program._id,
+      });
+      const t = await tokenFor(faculty);
+      await http()
+        .post(`/v1/sessions/${sessions.sA0._id.toString()}/attendance`)
+        .set(bearer(t))
+        .send({ records: [{ studentId: student._id.toString(), status: 'present' }] });
+
+      const res = await http()
+        .delete(`/v1/sessions/${sessions.sA0._id.toString()}`)
+        .set(bearer(t));
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('SESSION_IN_USE');
+      const still = await SessionModel.findById(sessions.sA0._id);
+      expect(still!.deletedAt).toBeNull();
+    });
+
     it('rejects a student (not staff)', async () => {
       const { course, moduleA } = await buildCourseModuleSessions();
       const { user: student } = await makeStudent();

@@ -636,6 +636,81 @@ export async function createSession(
 }
 
 /**
+ * Guard shared by lesson + module deletion: refuse to remove teaching content
+ * once it carries student work, so attendance and graded submissions can never
+ * be stranded by a curriculum edit.
+ */
+async function assertNoStudentWork(sessionIds: Types.ObjectId[]): Promise<void> {
+  if (sessionIds.length === 0) return;
+  const attendance = await AttendanceRecord.countDocuments({ sessionId: { $in: sessionIds } });
+  if (attendance > 0) {
+    throw new HttpError(
+      409,
+      'SESSION_IN_USE',
+      `Attendance has already been taken (${attendance} record(s)). Delete the attendance first, or keep the lesson.`,
+    );
+  }
+  const assignments = await Assignment.find({
+    sessionId: { $in: sessionIds },
+    deletedAt: null,
+  }).select('_id');
+  if (assignments.length > 0) {
+    const { AssignmentSubmission } = await import('../models/index.js');
+    const submissions = await AssignmentSubmission.countDocuments({
+      assignmentId: { $in: assignments.map((a) => a._id) },
+    });
+    if (submissions > 0) {
+      throw new HttpError(
+        409,
+        'SESSION_IN_USE',
+        `Students have already submitted work here (${submissions} submission(s)). It can't be deleted.`,
+      );
+    }
+  }
+}
+
+/** Soft-delete a lesson (and its materials/assignments). Reversible in the DB. */
+export async function deleteSession(
+  actor: AuthContext,
+  sessionId: string,
+  ctx: ActorCtx,
+): Promise<HydratedSession> {
+  const session = await loadSessionForStaff(actor, sessionId);
+  await assertFacultyCanWriteCourse(actor.userId, actor.role, session.courseId);
+  await assertNoStudentWork([session._id]);
+
+  const before = session.toObject();
+  const now = new Date();
+  session.deletedAt = now;
+  await session.save();
+  await Promise.all([
+    Material.updateMany({ sessionId: session._id, deletedAt: null }, { $set: { deletedAt: now } }),
+    Assignment.updateMany({ sessionId: session._id, deletedAt: null }, { $set: { deletedAt: now } }),
+  ]);
+
+  await recordAudit({
+    actorUserId: actor.userId,
+    action: 'session.deleted',
+    targetType: 'Session',
+    targetId: session._id,
+    before,
+    after: session.toObject(),
+    details: { courseId: String(session.courseId), moduleId: String(session.moduleId) },
+    ip: ctx.ip,
+    ua: ctx.ua,
+  });
+  return session;
+}
+
+/** Sessions of a module + the shared student-work guard — used by module delete. */
+export async function assertModuleDeletable(moduleId: Types.ObjectId): Promise<Types.ObjectId[]> {
+  const sessions = await SessionModel.find({ moduleId, deletedAt: null }).select('_id');
+  const ids = sessions.map((s) => s._id);
+  await assertNoStudentWork(ids);
+  return ids;
+}
+
+/**
  * Renumber a single session into a target module + position. Sessions in
  * the source module shift down to fill the gap; sessions in the target
  * module shift up to make room. Done as a multi-write under no transaction

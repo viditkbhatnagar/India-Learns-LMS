@@ -435,9 +435,23 @@ export async function deleteModule(
       throw new HttpError(403, 'FORBIDDEN', 'Not assigned to this course.');
     }
   }
+  // Refuse if the module's lessons already carry student work, then cascade
+  // the soft-delete to its lessons/materials/assignments so nothing is left
+  // orphaned behind a deleted module.
+  const { assertModuleDeletable } = await import('./sessionService.js');
+  const sessionIds = await assertModuleDeletable(doc._id);
   const before = doc.toObject();
-  doc.deletedAt = new Date();
+  const now = new Date();
+  doc.deletedAt = now;
   await doc.save();
+  if (sessionIds.length > 0) {
+    const { SessionModel, Material, Assignment } = await import('../models/index.js');
+    await Promise.all([
+      SessionModel.updateMany({ _id: { $in: sessionIds } }, { $set: { deletedAt: now } }),
+      Material.updateMany({ sessionId: { $in: sessionIds }, deletedAt: null }, { $set: { deletedAt: now } }),
+      Assignment.updateMany({ sessionId: { $in: sessionIds }, deletedAt: null }, { $set: { deletedAt: now } }),
+    ]);
+  }
   await recordAudit({
     actorUserId: actor.actorUserId,
     action: 'module.deleted',

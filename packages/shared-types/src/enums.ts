@@ -350,6 +350,7 @@ export const AUDIT_ACTIONS = [
   'curriculum.imported',
   // Phase B-2 — Course→Module→Session tree
   'session.created',
+  'session.deleted',
   'session.completed',
   'session.uncompleted',
   'session.reordered',

@@ -527,6 +527,9 @@ export const modulesApi = {
     );
     return res.data.data.module;
   },
+  async remove(id: string) {
+    await api.delete(`/modules/${id}`);
+  },
 };
 
 export interface AnnouncementDto {
@@ -1315,6 +1318,10 @@ export const sessionsApi = {
   async detail(sessionId: string) {
     const res = await api.get<{ data: SessionDetailDto }>(`/sessions/${sessionId}`);
     return res.data.data;
+  },
+  async remove(sessionId: string) {
+    const res = await api.delete<{ data: { session: SessionDto } }>(`/sessions/${sessionId}`);
+    return res.data.data.session;
   },
   async update(
     sessionId: string,
