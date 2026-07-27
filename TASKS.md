@@ -312,3 +312,8 @@ Live task list. Update at every session start (mark new) and every session end (
 ### Post-M10 — Full in-app curriculum editing — DONE 2026-07-25 (D-123)
 - [x] Delete lesson (soft, guarded by attendance/submissions), module delete cascades, rename lesson/module, + Add module. Commit 4e5fd28.
 - [ ] OPEN (needs a decision): the curriculum generator still holds the old 422-lesson version + generates PPTs. LMS cannot push back to it.
+
+### Post-M10 — Generator fixed + courses rebuilt — DONE 2026-07-25 (D-124)
+- [x] Import adoption (courseId) so a doc-sourced course can be rebuilt from the generator in place. Commit 4caf723.
+- [x] Both fashion courses rebuilt: 214 lessons + 9 auto sessions, slides 209/114, assignments 25 each, ids + faculty preserved.
+- [ ] OPEN (generator, Vidit): push branch fix/step10-filler-lessons or the filler defect recurs; PPT gaps (Digital 100/214 lessons have no deck); Styling programme has the same defect; generator prod has NO auth on writes.
