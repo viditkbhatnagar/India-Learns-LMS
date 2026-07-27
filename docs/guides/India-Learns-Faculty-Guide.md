@@ -22,7 +22,7 @@ Your admin will give you an **email** and a **password**.
 
 You land on your **Dashboard**. That's it — you're in.
 
-> **First time?** Once you're in, change your password (see section 9).
+> **First time?** Once you're in, change your password (see section 11).
 > **Forgot your password?** Ask your admin — they can reset it and give you a new one.
 
 ---
@@ -32,7 +32,7 @@ You land on your **Dashboard**. That's it — you're in.
 Every screen has the same frame:
 
 - **Top bar (blue):** the India Learns logo; a 🔔 bell for notifications; your name; and **Log out** on the right.
-- **Left menu (sidebar), in order:** **Dashboard, Courses, Showcase, Grading, Feedback, Timetable, Reports, Chat, Announcements** — plus **Profile** and **Notifications** near the bottom.
+- **Left menu (sidebar), in order:** **Dashboard, Courses, Lesson plans, Showcase, Grading, Feedback, Timetable, Reports, Chat, Announcements** — plus **Profile** and **Notifications** near the bottom.
 - **On a phone:** tap the **☰** (three lines) icon at the top-left to open the menu.
 
 ---
@@ -84,7 +84,23 @@ When the whole course is ready for students, click **Publish course** (top of th
 
 ---
 
-# 6. Grading
+# 6. Upload a lesson plan (Word)
+
+If you have a finalized lesson plan in Word, you can build or update your course from it — no need to type lessons one by one.
+
+1. In the left menu, click **Lesson plans**.
+2. Choose your **.docx** file. It immediately shows how many modules and lessons it found.
+3. Pick the **Target program**.
+4. Choose **Create a new course** (give it a name — it's assigned to you as a draft) *or* **Replace an existing course** (only courses you teach appear).
+5. If replacing, **type the course name to confirm**, then click the button.
+
+Your file's modules and lessons become the course, exactly as written.
+
+> **Safety:** a course that already has enrolled students, submissions or attendance is protected — the system will refuse to replace it, so live classes can't be wiped by accident. Replaced content is kept (recoverable) rather than destroyed.
+
+---
+
+# 7. Grading
 
 1. In the left menu, click **Grading**. You'll see the **Grading queue** — exam attempts waiting for you to mark the written (essay) answers.
 2. Click an attempt to open **Grade attempt**.
@@ -95,7 +111,7 @@ When the whole course is ready for students, click **Publish course** (top of th
 
 ---
 
-# 7. Feedback
+# 8. Feedback
 
 1. In the left menu, click **Feedback**.
 2. Click **New feedback**.
@@ -105,13 +121,13 @@ When the whole course is ready for students, click **Publish course** (top of th
 
 ---
 
-# 8. Timetable
+# 9. Timetable
 
 Click **Timetable** to see your weekly class schedule. It's set by the admin and updates automatically.
 
 ---
 
-# 9. Showcase — present brochures
+# 10. Showcase — present brochures
 
 If you're speaking with a prospective student, you can show the official brochures on screen:
 
@@ -121,7 +137,7 @@ If you're speaking with a prospective student, you can show the official brochur
 
 ---
 
-# 10. Your profile and password
+# 11. Your profile and password
 
 1. Click **Profile** (near the bottom of the left menu).
 2. To change your password, find the **Change password** card:

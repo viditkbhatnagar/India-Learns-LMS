@@ -303,3 +303,8 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Parser + built-in docx extractor (no mammoth); ingest create/replace endpoint + upload UI. Commits 358c6fd, bb664d1.
 - [x] Ingested both docs on prod: Digital Fashion created (214), Fashion Design replaced 279->214. Both sandbox.
 - [ ] FOLLOW-UP: assign a teaching faculty + publish the two fashion courses (currently sandbox).
+
+### Post-M10 — Faculty lesson-plan upload + hardening — DONE 2026-07-25 (D-122)
+- [x] Faculty can upload a Word lesson plan (/faculty/lesson-plans); replace limited to their own courses; generator import still superadmin.
+- [x] Hardened the destructive replace: COURSE_IN_USE guard, soft-delete, validate-before-wipe, zip-bomb/ReDoS guards, rate limit, typed confirmation. Commit e68ba76.
+- [x] Assigned Athira to both fashion courses (faculty see only assigned courses).

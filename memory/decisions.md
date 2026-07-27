@@ -949,3 +949,19 @@ Lessons could only arrive via curriculum import. Added `POST /v1/courses/:course
 **Prod result (one-off):** Digital Fashion **created** (course `6a63610f…`, 8 mod / 214 lessons) under its existing program `6a61ca8b…`; Fashion Design **replaced** `6a6078a2…` **279 → 214**. Both sandbox. Full suite 680 pass.
 
 Key insight for the future: for doc-sourced courses, use the **upload** path, not the generator re-import (which would overwrite). See [[curriculum-import]].
+
+## D-122 — Faculty lesson-plan upload + destructive-op hardening (2026-07-25)
+
+**Ask:** Athira (role `faculty`) needed the Word-upload herself. Opened `/lessons`, `/parse-file`, `/lessons-file` to faculty (per-route gates; generator endpoints `/health`, `/workflows`, `/preview`, `POST /` stay superadmin). New page `/faculty/lesson-plans` + nav; upload card extracted to `web/src/components/UploadLessonPlanCard.tsx` (shared by admin + faculty).
+
+**Rules:** faculty may replace ONLY a course in their `facultyIds` (403); may not replace a generator-sourced course (409 `COURSE_FROM_GENERATOR`); cannot rename or null `sourceWorkflowId` (superadmin-only, structural); a course they create is auto-assigned to them (else they'd own a course they can't edit). **Admins are excluded** — consistent with course-content oversight/read-only.
+
+**Adversarial review (3 lenses × refute) found 12 confirmed issues in the ALREADY-SHIPPED superadmin path — all fixed:**
+- **Replace hard-deleted a live course** (no enrolment/state check) → now 409 `COURSE_IN_USE` when active enrolments / submissions / attendance exist.
+- **Hard `deleteMany` orphaned graded submissions + attendance** → now **soft-delete** (`deletedAt`), matching `deleteCourse`/`deleteModule`; unique indexes are partial on `deletedAt:null` so re-insert doesn't collide. Audit records tombstoned counts (`before`).
+- **Wipe happened before validation** → all module/lesson titles validated up-front.
+- **Zip bomb / ReDoS in `docxExtract`** → `inflateRawSync({maxOutputLength})`, declared-size precheck, local-header bounds check, XML cap, inflate errors → 422 (not 500); `<w:t>` regex changed from lazy catch-all to linear `[^<]*`.
+- **No rate limit** → `buildLessonPlanImportLimiter()` (10/min/user) in front of both upload routes, before multer.
+- **One-click destroy** → UI requires typing the course name, flags PUBLISHED courses in the dropdown.
+
+Commit `e68ba76`. Suite 682 pass (the 5 reds were the known `feeReminderService` MongoMemoryServer flake — 6/6 in isolation).
