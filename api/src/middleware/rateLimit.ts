@@ -110,6 +110,30 @@ export function buildEntranceLoginLimiter(): RequestHandler {
 // PowerPoint is CPU/memory-bound (server-side unzip + XML scan), so cap each
 // user to blunt abuse from a compromised account. Keyed by user id, with an
 // IP fallback. Same RATE_LIMITS_DISABLED switch as the other limiters.
+/**
+ * Lesson-plan .docx upload — each request can carry a 15 MB archive that gets
+ * inflated + regex-scanned, so cap it tighter than the pptx path.
+ */
+export function buildLessonPlanImportLimiter(): RequestHandler {
+  const env = loadEnv();
+  if (env.RATE_LIMITS_DISABLED) return passthrough();
+  return rateLimit({
+    windowMs: 60_000,
+    max: 10,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => req.auth?.userId?.toString() ?? req.ip ?? 'unknown',
+    handler: (_req, res) => {
+      res.status(429).json({
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many lesson-plan uploads — try again in a minute.',
+        },
+      });
+    },
+  });
+}
+
 export function buildPptxImportLimiter(): RequestHandler {
   const env = loadEnv();
   if (env.RATE_LIMITS_DISABLED) return passthrough();

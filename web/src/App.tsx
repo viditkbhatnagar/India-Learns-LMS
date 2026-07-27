@@ -100,6 +100,7 @@ import { FacultyGradingDetailPage } from './pages/faculty/FacultyGradingDetail.j
 import { FacultyFeedbackPage } from './pages/faculty/FacultyFeedback.js';
 import { FacultyFeedbackNewPage } from './pages/faculty/FacultyFeedbackNew.js';
 import { FacultyTimetablePage } from './pages/faculty/FacultyTimetable.js';
+import { FacultyLessonPlanPage } from './pages/faculty/FacultyLessonPlan.js';
 import { BatchAttendancePage } from './pages/faculty/BatchAttendance.js';
 
 // Shared
@@ -501,6 +502,7 @@ export function App() {
                       path="courses/:courseId/assignments/:assignmentId/grading"
                       element={<RedirectAssignmentGrading />}
                     />
+                    <Route path="lesson-plans" element={<FacultyLessonPlanPage />} />
                     <Route path="grading" element={<FacultyGradingQueuePage />} />
                     <Route path="grading/:attemptId" element={<FacultyGradingDetailPage />} />
                     <Route path="feedback" element={<FacultyFeedbackPage />} />

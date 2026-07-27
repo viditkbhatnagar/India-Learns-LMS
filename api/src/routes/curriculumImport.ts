@@ -3,6 +3,7 @@ import { z } from 'zod';
 import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import { buildLessonPlanImportLimiter } from '../middleware/rateLimit.js';
 import { HttpError } from '../middleware/error.js';
 import { extractDocxText } from '../services/curriculumImport/docxExtract.js';
 import { parseLessonPlan, type ParsedLessonPlan } from '../services/curriculumImport/lessonPlanParser.js';
@@ -15,13 +16,13 @@ import {
 import { ingestLessonPlan } from '../services/curriculumImport/lessonIngest.js';
 
 const IngestLessonBody = z.object({
-  title: z.string().min(1).max(240),
+  title: z.string().trim().min(1).max(240),
   plannedMinutes: z.number().int().min(0).max(600).nullable().optional(),
   description: z.string().max(8000).optional(),
   objectives: z.array(z.string().max(2000)).max(60).optional(),
 });
 const IngestModuleBody = z.object({
-  title: z.string().min(1).max(200),
+  title: z.string().trim().min(1).max(200),
   lessons: z.array(IngestLessonBody).max(500),
 });
 const IngestLessonsBody = z.object({
@@ -66,11 +67,19 @@ const RunBody = z.object({
 export function curriculumImportRouter(): Router {
   const router = Router();
   router.use(requireAuth);
-  // Phase A is super-admin only — the gate doubles as a feature flag.
-  router.use(requireRole('superadmin'));
+  // Generator-backed endpoints stay super-admin only (the gate doubles as a
+  // Phase-A feature flag). The lesson-plan (Word document) endpoints below are
+  // additionally open to faculty so a teacher can maintain their own course's
+  // lessons — `ingestLessonPlan` enforces that they may only replace a course
+  // they teach.
+  const generatorOnly = requireRole('superadmin');
+  const lessonPlanRoles = requireRole('superadmin', 'faculty');
+  // Rate-limit BEFORE multer so a flood is rejected without buffering 15 MB.
+  const uploadLimiter = buildLessonPlanImportLimiter();
 
   router.get(
     '/health',
+    generatorOnly,
     async (_req: Request, res: Response, next: NextFunction) => {
       try {
         const result = await checkGeneratorHealth();
@@ -86,6 +95,7 @@ export function curriculumImportRouter(): Router {
   // course's lessons wholesale.
   router.post(
     '/lessons',
+    lessonPlanRoles,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = IngestLessonsBody.parse(req.body);
@@ -101,6 +111,8 @@ export function curriculumImportRouter(): Router {
   // without saving anything.
   router.post(
     '/parse-file',
+    lessonPlanRoles,
+    uploadLimiter,
     docxUpload.single('file'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -128,6 +140,8 @@ export function curriculumImportRouter(): Router {
   // Upload a lesson-plan Word file and create/replace a course from it.
   router.post(
     '/lessons-file',
+    lessonPlanRoles,
+    uploadLimiter,
     docxUpload.single('file'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -152,6 +166,7 @@ export function curriculumImportRouter(): Router {
 
   router.get(
     '/workflows',
+    generatorOnly,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const items = await listAvailableWorkflows(req.auth!);
@@ -164,6 +179,7 @@ export function curriculumImportRouter(): Router {
 
   router.get(
     '/preview',
+    generatorOnly,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { workflowId } = PreviewQuery.parse(req.query);
@@ -177,6 +193,7 @@ export function curriculumImportRouter(): Router {
 
   router.post(
     '/',
+    generatorOnly,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const body = RunBody.parse(req.body);

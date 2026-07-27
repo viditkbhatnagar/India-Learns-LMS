@@ -107,6 +107,8 @@ const NAV_BY_ROLE: Record<Role, NavEntry[]> = {
   faculty: [
     { label: 'Dashboard', to: '/faculty/dashboard', icon: Icon.home },
     { label: 'Courses', to: '/faculty/courses', icon: Icon.book },
+    // Upload a finalized lesson-plan Word doc to build/update their course.
+    { label: 'Lesson plans', to: '/faculty/lesson-plans', icon: Icon.folder },
     // Showcase — present the company profile + program brochures in-app.
     { label: 'Showcase', to: '/showcase', icon: Icon.layers },
     { label: 'Grading', to: '/faculty/grading', icon: Icon.feedback },
