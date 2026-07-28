@@ -59,6 +59,8 @@ An **Admin / Super Admin** sees every section below.
 
 Done! The new program appears in the list with a green **Active** tag.
 
+**To delete a programme** you added by mistake: click **Delete** on its row in the list, then **Confirm delete**. If it still has courses, batches, students, enrolments or fee structures attached, the system refuses and tells you exactly what's attached — clear those first, then delete. (Deleted programmes are archived, not erased, so we can restore one if it goes wrong.)
+
 > **Note:** Earlier, **Create program** showed *"Request failed validation"* when the Slug had a space in it. That's fixed — the slug now fills in for you, and any spaces or capitals are corrected automatically. Just type the **Name** and click **Create program**.
 
 **The three programs to add this way:**

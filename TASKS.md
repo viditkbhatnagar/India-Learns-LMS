@@ -323,3 +323,6 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] SME Word export verified: downloads 214 lessons, correct per-module split.
 - [x] LMS verified in sync with generator (lessonIds match 1:1) — no re-import needed.
 - [ ] OPEN (generator, Vidit): production auth fully bypassed (anyone can trigger a regenerate); Digital PPT coverage 114/214; Styling programme defect; no audit on step10 routes.
+
+### Post-M10 — Delete a program — DONE 2026-07-28 (D-127)
+- [x] Delete action on Admin -> Add & View Programs; guard now blocks on courses/batches/enrolments/students/fee-structures and names them. Commit de34f55.
