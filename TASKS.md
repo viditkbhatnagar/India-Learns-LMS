@@ -317,3 +317,9 @@ Live task list. Update at every session start (mark new) and every session end (
 - [x] Import adoption (courseId) so a doc-sourced course can be rebuilt from the generator in place. Commit 4caf723.
 - [x] Both fashion courses rebuilt: 214 lessons + 9 auto sessions, slides 209/114, assignments 25 each, ids + faculty preserved.
 - [ ] OPEN (generator, Vidit): push branch fix/step10-filler-lessons or the filler defect recurs; PPT gaps (Digital 100/214 lessons have no deck); Styling programme has the same defect; generator prod has NO auth on writes.
+
+### Post-M10 — Generator regression fixed + verified in sync — DONE 2026-07-28 (D-125)
+- [x] Generator fix deployed (main 36a24b9); Fashion restored to 214; both workflows verified clean by us.
+- [x] SME Word export verified: downloads 214 lessons, correct per-module split.
+- [x] LMS verified in sync with generator (lessonIds match 1:1) — no re-import needed.
+- [ ] OPEN (generator, Vidit): production auth fully bypassed (anyone can trigger a regenerate); Digital PPT coverage 114/214; Styling programme defect; no audit on step10 routes.
