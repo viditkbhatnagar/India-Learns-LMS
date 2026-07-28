@@ -621,7 +621,9 @@ function buildModuleAssessmentSession(
     moduleKey: pack.moduleId,
     sessionKey: `${pack.moduleId}-assessment`,
     number,
-    title: `${generatorModule?.code ?? pack.moduleId} — Assessment`,
+    // Staff-facing title: use the module's own name, never the generator's
+    // internal code ("MOD101"/"MOD302") — staff asked for plain module naming.
+    title: `${generatorModule?.title?.trim() || pack.moduleTitle?.trim() || 'Module'} — Assessment`,
     description: 'Assessment session — holds the assignment variants for this module.',
     type: 'assessment',
     plannedMinutes: null,

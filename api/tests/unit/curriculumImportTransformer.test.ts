@@ -84,6 +84,16 @@ describe('curriculum import transformer', () => {
     expect(out2.warnings.some((w) => /identical title and objectives/i.test(w))).toBe(true);
   });
 
+  it('names auto-generated assessment sessions after the module, not its MOD code', () => {
+    const assessments = out.sessions.filter((s) => s.synthesized && /Assessment$/.test(s.title));
+    expect(assessments.length).toBeGreaterThan(0);
+    for (const a of assessments) {
+      // staff asked for plain module naming — no "MOD101"/"MOD302" codes
+      expect(a.title).not.toMatch(/\bMOD\w*\d/i);
+      expect(a.title).toMatch(/ — Assessment$/);
+    }
+  });
+
   it('produces a Material (slides) per PPT deck attached to the right session', () => {
     const totalDecks = (wf.step11?.modulePPTDecks ?? []).reduce(
       (sum, g) => sum + g.pptDecks.length,

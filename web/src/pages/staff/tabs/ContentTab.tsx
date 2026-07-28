@@ -213,8 +213,8 @@ export function CourseContentTab({ courseId }: { courseId: string }): JSX.Elemen
                     aria-expanded={!isCollapsed}
                   >
                     <div className="min-w-0 flex items-center gap-3">
-                      <span className="text-xs uppercase tracking-wider text-muted font-bold">
-                        M{idx + 1}
+                      <span className="text-xs uppercase tracking-wider text-muted font-bold whitespace-nowrap">
+                        Module {idx + 1}
                       </span>
                       <span className="font-semibold text-brand-navy truncate">{m.title}</span>
                       <span className="text-xs text-muted">
@@ -610,9 +610,6 @@ function ModuleOverviewPanel({ module: m }: { module: ModuleDto }): JSX.Element 
         <p className="text-xs uppercase tracking-wider text-muted font-bold mb-1.5">
           Module overview
         </p>
-        {m.code && (
-          <p className="text-xs text-muted mb-2 font-mono">{m.code}</p>
-        )}
         <TextArea
           label="Description"
           rows={4}
