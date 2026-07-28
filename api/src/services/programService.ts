@@ -7,8 +7,12 @@ import type {
 } from 'india-learns-shared-types';
 import { HttpError } from '../middleware/error.js';
 import {
+  Batch,
   Course,
+  Enrollment,
+  FeeStructure,
   Program,
+  User,
   type HydratedProgram,
 } from '../models/index.js';
 import { recordAudit } from './auditService.js';
@@ -196,15 +200,29 @@ export async function deleteProgram(
   assertAdmin(actor.role, 'delete');
   const doc = await Program.findOne({ _id: requireId(id), deletedAt: null });
   if (!doc) throw new HttpError(404, 'NOT_FOUND', 'Program not found.');
-  const courseCount = await Course.countDocuments({
-    programId: doc._id,
-    deletedAt: null,
-  });
-  if (courseCount > 0) {
+  // A program is referenced by courses, batches, enrolments, students and fee
+  // structures. Deleting it while any of those exist would strand them (they'd
+  // point at a program that no longer resolves), so refuse and say exactly what
+  // is attached — the admin can then clear those and retry.
+  const [courses, batches, enrolments, students, feeStructures] = await Promise.all([
+    Course.countDocuments({ programId: doc._id, deletedAt: null }),
+    Batch.countDocuments({ programId: doc._id, deletedAt: null }),
+    Enrollment.countDocuments({ programId: doc._id, status: { $ne: 'revoked' } }),
+    User.countDocuments({ programId: doc._id, deletedAt: null }),
+    FeeStructure.countDocuments({ programId: doc._id, deletedAt: null }),
+  ]);
+  const blockers = [
+    courses > 0 ? `${courses} course${courses === 1 ? '' : 's'}` : '',
+    batches > 0 ? `${batches} batch${batches === 1 ? '' : 'es'}` : '',
+    enrolments > 0 ? `${enrolments} enrolment${enrolments === 1 ? '' : 's'}` : '',
+    students > 0 ? `${students} student${students === 1 ? '' : 's'}` : '',
+    feeStructures > 0 ? `${feeStructures} fee structure${feeStructures === 1 ? '' : 's'}` : '',
+  ].filter(Boolean);
+  if (blockers.length > 0) {
     throw new HttpError(
       409,
       'PROGRAM_IN_USE',
-      'Cannot delete a program that still has courses.',
+      `This program still has ${blockers.join(', ')}. Remove or move them first, then delete the program.`,
     );
   }
   const before = doc.toObject();

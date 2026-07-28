@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type JSX } from 'react';
 import { Link } from 'react-router-dom';
-import type { CourseDto } from 'india-learns-shared-types';
+import type { CourseDto, ProgramDto } from 'india-learns-shared-types';
 import { programsApi, coursesApi } from '../../lib/endpoints.js';
 import { Card, CardHeader } from '../../components/ui/Card.js';
 import { Button } from '../../components/ui/Button.js';
@@ -59,29 +59,7 @@ export function AdminPrograms() {
           ) : (
             <ul className="divide-y divide-black/5">
               {query.data.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    to={`/admin/programs/${p.id}/admissions`}
-                    className="py-3 flex items-center justify-between gap-4 hover:bg-surface-muted/50 transition-colors -mx-2 px-2 rounded-lg"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-semibold text-brand-navy truncate">{p.name}</p>
-                      <p className="text-xs text-muted font-mono mt-0.5">
-                        {p.slug} · {p.totalHours}h
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {p.admissionsEnabled && (
-                        <Badge tone="accent" dot>
-                          Admissions on
-                        </Badge>
-                      )}
-                      <Badge tone={p.isActive ? 'success' : 'neutral'} dot>
-                        {p.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </div>
-                  </Link>
-                </li>
+                <ProgramRow key={p.id} program={p} />
               ))}
             </ul>
           )}
@@ -136,6 +114,76 @@ export function AdminPrograms() {
         </Card>
       )}
     </div>
+  );
+}
+
+/** One program in the list, with a guarded delete. */
+function ProgramRow({ program: p }: { program: ProgramDto }): JSX.Element {
+  const qc = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const del = useMutation({
+    mutationFn: () => programsApi.remove(p.id),
+    onSuccess: () => {
+      setErr(null);
+      setConfirming(false);
+      qc.invalidateQueries({ queryKey: ['programs'] });
+    },
+    // The server refuses (409) while courses/batches/students are attached and
+    // says exactly what — surface that verbatim, it is the actionable bit.
+    onError: (e) => setErr(apiErrorMessage(e, 'Could not delete this program.')),
+  });
+
+  return (
+    <li className="py-3 -mx-2 px-2 rounded-lg hover:bg-surface-muted/50 transition-colors">
+      <div className="flex items-center justify-between gap-4">
+        <Link to={`/admin/programs/${p.id}/admissions`} className="min-w-0 flex-1">
+          <p className="font-semibold text-brand-navy truncate">{p.name}</p>
+          <p className="text-xs text-muted font-mono mt-0.5">
+            {p.slug} · {p.totalHours}h
+          </p>
+        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          {p.admissionsEnabled && (
+            <Badge tone="accent" dot>
+              Admissions on
+            </Badge>
+          )}
+          <Badge tone={p.isActive ? 'success' : 'neutral'} dot>
+            {p.isActive ? 'Active' : 'Inactive'}
+          </Badge>
+          {confirming ? (
+            <>
+              <Button
+                size="sm"
+                variant="danger"
+                loading={del.isPending}
+                onClick={() => del.mutate()}
+              >
+                Confirm delete
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setConfirming(false); setErr(null); }}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setErr(null); setConfirming(true); }}
+              className="text-xs text-danger hover:underline"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+      {err && (
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+          {err}
+        </p>
+      )}
+    </li>
   );
 }
 

@@ -265,6 +265,9 @@ export const programsApi = {
     const res = await api.post<{ data: { program: ProgramDto } }>('/programs', input);
     return res.data.data.program;
   },
+  async remove(id: string) {
+    await api.delete(`/programs/${id}`);
+  },
   async update(
     id: string,
     patch: Partial<{

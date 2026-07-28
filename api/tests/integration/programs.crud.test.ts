@@ -6,6 +6,7 @@ import { http } from '../helpers/http.js';
 import { bearer, tokenFor } from '../helpers/auth.js';
 import {
   makeAdmin,
+  makeBatch,
   makeFaculty,
   makeStudent,
   makeUser,
@@ -120,6 +121,39 @@ describe('programs CRUD', () => {
       .set(bearer(at));
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('PROGRAM_IN_USE');
+  });
+
+  it('refuses to delete a program that still has batches, and says so', async () => {
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    const program = await makeProgram();
+    await makeBatch({ programId: program._id });
+
+    const res = await http()
+      .delete(`/v1/programs/${program._id.toString()}`)
+      .set(bearer(at));
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PROGRAM_IN_USE');
+    // the message must name what is blocking, so the admin knows what to clear
+    expect(res.body.error.message).toMatch(/batch/i);
+  });
+
+  it('deletes a program with nothing attached (soft-delete, marked inactive)', async () => {
+    const { user: admin } = await makeAdmin();
+    const at = await tokenFor(admin);
+    const program = await makeProgram();
+
+    const res = await http()
+      .delete(`/v1/programs/${program._id.toString()}`)
+      .set(bearer(at));
+    expect(res.status).toBe(200);
+    expect(res.body.data.program.deletedAt).not.toBeNull();
+
+    // gone from the list, but recoverable in the DB
+    const list = await http().get('/v1/programs').set(bearer(at));
+    expect(
+      (list.body.data.items as { id: string }[]).some((p) => p.id === program._id.toString()),
+    ).toBe(false);
   });
 
   it('superadmin can create programs (round-3 oversight policy)', async () => {
